@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* ThemeContext toggles `.light` / `.dark` on <html>, so both variants are
+   class-driven rather than prefers-color-scheme driven. Tailwind has no
+   built-in `light:` variant — without this the light theme has no styles. */
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Page titles. Great Vibes ships weight 400 only — never pair it with
+     font-bold or the browser fakes the weight and the strokes smear. */
+  --font-script: "Great Vibes", "Segoe Script", cursive;
+}
+
+/* Calligraphy has tall ascenders and deep descenders, so it needs looser
+   leading than the sans headings it replaces or the loops clip. */
+.page-title {
+  font-family: var(--font-script);
+  font-size: 3rem;
+  line-height: 1.35;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: oklch(0.55 0.02 260 / 0.3);
+  border-radius: 999px;
+}
+
+.glass {
+  background: oklch(0.35 0.02 260 / 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid oklch(1 0 0 / 0.08);
+}
+:root.light .glass {
+  background: oklch(1 0 0 / 0.7);
+  border: 1px solid oklch(0 0 0 / 0.06);
+}
+
+.prose-custom h1 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; letter-spacing: -0.02em; }
+.prose-custom h2 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+.prose-custom h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+.prose-custom p { margin-bottom: 0.75rem; line-height: 1.75; }
+.prose-custom ul, .prose-custom ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.prose-custom li { margin-bottom: 0.25rem; }
+.prose-custom code {
+  background: oklch(0.3 0.02 260 / 0.5);
+  padding: 0.15rem 0.4rem; border-radius: 0.35rem; font-size: 0.875em;
+}
+:root.light .prose-custom code { background: oklch(0.95 0.01 260 / 0.8); }
+.prose-custom pre {
+  background: oklch(0.2 0.02 260 / 0.8);
+  padding: 1rem; border-radius: 0.75rem; overflow-x: auto; margin-bottom: 1rem;
+}
+.prose-custom pre code { background: none; padding: 0; }
+.prose-custom blockquote {
+  border-left: 3px solid oklch(0.75 0.15 85);
+  padding-left: 1rem; font-style: italic; margin: 1rem 0; color: oklch(0.7 0.02 260);
+}
+.prose-custom a { color: oklch(0.75 0.15 85); text-decoration: underline; }
+.prose-custom hr { border: none; border-top: 1px solid oklch(0.4 0.02 260); margin: 1.5rem 0; }
+.prose-custom table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+.prose-custom th, .prose-custom td {
+  border: 1px solid oklch(0.4 0.02 260); padding: 0.5rem 0.75rem; text-align: left;
+}
+.prose-custom th { background: oklch(0.3 0.02 260 / 0.5); }
+
+.editor-textarea { field-sizing: content; resize: none; min-height: 200px; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.3s ease-out; }
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.75 0.15 85 / 0.4); }
+  50% { box-shadow: 0 0 0 8px oklch(0.75 0.15 85 / 0); }
+}
+.pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
