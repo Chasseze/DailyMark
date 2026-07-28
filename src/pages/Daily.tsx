@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useStreak } from "../hooks/useStreak";
 
 interface DailyItem {
   id: string;
@@ -24,27 +25,11 @@ function getTodayIndex(total: number) {
   return ((days % total) + total) % total; // stays in range before the epoch date
 }
 
-// Pure: works out today's streak from what's stored, without writing anything,
-// so it is safe as a lazy state initializer (StrictMode invokes it twice).
-function currentStreak() {
-  const stored = Number(localStorage.getItem("dailyMark_streak") ?? 0);
-  const lastVisit = localStorage.getItem("dailyMark_lastVisit");
-  if (lastVisit === new Date().toDateString()) return stored;
-  const yesterday = new Date(Date.now() - 86400000).toDateString();
-  return lastVisit === yesterday ? stored + 1 : 1;
-}
-
 export default function Daily() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [streak] = useState(currentStreak);
+  const { streak } = useStreak();
 
   const today = useMemo(() => PROMPTS[getTodayIndex(PROMPTS.length)], []);
-
-  // Persist the visit rather than deriving-then-setting state in an effect.
-  useEffect(() => {
-    localStorage.setItem("dailyMark_streak", String(streak));
-    localStorage.setItem("dailyMark_lastVisit", new Date().toDateString());
-  }, [streak]);
 
   const isCorrect = selectedAnswer === today.answer;
 
@@ -59,7 +44,7 @@ export default function Daily() {
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5">
           <span className="text-lg">🔥</span>
-          <span className="text-sm font-bold text-amber-400">{streak}</span>
+          <span className="text-sm font-bold text-amber-400">{streak ?? "–"}</span>
         </div>
       </div>
 

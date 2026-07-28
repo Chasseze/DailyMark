@@ -1,13 +1,22 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
+import { errorMessage } from "../lib/supabase";
 import type { Note } from "../lib/types";
 import MarkdownEditor from "../components/MarkdownEditor";
 
 export default function NoteEdit() {
   const { id } = useParams<{ id: string }>();
-  const { notes } = useNotes();
+  const { notes, loading } = useNotes();
   const note = notes.find((n) => n.id === id);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-sm text-slate-500">Loading…</p>
+      </div>
+    );
+  }
 
   if (!note) {
     return (
@@ -31,15 +40,26 @@ function NoteEditor({ note }: { note: Note }) {
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>(note.tags);
   const [notebookId, setNotebookId] = useState<string | null>(note.notebook_id);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleSave = () => {
-    updateNote(note.id, { title, content, tags, notebook_id: notebookId });
-    navigate("/notes/" + note.id);
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateNote(note.id, { title, content, tags, notebook_id: notebookId });
+      navigate("/notes/" + note.id);
+    } catch (err) {
+      // Stay on the page so the user's unsaved text isn't thrown away.
+      setSaveError(errorMessage(err));
+      setSaving(false);
+    }
   };
 
-  const handleGoBack = () => {
+  const handleGoBack = async () => {
     if (title.trim() || content.trim()) {
-      handleSave();
+      await handleSave();
     } else {
       navigate("/notes/" + note.id);
     }
@@ -59,11 +79,17 @@ function NoteEditor({ note }: { note: Note }) {
           ←
         </button>
         <div className="flex-1" />
-        <button onClick={handleSave}
-          className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-sm font-semibold text-black transition-all hover:scale-105 active:scale-95">
-          Save
+        <button onClick={handleSave} disabled={saving}
+          className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-sm font-semibold text-black transition-all hover:scale-105 active:scale-95 disabled:opacity-50">
+          {saving ? "Saving…" : "Save"}
         </button>
       </div>
+
+      {saveError && (
+        <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
+          {saveError}
+        </div>
+      )}
 
       <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
         placeholder="Note title..."

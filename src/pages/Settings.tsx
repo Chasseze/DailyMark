@@ -1,14 +1,44 @@
+import { useState } from "react";
 import { useTheme } from "../context/theme-context";
 import { useNotes } from "../context/notes-context";
+import { useAuth } from "../context/auth-context";
 import type { Theme } from "../lib/types";
 
 export default function Settings() {
   const { theme, resolved, setTheme, toggle } = useTheme();
   const { notes, notebooks } = useNotes();
+  const { user, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      // The auth listener clears the session, which sends RequireAuth to
+      // /login and unmounts NotesProvider along with its data.
+      await signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   return (
     <div className="animate-in px-4 pt-6">
       <h1 className="page-title mb-6 text-white light:text-slate-900">settings</h1>
+
+      <div className="glass mb-4 rounded-2xl p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-300 light:text-slate-700">Account</h2>
+        <p className="truncate text-sm text-white light:text-slate-900">{user?.email}</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Notes sync to Supabase and follow you across devices.
+        </p>
+        <button
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="mt-3 w-full rounded-xl bg-slate-800/30 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 light:bg-slate-100 light:text-slate-600"
+        >
+          {signingOut ? "Signing out…" : "Sign out"}
+        </button>
+      </div>
 
       <div className="glass mb-4 rounded-2xl p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-300 light:text-slate-700">Appearance</h2>

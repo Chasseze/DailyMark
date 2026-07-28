@@ -42,7 +42,7 @@ export default function NoteCard({ note, onClick }: Props) {
         </div>
         <div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
-            onClick={(e) => { e.stopPropagation(); togglePin(note.id); }}
+            onClick={(e) => { e.stopPropagation(); void togglePin(note.id); }}
             className={
               "rounded-lg p-1 text-sm transition-colors hover:bg-white/10 " +
               (note.is_pinned ? "text-amber-400" : "text-slate-500")
@@ -52,7 +52,7 @@ export default function NoteCard({ note, onClick }: Props) {
             📌
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); if (confirm("Delete this note?")) deleteNote(note.id); }}
+            onClick={(e) => { e.stopPropagation(); if (confirm("Delete this note?")) void deleteNote(note.id); }}
             className="rounded-lg p-1 text-sm text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
             title="Delete"
           >

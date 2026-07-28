@@ -1,14 +1,19 @@
 import { createContext, useContext } from "react";
-import type { Note, Notebook } from "../lib/types";
+import type { NewNote, Note, Notebook, NoteUpdate } from "../lib/types";
 
 export interface NotesContextType {
   notes: Note[];
   notebooks: Notebook[];
-  addNote: (note: Omit<Note, "id" | "created_at" | "updated_at">) => Note;
-  updateNote: (id: string, data: Partial<Note>) => void;
-  deleteNote: (id: string) => void;
-  togglePin: (id: string) => void;
-  addNotebook: (name: string, color: string) => Notebook;
+  /** True during the initial load; the list pages show a skeleton meanwhile. */
+  loading: boolean;
+  /** Set when a read or write failed, so the UI can surface it. */
+  error: string | null;
+  addNote: (note: NewNote) => Promise<Note>;
+  updateNote: (id: string, data: NoteUpdate) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  togglePin: (id: string) => Promise<void>;
+  addNotebook: (name: string, color: string) => Promise<Notebook>;
+  refresh: () => Promise<void>;
 }
 
 // Kept out of NotesContext.tsx so that file only exports a component, which is

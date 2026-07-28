@@ -1,29 +1,20 @@
-export interface Notebook {
-  id: string;
-  name: string;
-  color: string;
-  created_at: string;
-}
+import type { Database } from "./database.types";
 
-export interface Note {
-  id: string;
-  title: string;
-  content: string;
-  notebook_id: string | null;
-  is_pinned: boolean;
-  tags: string[];
-  created_at: string;
-  updated_at: string;
-}
+type Tables = Database["public"]["Tables"];
 
-export interface DailyPrompt {
-  id: string;
-  prompt_text: string;
-  type: "quote" | "quiz";
-  date: string;
-  source: string | null;
-  options?: string[];
-  correct_answer?: string;
-}
+// Row shapes come straight from the database types, so a schema change that
+// isn't reflected in the UI becomes a compile error rather than a runtime one.
+export type Notebook = Tables["notebooks"]["Row"];
+export type Note = Tables["notes"]["Row"];
+export type Profile = Tables["profiles"]["Row"];
+
+/** Fields the user actually supplies when creating a note. */
+export type NewNote = Pick<
+  Tables["notes"]["Insert"],
+  "title" | "content" | "notebook_id" | "is_pinned" | "tags"
+>;
+
+/** Fields the user can change on an existing note. */
+export type NoteUpdate = Tables["notes"]["Update"];
 
 export type Theme = "dark" | "light" | "system";

@@ -6,8 +6,18 @@ import { useNotes } from "../context/notes-context";
 export default function NoteView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { notes, deleteNote, togglePin } = useNotes();
+  const { notes, loading, deleteNote, togglePin } = useNotes();
   const note = notes.find((n) => n.id === id);
+
+  // Without this, opening a note link directly flashes "Note not found"
+  // for as long as the initial fetch takes.
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-sm text-slate-500">Loading…</p>
+      </div>
+    );
+  }
 
   if (!note) {
     return (
@@ -33,7 +43,7 @@ export default function NoteView() {
           ←
         </button>
         <div className="flex-1" />
-        <button onClick={() => togglePin(note.id)}
+        <button onClick={() => void togglePin(note.id)}
           className={
             "rounded-xl p-2 text-sm transition-colors hover:bg-white/10 " +
             (note.is_pinned ? "text-amber-400" : "text-slate-500")
@@ -44,7 +54,13 @@ export default function NoteView() {
           className="rounded-xl p-2 text-sm text-slate-400 hover:bg-slate-800/50 hover:text-white light:hover:bg-slate-100">
           ✏️
         </button>
-        <button onClick={() => { if (confirm("Delete this note?")) { deleteNote(note.id); navigate("/notes"); } }}
+        <button onClick={async () => {
+            if (!confirm("Delete this note?")) return;
+            // Navigate only after the delete lands, so a failure leaves the
+            // note on screen instead of silently pretending it worked.
+            await deleteNote(note.id);
+            navigate("/notes");
+          }}
           className="rounded-xl p-2 text-sm text-slate-500 hover:bg-red-500/10 hover:text-red-400">
           🗑️
         </button>

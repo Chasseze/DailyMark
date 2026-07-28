@@ -1,18 +1,21 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
+import { errorMessage } from "../lib/supabase";
 import NoteCard from "../components/NoteCard";
 
 const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
 
 export default function Notes() {
-  const { notes, notebooks, addNote, addNotebook } = useNotes();
+  const { notes, notebooks, loading, error, addNote, addNotebook } = useNotes();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeNotebook, setActiveNotebook] = useState<string | null>(null);
   const [showNewNotebook, setShowNewNotebook] = useState(false);
   const [newNbName, setNewNbName] = useState("");
   const [newNbColor, setNewNbColor] = useState(COLORS[0]);
+  const [busy, setBusy] = useState(false);
+  const [writeError, setWriteError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let list = notes;
@@ -32,16 +35,35 @@ export default function Notes() {
     });
   }, [notes, activeNotebook, search]);
 
-  const handleQuickNote = () => {
-    const note = addNote({ title: "", content: "", notebook_id: activeNotebook, is_pinned: false, tags: [] });
-    navigate("/notes/" + note.id + "/edit");
+  const handleQuickNote = async () => {
+    if (busy) return;
+    setBusy(true);
+    setWriteError(null);
+    try {
+      const note = await addNote({
+        title: "", content: "", notebook_id: activeNotebook, is_pinned: false, tags: [],
+      });
+      navigate("/notes/" + note.id + "/edit");
+    } catch (err) {
+      setWriteError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleCreateNotebook = () => {
-    if (!newNbName.trim()) return;
-    addNotebook(newNbName.trim(), newNbColor);
-    setNewNbName("");
-    setShowNewNotebook(false);
+  const handleCreateNotebook = async () => {
+    if (!newNbName.trim() || busy) return;
+    setBusy(true);
+    setWriteError(null);
+    try {
+      await addNotebook(newNbName.trim(), newNbColor);
+      setNewNbName("");
+      setShowNewNotebook(false);
+    } catch (err) {
+      setWriteError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -49,7 +71,7 @@ export default function Notes() {
       <div className="mb-6">
         <h1 className="page-title text-white light:text-slate-900">my notes</h1>
         <p className="mt-1 text-sm text-slate-400 light:text-slate-500">
-          {notes.length} note{notes.length !== 1 ? "s" : ""}
+          {loading ? "Loading…" : `${notes.length} note${notes.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 
@@ -123,13 +145,25 @@ export default function Notes() {
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {(error || writeError) && (
+        <div className="mb-4 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
+          {error ?? writeError}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-800/40 light:bg-slate-100" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="mt-12 text-center">
           <span className="text-4xl">📄</span>
           <p className="mt-3 text-sm text-slate-500">
             {search ? "No notes match your search" : "No notes yet"}
           </p>
-          <button onClick={handleQuickNote} className="mt-3 rounded-full bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/20">
+          <button onClick={handleQuickNote} disabled={busy} className="mt-3 rounded-full bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/20 disabled:opacity-50">
             Create your first note
           </button>
         </div>
@@ -143,7 +177,8 @@ export default function Notes() {
 
       <button
         onClick={handleQuickNote}
-        className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/20 transition-all hover:scale-105 active:scale-95 md:right-[calc(50%-15rem)]"
+        disabled={busy}
+        className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 md:right-[calc(50%-15rem)]"
       >
         <span className="text-2xl">+</span>
       </button>

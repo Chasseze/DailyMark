@@ -2,17 +2,19 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
-import { NotesProvider } from "./context/NotesContext";
+import { AuthProvider } from "./context/AuthContext";
 import App from "./App";
 import "./index.css";
 
+// NotesProvider now lives inside App, behind the auth guard, so it never
+// queries without a session.
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <NotesProvider>
+        <AuthProvider>
           <App />
-        </NotesProvider>
+        </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
   </StrictMode>
