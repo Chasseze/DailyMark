@@ -3,7 +3,9 @@ dist
 dist-ssr
 *.local
 
-# Env
+# Env — real credentials never get committed; the template does.
+# Keep the negation last: a later broader pattern (e.g. .env*) would
+# silently re-ignore .env.example, since the last matching rule wins.
 .env
 .env.*
 !.env.example
@@ -26,3 +28,6 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel CLI project link
+.vercel
