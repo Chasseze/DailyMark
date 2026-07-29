@@ -1,11 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? "").trim();
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
+
+// Reject empty strings and the .env.example placeholders so a half-filled
+// Vercel project (or a copy-paste of the template) still shows SetupNotice
+// instead of calling a fake host.
+function looksConfigured(url: string, key: string): boolean {
+  if (!url || !key) return false;
+  if (url.includes("your-project-ref") || key === "your-anon-key") return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
 
 export const isSupabaseConfigured = () =>
-  supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
+  looksConfigured(supabaseUrl, supabaseAnonKey);
 
 // createClient() throws on empty credentials, so the client is built lazily and
 // App renders a setup screen when it can't be built. Without this, a missing

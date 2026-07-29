@@ -53,9 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
+    // Land on /login so the session can settle on a public route. RequireAuth
+    // would briefly bounce an in-flight OAuth return to /login anyway; starting
+    // there avoids a flash through a protected page. Supabase → Authentication
+    // → URL Configuration must allowlist this exact origin (and path).
     const { error } = await requireSupabase().auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: `${window.location.origin}/login` },
     });
     if (error) throw error;
   }, []);
