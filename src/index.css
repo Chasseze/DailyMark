@@ -293,6 +293,69 @@ html {
   .pulse-glow { animation: none; }
 }
 
+/* ── Daily quiz motion ─────────────────────────────────────────────────────
+   Short, purposeful cues: a panel slides in, options stagger, feedback nods,
+   and a perfect-score badge pops. Prefer-reduced-motion turns them all off. */
+
+@keyframes quizPanelIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes quizOptionIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes quizFeedbackIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes quizPop {
+  0% { opacity: 0; transform: scale(0.6); }
+  70% { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes quizCorrectPulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.7 0.17 150 / 0); }
+  40% { box-shadow: 0 0 0 6px oklch(0.7 0.17 150 / 0.2); }
+}
+@keyframes quizWrongShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@keyframes quizEmojiBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.quiz-panel { animation: quizPanelIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.quiz-option {
+  display: flex;
+  align-items: center;
+  animation: quizOptionIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.quiz-option-correct { animation: quizCorrectPulse 0.55s ease-out; }
+.quiz-option-wrong { animation: quizWrongShake 0.35s ease-out; }
+.quiz-feedback { animation: quizFeedbackIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.quiz-results { animation: quizPanelIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.quiz-results-badge { animation: quizPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.quiz-score-pop { display: inline-block; animation: quizPop 0.45s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.quiz-category-emoji { display: inline-block; animation: quizEmojiBob 2.4s ease-in-out infinite; }
+.quiz-progress-fill { transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-panel,
+  .quiz-option,
+  .quiz-option-correct,
+  .quiz-option-wrong,
+  .quiz-feedback,
+  .quiz-results,
+  .quiz-results-badge,
+  .quiz-score-pop,
+  .quiz-category-emoji { animation: none; }
+  .quiz-progress-fill { transition: none; }
+}
+
 /* ── Login: full-bleed writing desk ─────────────────────────────────────────
    One composition: brand + lede + form over an edge-to-edge journal photo.
    No inset media card — the image is the atmosphere, the scrim is only for
