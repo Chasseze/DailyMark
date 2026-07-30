@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 const tabs = [
   {
@@ -34,16 +34,11 @@ const tabs = [
 ];
 
 export default function BottomNav() {
-  const location = useLocation();
-  const isNoteDetail =
-    location.pathname.startsWith("/notes/") && location.pathname !== "/notes";
-
-  if (isNoteDetail) return null;
-
   return (
     // Positioning lives in Layout, which stacks this under the read-aloud bar.
+    // Stays visible on note preview so the hanging sidebar + tabs can coexist.
     <nav className="border-t border-white/5 glass light:border-slate-200/80">
-      <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2.5">
+      <div className="mx-auto flex items-center justify-around px-2 py-2.5">
         {tabs.map(({ to, icon, label }) => (
           <NavLink
             key={to}

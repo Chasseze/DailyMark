@@ -9,7 +9,8 @@ import { isSupabaseConfigured } from "./lib/supabase";
 // Route-level code splitting keeps the login shell small; markdown editor and
 // notes pages only download when an authenticated session needs them.
 const Login = lazy(() => import("./pages/Login"));
-const Notes = lazy(() => import("./pages/Notes"));
+const NotesWorkspace = lazy(() => import("./pages/NotesWorkspace"));
+const NotesEmptyPreview = lazy(() => import("./pages/NotesEmptyPreview"));
 const NoteView = lazy(() => import("./pages/NoteView"));
 const NoteEdit = lazy(() => import("./pages/NoteEdit"));
 const Daily = lazy(() => import("./pages/Daily"));
@@ -42,9 +43,11 @@ export default function App() {
             }
           >
             <Route path="/" element={<Navigate to="/notes" replace />} />
-            <Route path="/notes" element={<Notes />} />
-            <Route path="/notes/:id" element={<NoteView />} />
-            <Route path="/notes/:id/edit" element={<NoteEdit />} />
+            <Route path="/notes" element={<NotesWorkspace />}>
+              <Route index element={<NotesEmptyPreview />} />
+              <Route path=":id" element={<NoteView />} />
+              <Route path=":id/edit" element={<NoteEdit />} />
+            </Route>
             <Route path="/daily" element={<Daily />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

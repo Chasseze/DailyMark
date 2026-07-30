@@ -20,16 +20,23 @@
     />
     <title>DailyMark</title>
     <script>
-      // Apply the stored theme before first paint so there's no flash of the
-      // wrong palette while React boots. ThemeContext keeps it in sync after.
+      // Apply the stored theme + notes mood before first paint so there's no
+      // flash of the wrong palette while React boots.
       (function () {
+        var root = document.documentElement;
         var stored = localStorage.getItem("theme");
         var light =
           stored === "light" ||
           (stored !== "dark" &&
             window.matchMedia("(prefers-color-scheme: light)").matches);
-        document.documentElement.classList.toggle("light", light);
-        document.documentElement.classList.toggle("dark", !light);
+        root.classList.toggle("light", light);
+        root.classList.toggle("dark", !light);
+
+        var mood = localStorage.getItem("notes-mood");
+        if (mood !== "cobalt" && mood !== "midnight" && mood !== "harbor") {
+          mood = "cobalt";
+        }
+        root.dataset.mood = mood;
       })();
     </script>
   </head>

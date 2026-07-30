@@ -12,7 +12,7 @@ export default function NoteEdit() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex h-full min-h-[16rem] items-center justify-center">
         <p className="text-sm text-slate-500">Loading…</p>
       </div>
     );
@@ -20,7 +20,7 @@ export default function NoteEdit() {
 
   if (!note) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex h-full min-h-[16rem] items-center justify-center">
         <p className="text-slate-400">Note not found</p>
       </div>
     );
@@ -72,10 +72,10 @@ function NoteEditor({ note }: { note: Note }) {
   };
 
   return (
-    <div className="animate-in px-4 pt-4">
+    <div className="px-4 py-4 md:px-6 md:py-5">
       <div className="mb-4 flex items-center gap-3">
         <button onClick={handleGoBack}
-          className="rounded-xl p-2 text-slate-400 hover:bg-slate-800/50 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900">
+          className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900">
           ←
         </button>
         <div className="flex-1" />

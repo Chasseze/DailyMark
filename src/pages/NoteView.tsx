@@ -17,7 +17,7 @@ export default function NoteView() {
   // for as long as the initial fetch takes.
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex h-full min-h-[16rem] items-center justify-center">
         <p className="text-sm text-slate-500">Loading…</p>
       </div>
     );
@@ -25,9 +25,8 @@ export default function NoteView() {
 
   if (!note) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-4">
-        <span className="text-4xl">🔍</span>
-        <p className="mt-3 text-slate-400">Note not found</p>
+      <div className="flex h-full min-h-[16rem] flex-col items-center justify-center px-4">
+        <p className="text-slate-400">Note not found</p>
         <button onClick={() => navigate("/notes")} className="mt-4 text-sm text-amber-400">
           ← Back to notes
         </button>
@@ -63,35 +62,44 @@ function NoteArticle({ note }: { note: Note }) {
   };
 
   return (
-    <div className="animate-in px-4 pt-4">
+    <div className="flex h-full flex-col px-4 py-4 md:px-6 md:py-5">
       <div className="mb-4 flex items-center gap-2">
-        <button onClick={() => navigate("/notes")}
-          className="rounded-xl p-2 text-slate-400 hover:bg-slate-800/50 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900">
+        <button
+          onClick={() => navigate("/notes")}
+          className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white md:hidden light:hover:bg-slate-100 light:hover:text-slate-900"
+          aria-label="Back to note list"
+        >
           ←
         </button>
         <div className="flex-1" />
         <ReadAloudButton
           request={{ id: "note:" + note.id, label: note.title || "Untitled", text: spoken }}
         />
-        <button onClick={() => void togglePin(note.id)}
+        <button
+          onClick={() => void togglePin(note.id)}
           className={
             "rounded-xl p-2 text-sm transition-colors hover:bg-white/10 " +
             (note.is_pinned ? "text-amber-400" : "text-slate-500")
-          }>
+          }
+        >
           📌
         </button>
-        <button onClick={() => navigate("/notes/" + note.id + "/edit")}
-          className="rounded-xl p-2 text-sm text-slate-400 hover:bg-slate-800/50 hover:text-white light:hover:bg-slate-100">
+        <button
+          onClick={() => navigate("/notes/" + note.id + "/edit")}
+          className="rounded-xl p-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white light:hover:bg-slate-100"
+        >
           ✏️
         </button>
-        <button onClick={async () => {
+        <button
+          onClick={async () => {
             if (!confirm("Delete this note?")) return;
             // Navigate only after the delete lands, so a failure leaves the
             // note on screen instead of silently pretending it worked.
             await deleteNote(note.id);
             navigate("/notes");
           }}
-          className="rounded-xl p-2 text-sm text-slate-500 hover:bg-red-500/10 hover:text-red-400">
+          className="rounded-xl p-2 text-sm text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+        >
           🗑️
         </button>
       </div>
@@ -100,7 +108,7 @@ function NoteArticle({ note }: { note: Note }) {
         <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{taskError}</div>
       )}
 
-      <article>
+      <article className="glass min-h-0 flex-1 overflow-y-auto rounded-2xl p-5 md:p-7">
         <h1 className="note-title mb-1 text-2xl text-white light:text-slate-900">
           {note.title || "Untitled"}
         </h1>
@@ -116,7 +124,7 @@ function NoteArticle({ note }: { note: Note }) {
           </div>
         )}
 
-        <div className="mt-4 text-sm leading-relaxed text-slate-300 light:text-slate-700">
+        <div className="mt-2 text-sm leading-relaxed text-slate-300 light:text-slate-700">
           {note.content.trim() ? (
             // Checkboxes stay live here: ticking one saves the note.
             <Markdown onToggleTask={(line) => void handleToggleTask(line)}>{note.content}</Markdown>
