@@ -4,6 +4,7 @@ import {
   PITCH_MIN,
   RATE_MAX,
   RATE_MIN,
+  cancelSpeech,
   chunkForSpeech,
   describeSpeechError,
   isSpeechSupported,
@@ -26,6 +27,8 @@ const MONITOR_INTERVAL_MS = 400;
 const START_TIMEOUT_MS = 4000;
 /** Consecutive silent checks that mean a started run has finished. */
 const QUIET_CHECKS_TO_FINISH = 3;
+/** Grace period for the engine to acknowledge a pause before we stop it outright. */
+const PAUSE_ACK_MS = 250;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -124,7 +127,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   }, [clearTimers]);
 
   const stop = useCallback(() => {
-    if (supported) window.speechSynthesis.cancel();
+    if (supported) cancelSpeech(window.speechSynthesis);
     resetPlayer();
   }, [supported, resetPlayer]);
 
@@ -139,7 +142,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       const run = ++runRef.current;
 
       clearTimers();
-      synth.cancel();
+      cancelSpeech(synth);
       startedRef.current = false;
       indexRef.current = startAt;
       setChunkIndex(startAt);
@@ -189,7 +192,9 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
 
           if (index === list.length - 1) {
             utterance.onend = () => {
-              if (run === runRef.current) resetPlayer();
+              // A pause implemented by stopping the queue must not look like the
+              // end of the note.
+              if (run === runRef.current && statusRef.current !== "paused") resetPlayer();
             };
           }
 
@@ -221,7 +226,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
             waited += MONITOR_INTERVAL_MS;
             if (waited < START_TIMEOUT_MS) return;
             setError("Your device's speech engine didn't start. Try again in a moment.");
-            synth.cancel();
+            cancelSpeech(synth);
             resetPlayer();
             return;
           }
@@ -261,15 +266,24 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
 
   const pause = useCallback(() => {
     if (!supported) return;
-    window.speechSynthesis.pause();
+    const synth = window.speechSynthesis;
+    synth.pause();
     setStatus("paused");
+
+    // Not every engine implements pause(): the Linux speech-dispatcher bridge
+    // keeps talking and never sets `paused`. Stopping the queue is the only way
+    // to make "Paused" mean silence; resume() re-speaks the current sentence.
+    window.setTimeout(() => {
+      if (statusRef.current !== "paused" || synth.paused) return;
+      cancelSpeech(synth);
+    }, PAUSE_ACK_MS);
   }, [supported]);
 
   const resume = useCallback(() => {
     if (!supported) return;
     const synth = window.speechSynthesis;
-    // Some builds ignore resume() once the queue has drained, so re-speak the
-    // chunk we stopped inside instead of leaving the user with silence.
+    // Only an engine that took the pause has something to resume. Where pause()
+    // was faked by stopping the queue, the sentence has to be spoken again.
     if (synth.paused) {
       synth.resume();
       setStatus("speaking");
@@ -343,7 +357,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supported) return;
     // Speech outlives the page unless it is cancelled explicitly.
-    const cancel = () => window.speechSynthesis.cancel();
+    const cancel = () => cancelSpeech(window.speechSynthesis);
     window.addEventListener("beforeunload", cancel);
     return () => {
       window.removeEventListener("beforeunload", cancel);

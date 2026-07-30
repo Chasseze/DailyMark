@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { chunkForSpeech, voiceLanguages, voicesForLanguage, wordLengthAt } from "./speech";
+import { cancelSpeech, chunkForSpeech, voiceLanguages, voicesForLanguage, wordLengthAt } from "./speech";
+
+describe("cancelSpeech", () => {
+  it("lifts a pause before cancelling, so the next utterance can start", () => {
+    const calls: string[] = [];
+    const synth = {
+      resume: () => calls.push("resume"),
+      cancel: () => calls.push("cancel"),
+    } as unknown as SpeechSynthesis;
+
+    cancelSpeech(synth);
+    expect(calls).toEqual(["resume", "cancel"]);
+  });
+});
 
 describe("chunkForSpeech", () => {
   it("splits on sentence endings", () => {

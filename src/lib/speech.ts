@@ -13,6 +13,20 @@ export const PITCH_MAX = 1.6;
 /** Long utterances are unreliable across engines, so sentences are the unit. */
 const MAX_CHUNK_LENGTH = 220;
 
+/**
+ * Stops everything the engine is saying or about to say.
+ *
+ * The `resume()` is not redundant. Cancelling a paused engine leaves some of
+ * them — the Linux speech-dispatcher bridge in particular — paused with an empty
+ * queue, and every utterance queued afterwards then sits there silently, so
+ * read-aloud looks dead for the rest of the session. Lifting the pause first
+ * costs nothing on engines that were not paused.
+ */
+export function cancelSpeech(synth: SpeechSynthesis): void {
+  synth.resume();
+  synth.cancel();
+}
+
 export function isSpeechSupported(): boolean {
   return (
     typeof window !== "undefined" &&
