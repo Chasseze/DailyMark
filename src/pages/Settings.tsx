@@ -9,8 +9,10 @@ import {
   RATE_MAX,
   RATE_MIN,
   RATE_STEP,
-  describeVoice,
-  sortVoices,
+  describeLanguage,
+  normalizeLang,
+  voiceLanguages,
+  voicesForLanguage,
 } from "../lib/speech";
 import type { Theme } from "../lib/types";
 
@@ -23,10 +25,29 @@ export default function Settings() {
   const speech = useSpeech();
   const [signingOut, setSigningOut] = useState(false);
 
-  const voices = useMemo(
-    () => sortVoices(speech.voices, typeof navigator !== "undefined" ? navigator.language : "en-US"),
-    [speech.voices]
+  const locale = typeof navigator !== "undefined" ? navigator.language : "en-US";
+  const languages = useMemo(() => voiceLanguages(speech.voices, locale), [speech.voices, locale]);
+
+  // Voices are picked language-first: a phone exposes a dozen, a Linux box with
+  // espeak-ng exposes thousands, and one flat list is unusable at that size.
+  const [pickedLang, setPickedLang] = useState<string | null>(null);
+  const chosenVoice = speech.prefs.voiceURI
+    ? speech.voices.find((voice) => voice.voiceURI === speech.prefs.voiceURI)
+    : undefined;
+  const language = chosenVoice
+    ? normalizeLang(chosenVoice.lang)
+    : pickedLang ?? languages[0] ?? "";
+  const langVoices = useMemo(
+    () => voicesForLanguage(speech.voices, language),
+    [speech.voices, language]
   );
+
+  const selectLanguage = (next: string) => {
+    setPickedLang(next);
+    // Landing on "System default" after choosing a language would ignore it, so
+    // the first voice of that language is selected instead.
+    speech.setVoiceURI(voicesForLanguage(speech.voices, next)[0]?.voiceURI ?? null);
+  };
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -97,26 +118,48 @@ export default function Settings() {
               Notes are spoken by your device — no audio leaves the browser.
             </p>
 
-            <label className="block text-xs text-slate-500" htmlFor="voice">
-              Voice
-            </label>
-            <select
-              id="voice"
-              value={speech.prefs.voiceURI ?? ""}
-              onChange={(e) => speech.setVoiceURI(e.target.value || null)}
-              className="mt-1 w-full rounded-xl border border-white/5 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
-            >
-              <option value="">System default</option>
-              {voices.map((voice) => (
-                <option key={voice.voiceURI} value={voice.voiceURI}>
-                  {describeVoice(voice)}
-                </option>
-              ))}
-            </select>
-            {voices.length === 0 && (
-              <p className="mt-1 text-[11px] text-slate-500">
-                No voices installed on this device yet — the system default is used.
+            {speech.voices.length === 0 ? (
+              <p className="text-[11px] text-slate-500">
+                No voices are installed on this device yet — the system default is used.
               </p>
+            ) : (
+              <div className="flex gap-2">
+                <div className="min-w-0 flex-1">
+                  <label className="block text-xs text-slate-500" htmlFor="speech-language">
+                    Language
+                  </label>
+                  <select
+                    id="speech-language"
+                    value={language}
+                    onChange={(e) => selectLanguage(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-white/5 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+                  >
+                    {languages.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {describeLanguage(tag)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <label className="block text-xs text-slate-500" htmlFor="speech-voice">
+                    Voice
+                  </label>
+                  <select
+                    id="speech-voice"
+                    value={speech.prefs.voiceURI ?? ""}
+                    onChange={(e) => speech.setVoiceURI(e.target.value || null)}
+                    className="mt-1 w-full rounded-xl border border-white/5 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+                  >
+                    <option value="">System default</option>
+                    {langVoices.map((voice) => (
+                      <option key={voice.voiceURI} value={voice.voiceURI}>
+                        {voice.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             )}
 
             <div className="mt-3 flex items-center justify-between text-xs text-slate-500">

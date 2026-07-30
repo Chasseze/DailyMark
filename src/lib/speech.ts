@@ -67,25 +67,48 @@ export function wordLengthAt(text: string, index: number): number {
   return match ? match[0].length : 0;
 }
 
-/** Compact label for a voice, e.g. "Samantha · en-US". */
-export function describeVoice(voice: SpeechSynthesisVoice): string {
-  return `${voice.name} · ${voice.lang}`;
+/** BCP 47 tags arrive as both `en-US` and `en_US`, depending on the platform. */
+export function normalizeLang(lang: string): string {
+  return lang.replace("_", "-").toLowerCase();
 }
 
 /**
- * Voices sorted so the ones matching the browser's language come first — the
- * raw list is in whatever order the platform hands it over.
+ * The distinct languages the installed voices cover, best match first. Voices
+ * are picked by language and then by name because platforms differ wildly in how
+ * many they expose: a phone offers a handful, a Linux box with espeak-ng offers
+ * thousands, which is unusable as one flat list.
  */
-export function sortVoices(voices: SpeechSynthesisVoice[], locale: string): SpeechSynthesisVoice[] {
-  const language = locale.slice(0, 2).toLowerCase();
+export function voiceLanguages(voices: SpeechSynthesisVoice[], locale: string): string[] {
+  const wanted = normalizeLang(locale);
+  const primary = wanted.slice(0, 2);
+  const tags = [...new Set(voices.map((voice) => normalizeLang(voice.lang)))];
 
-  return [...voices].sort((a, b) => {
-    const score = (v: SpeechSynthesisVoice) =>
-      (v.lang.toLowerCase().replace("_", "-") === locale.toLowerCase() ? 0 : 2) +
-      (v.lang.slice(0, 2).toLowerCase() === language ? 0 : 4);
-    const diff = score(a) - score(b);
-    return diff !== 0 ? diff : a.name.localeCompare(b.name);
+  const rank = (tag: string) => (tag === wanted ? 0 : tag.slice(0, 2) === primary ? 1 : 2);
+
+  return tags.sort((a, b) => {
+    const diff = rank(a) - rank(b);
+    return diff !== 0 ? diff : describeLanguage(a).localeCompare(describeLanguage(b));
   });
+}
+
+export function voicesForLanguage(
+  voices: SpeechSynthesisVoice[],
+  language: string
+): SpeechSynthesisVoice[] {
+  const tag = normalizeLang(language);
+  return voices
+    .filter((voice) => normalizeLang(voice.lang) === tag)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** "en-GB" → "British English", falling back to the raw tag. */
+export function describeLanguage(tag: string): string {
+  try {
+    const names = new Intl.DisplayNames(undefined, { type: "language" });
+    return names.of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
 }
 
 export function describeSpeechError(error: string): string {

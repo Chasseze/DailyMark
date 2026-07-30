@@ -13,7 +13,7 @@ import {
   insertLink,
   insertTable,
   toggleLines,
-  toggleTaskByIndex,
+  toggleTaskAtLine,
   toggleWrap,
 } from "./markdown-edit";
 
@@ -209,24 +209,29 @@ describe("inListContext", () => {
   });
 });
 
-describe("toggleTaskByIndex", () => {
-  const source = "- [ ] one\n- [x] two\n\n```\n- [ ] not a task\n```\n\n- [ ] three";
+describe("toggleTaskAtLine", () => {
+  const source = "- [ ] one\n- [x] two\n\nplain line\n\n  - [ ] nested";
 
-  it("ticks the nth box", () => {
-    expect(toggleTaskByIndex(source, 0)).toContain("- [x] one");
+  it("ticks the box on that line", () => {
+    expect(toggleTaskAtLine(source, 1)).toContain("- [x] one");
   });
 
   it("unticks a ticked box", () => {
-    expect(toggleTaskByIndex(source, 1)).toContain("- [ ] two");
+    expect(toggleTaskAtLine(source, 2)).toContain("- [ ] two");
   });
 
-  it("counts past checkboxes inside fenced code", () => {
-    const next = toggleTaskByIndex(source, 2);
-    expect(next).toContain("- [x] three");
-    expect(next).toContain("- [ ] not a task");
+  it("leaves every other line alone", () => {
+    expect(toggleTaskAtLine(source, 6)).toBe(
+      "- [ ] one\n- [x] two\n\nplain line\n\n  - [x] nested"
+    );
   });
 
-  it("returns null when the index has no checkbox", () => {
-    expect(toggleTaskByIndex(source, 9)).toBeNull();
+  it("returns null for a line without a checkbox", () => {
+    expect(toggleTaskAtLine(source, 4)).toBeNull();
+  });
+
+  it("returns null for a line outside the note", () => {
+    expect(toggleTaskAtLine(source, 99)).toBeNull();
+    expect(toggleTaskAtLine(source, 0)).toBeNull();
   });
 });

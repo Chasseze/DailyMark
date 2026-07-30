@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkForSpeech, sortVoices, wordLengthAt } from "./speech";
+import { chunkForSpeech, voiceLanguages, voicesForLanguage, wordLengthAt } from "./speech";
 
 describe("chunkForSpeech", () => {
   it("splits on sentence endings", () => {
@@ -53,17 +53,33 @@ describe("wordLengthAt", () => {
   });
 });
 
-describe("sortVoices", () => {
-  const voice = (name: string, lang: string) =>
-    ({ name, lang, voiceURI: `${name}:${lang}`, default: false, localService: true }) as SpeechSynthesisVoice;
+const voice = (name: string, lang: string) =>
+  ({ name, lang, voiceURI: `${name}:${lang}`, default: false, localService: true }) as SpeechSynthesisVoice;
 
+describe("voiceLanguages", () => {
   it("puts an exact locale match first, then the same language", () => {
     const voices = [voice("Zed", "de-DE"), voice("Amy", "en-GB"), voice("Bob", "en-US")];
-    expect(sortVoices(voices, "en-US").map((v) => v.name)).toEqual(["Bob", "Amy", "Zed"]);
+    expect(voiceLanguages(voices, "en-US")).toEqual(["en-us", "en-gb", "de-de"]);
   });
 
-  it("sorts alphabetically within the same tier", () => {
-    const voices = [voice("Bea", "en-US"), voice("Ann", "en-US")];
-    expect(sortVoices(voices, "en-US").map((v) => v.name)).toEqual(["Ann", "Bea"]);
+  it("lists each language once", () => {
+    const voices = [voice("Ann", "en-US"), voice("Bea", "en-US"), voice("Cal", "fr-FR")];
+    expect(voiceLanguages(voices, "en-US")).toEqual(["en-us", "fr-fr"]);
+  });
+
+  it("accepts underscore-separated tags", () => {
+    expect(voiceLanguages([voice("Ann", "en_US")], "en-US")).toEqual(["en-us"]);
+  });
+});
+
+describe("voicesForLanguage", () => {
+  const voices = [voice("Bea", "en-GB"), voice("Ann", "en-US"), voice("Cal", "en_US")];
+
+  it("keeps only the voices of that language, sorted by name", () => {
+    expect(voicesForLanguage(voices, "en-US").map((v) => v.name)).toEqual(["Ann", "Cal"]);
+  });
+
+  it("is empty for a language nothing speaks", () => {
+    expect(voicesForLanguage(voices, "ja-JP")).toEqual([]);
   });
 });

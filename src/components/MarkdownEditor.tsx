@@ -18,7 +18,7 @@ import {
   insertLink,
   insertTable,
   toggleLines,
-  toggleTaskByIndex,
+  toggleTaskAtLine,
   toggleWrap,
   type MdEdit,
 } from "../lib/markdown-edit";
@@ -175,8 +175,8 @@ export default function MarkdownEditor({ content, onChange }: Props) {
     apply({ start, end, text: markdown, selectionStart: caret, selectionEnd: caret });
   };
 
-  const handleToggleTask = (index: number) => {
-    const next = toggleTaskByIndex(content, index);
+  const handleToggleTask = (line: number) => {
+    const next = toggleTaskAtLine(content, line);
     if (next !== null) onChange(next);
   };
 

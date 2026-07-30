@@ -311,35 +311,18 @@ export function inListContext(value: string, start: number, end: number): boolea
 }
 
 /**
- * Flips the nth `- [ ]` / `- [x]` checkbox in the source, counting the way the
- * renderer does: fenced code blocks contain text, not task lists. Returns null
- * when there is no such checkbox.
+ * Flips the `- [ ]` / `- [x]` checkbox on a given 1-based source line, which is
+ * what the renderer reports for the task item that was clicked. Returns null
+ * when that line holds no checkbox.
  */
-export function toggleTaskByIndex(value: string, index: number): string | null {
+export function toggleTaskAtLine(value: string, line: number): string | null {
   const lines = value.split("\n");
-  let fence: string | null = null;
-  let seen = 0;
+  const index = line - 1;
+  if (index < 0 || index >= lines.length) return null;
 
-  for (let i = 0; i < lines.length; i++) {
-    const opener = /^\s{0,3}(```+|~~~+)/.exec(lines[i]);
-    if (opener) {
-      const marker = opener[1][0];
-      if (fence === null) fence = marker;
-      else if (fence === marker) fence = null;
-      continue;
-    }
-    if (fence !== null) continue;
+  const m = /^([ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\[)([ xX])(\])/.exec(lines[index]);
+  if (!m) return null;
 
-    const m = /^([ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+\[)([ xX])(\])/.exec(lines[i]);
-    if (!m) continue;
-
-    if (seen === index) {
-      const rest = lines[i].slice(m[0].length);
-      lines[i] = m[1] + (m[2] === " " ? "x" : " ") + m[3] + rest;
-      return lines.join("\n");
-    }
-    seen += 1;
-  }
-
-  return null;
+  lines[index] = m[1] + (m[2] === " " ? "x" : " ") + m[3] + lines[index].slice(m[0].length);
+  return lines.join("\n");
 }
