@@ -275,6 +275,28 @@ export function continueList(value: string, caret: number): MdEdit | null {
   };
 }
 
+/** Markdown that only means what it says at the very start of a line. */
+const BLOCK_START = /^(?:#{1,6}[ \t]|[-*+][ \t]|\d{1,9}[.)][ \t]|>|```|~~~|\||---)/;
+
+/**
+ * Drops converted Markdown in at the caret, padding it with blank lines when it
+ * needs them. Without this, pasting a formatted document at the end of a line
+ * welds its first heading or bullet onto that line, where the syntax is inert
+ * and the formatting is silently lost.
+ */
+export function pasteMarkdown(value: string, start: number, end: number, markdown: string): MdEdit {
+  const before = value.slice(0, start);
+  const after = value.slice(end);
+  const block = markdown.includes("\n") || BLOCK_START.test(markdown);
+
+  const lead = block && before !== "" && !/\n[ \t]*$/.test(before) ? "\n\n" : "";
+  const trail = block && after !== "" && !/^[ \t]*\n/.test(after) ? "\n\n" : "";
+  const text = lead + markdown + trail;
+  const caret = start + lead.length + markdown.length;
+
+  return { start, end, text, selectionStart: caret, selectionEnd: caret };
+}
+
 /** Indents or outdents the selected lines by two spaces. */
 export function indentLines(value: string, start: number, end: number, direction: 1 | -1): MdEdit {
   const [from, to] = lineBounds(value, start, end);

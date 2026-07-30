@@ -17,6 +17,7 @@ import {
   insertCodeBlock,
   insertLink,
   insertTable,
+  pasteMarkdown,
   toggleLines,
   toggleTaskAtLine,
   toggleWrap,
@@ -171,8 +172,7 @@ export default function MarkdownEditor({ content, onChange }: Props) {
     if (!markdown || markdown === plain.trim()) return;
 
     event.preventDefault();
-    const caret = start + markdown.length;
-    apply({ start, end, text: markdown, selectionStart: caret, selectionEnd: caret });
+    apply(pasteMarkdown(el.value, start, end, markdown));
   };
 
   const handleToggleTask = (line: number) => {

@@ -20,8 +20,12 @@ import {
 const STORAGE_KEY = "dailymark.speech";
 const DEFAULT_PREFS: SpeechPrefs = { voiceURI: null, rate: 1, pitch: 1 };
 
-/** Engines that never start report nothing at all, so give up after this long. */
+/** How often the run is checked against the engine's own idea of what it's doing. */
+const MONITOR_INTERVAL_MS = 400;
+/** An engine that is still silent this long after being asked never started. */
 const START_TIMEOUT_MS = 4000;
+/** Consecutive silent checks that mean a started run has finished. */
+const QUIET_CHECKS_TO_FINISH = 3;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -64,7 +68,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   // garbage-collected utterance mid-sentence.
   const queueRef = useRef<SpeechSynthesisUtterance[]>([]);
   const startTimerRef = useRef<number | null>(null);
-  const watchdogRef = useRef<number | null>(null);
+  const monitorRef = useRef<number | null>(null);
   const startedRef = useRef(false);
   const prefsRef = useRef(prefs);
   const voicesRef = useRef(voices);
@@ -99,9 +103,9 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
 
   const clearTimers = useCallback(() => {
     if (startTimerRef.current !== null) clearTimeout(startTimerRef.current);
-    if (watchdogRef.current !== null) clearTimeout(watchdogRef.current);
+    if (monitorRef.current !== null) clearInterval(monitorRef.current);
     startTimerRef.current = null;
-    watchdogRef.current = null;
+    monitorRef.current = null;
   }, []);
 
   const resetPlayer = useCallback(() => {
@@ -195,12 +199,36 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
         queueRef.current = queue;
         queue.forEach((utterance) => synth.speak(utterance));
 
-        watchdogRef.current = window.setTimeout(() => {
-          if (run !== runRef.current || startedRef.current) return;
-          setError("No speech voice is available in this browser.");
-          synth.cancel();
-          resetPlayer();
-        }, START_TIMEOUT_MS);
+        // Not every engine reports the utterance events: the Linux
+        // speech-dispatcher bridge, for one, speaks without ever firing `start`.
+        // So the engine's own `speaking`/`pending` flags decide whether a run got
+        // going and whether it has finished, and the events above are treated as
+        // the finer-grained progress they are when they do arrive.
+        let waited = 0;
+        let quiet = 0;
+        monitorRef.current = window.setInterval(() => {
+          if (run !== runRef.current) return;
+          // A paused engine still reports itself as speaking.
+          if (statusRef.current === "paused") return;
+
+          if (synth.speaking || synth.pending) {
+            startedRef.current = true;
+            quiet = 0;
+            return;
+          }
+
+          if (!startedRef.current) {
+            waited += MONITOR_INTERVAL_MS;
+            if (waited < START_TIMEOUT_MS) return;
+            setError("Your device's speech engine didn't start. Try again in a moment.");
+            synth.cancel();
+            resetPlayer();
+            return;
+          }
+
+          quiet += 1;
+          if (quiet >= QUIET_CHECKS_TO_FINISH) resetPlayer();
+        }, MONITOR_INTERVAL_MS);
       }, 60);
     },
     [clearTimers, resetPlayer]

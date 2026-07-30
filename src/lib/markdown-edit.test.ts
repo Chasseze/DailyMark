@@ -12,6 +12,7 @@ import {
   insertCodeBlock,
   insertLink,
   insertTable,
+  pasteMarkdown,
   toggleLines,
   toggleTaskAtLine,
   toggleWrap,
@@ -206,6 +207,35 @@ describe("inListContext", () => {
 
   it("is false in ordinary prose, so Tab still moves focus", () => {
     expect(inListContext("prose", 5, 5)).toBe(false);
+  });
+});
+
+describe("pasteMarkdown", () => {
+  const paste = (value: string, at: number, markdown: string) =>
+    render(value, pasteMarkdown(value, at, at, markdown));
+
+  it("opens a blank line so a pasted heading starts its own block", () => {
+    expect(paste("- [ ] Passport", 14, "## Budget\n\n- Flights 180")).toBe(
+      "- [ ] Passport\n\n## Budget\n\n- Flights 180|"
+    );
+  });
+
+  it("leaves a caret that already starts a line alone", () => {
+    expect(paste("Intro\n", 6, "## Budget")).toBe("Intro\n## Budget|");
+  });
+
+  it("pastes inline text where the caret is, untouched", () => {
+    expect(paste("See the guide.", 4, "[docs](https://example.com)")).toBe(
+      "See [docs](https://example.com)|the guide."
+    );
+  });
+
+  it("needs no padding at the start of an empty note", () => {
+    expect(paste("", 0, "# Title\n\nBody")).toBe("# Title\n\nBody|");
+  });
+
+  it("separates the paste from text that follows it", () => {
+    expect(paste("tail", 0, "# Title")).toBe("# Title|\n\ntail");
   });
 });
 
