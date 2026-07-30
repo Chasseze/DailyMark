@@ -406,19 +406,18 @@ html {
   display: flex;
   min-height: 100svh;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: center;
+  align-items: center;
   gap: 1.75rem;
-  padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(2rem, env(safe-area-inset-bottom));
+  padding: max(2rem, env(safe-area-inset-top)) 1.5rem max(2.5rem, env(safe-area-inset-bottom));
   max-width: 28rem;
   margin-inline: auto;
   width: 100%;
+  text-align: center;
 }
 
-@media (min-width: 640px) {
-  .login-hero__content {
-    justify-content: center;
-    padding-block: 3rem;
-  }
+.login-hero__copy {
+  width: 100%;
 }
 
 .login-brand {
@@ -435,6 +434,7 @@ html {
 
 .login-lede {
   margin-top: 0.75rem;
+  margin-inline: auto;
   max-width: 22rem;
   font-size: 1.05rem;
   line-height: 1.5;
@@ -443,7 +443,9 @@ html {
 
 .login-form {
   display: flex;
+  width: 100%;
   flex-direction: column;
+  align-items: stretch;
   gap: 0.75rem;
 }
 
@@ -465,6 +467,7 @@ html {
   padding: 0.7rem 1rem;
   font-size: 0.95rem;
   color: #fffaf0;
+  text-align: center;
   outline: none;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -588,6 +591,7 @@ html {
   padding: 0.75rem 0.9rem;
   font-size: 0.75rem;
   line-height: 1.45;
+  text-align: center;
 }
 
 .login-alert--error {
