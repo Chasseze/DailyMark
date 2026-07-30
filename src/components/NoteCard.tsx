@@ -28,9 +28,12 @@ export default function NoteCard({ note, onClick }: Props) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="note-title truncate text-[0.95rem] text-white light:text-slate-900">
-            {note.title || "Untitled"}
-          </h3>
+          <div className="flex items-baseline gap-1.5">
+            <h3 className="truncate text-[0.95rem] font-semibold tracking-tight text-white light:text-slate-900">
+              {note.title || "Untitled"}
+            </h3>
+            {note.is_pinned && <span className="shrink-0 text-[0.6rem] text-amber-400">●</span>}
+          </div>
           {preview.trim() ? (
             <div className="note-card-preview mt-1 text-xs text-slate-400 light:text-slate-500">
               <Markdown compact>{preview}</Markdown>
