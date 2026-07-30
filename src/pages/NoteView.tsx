@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useNotes } from "../context/notes-context";
+import Markdown from "../components/Markdown";
+import ReadAloudButton from "../components/ReadAloudButton";
+import { toggleTaskAtLine } from "../lib/markdown-edit";
+import { errorMessage } from "../lib/supabase";
+import type { Note } from "../lib/types";
 
 export default function NoteView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { notes, loading, deleteNote, togglePin } = useNotes();
+  const { notes, loading } = useNotes();
   const note = notes.find((n) => n.id === id);
 
   // Without this, opening a note link directly flashes "Note not found"
@@ -31,9 +35,32 @@ export default function NoteView() {
     );
   }
 
+  return <NoteArticle note={note} />;
+}
+
+function NoteArticle({ note }: { note: Note }) {
+  const navigate = useNavigate();
+  const { deleteNote, togglePin, updateNote } = useNotes();
+  const [taskError, setTaskError] = useState<string | null>(null);
+
   const date = new Date(note.updated_at).toLocaleDateString(undefined, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
+
+  // Reading the title first makes the spoken version match the page.
+  const spoken = [note.title, note.content].filter((part) => part.trim()).join("\n\n");
+
+  const handleToggleTask = async (line: number) => {
+    const next = toggleTaskAtLine(note.content, line);
+    if (next === null) return;
+    setTaskError(null);
+    try {
+      await updateNote(note.id, { content: next });
+    } catch (err) {
+      // Otherwise the checkbox just springs back with no explanation.
+      setTaskError(errorMessage(err));
+    }
+  };
 
   return (
     <div className="animate-in px-4 pt-4">
@@ -43,6 +70,9 @@ export default function NoteView() {
           ←
         </button>
         <div className="flex-1" />
+        <ReadAloudButton
+          request={{ id: "note:" + note.id, label: note.title || "Untitled", text: spoken }}
+        />
         <button onClick={() => void togglePin(note.id)}
           className={
             "rounded-xl p-2 text-sm transition-colors hover:bg-white/10 " +
@@ -66,6 +96,10 @@ export default function NoteView() {
         </button>
       </div>
 
+      {taskError && (
+        <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{taskError}</div>
+      )}
+
       <article>
         <h1 className="note-title mb-1 text-2xl text-white light:text-slate-900">
           {note.title || "Untitled"}
@@ -82,9 +116,10 @@ export default function NoteView() {
           </div>
         )}
 
-        <div className="prose-custom mt-4 text-sm leading-relaxed text-slate-300 light:text-slate-700">
+        <div className="mt-4 text-sm leading-relaxed text-slate-300 light:text-slate-700">
           {note.content.trim() ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
+            // Checkboxes stay live here: ticking one saves the note.
+            <Markdown onToggleTask={(line) => void handleToggleTask(line)}>{note.content}</Markdown>
           ) : (
             <p className="italic text-slate-500">This note is empty. Tap edit to add content.</p>
           )}

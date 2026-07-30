@@ -41,7 +41,8 @@ export default function BottomNav() {
   if (isNoteDetail) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 glass light:border-slate-200/80">
+    // Positioning lives in Layout, which stacks this under the read-aloud bar.
+    <nav className="border-t border-white/5 glass light:border-slate-200/80">
       <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2.5">
         {tabs.map(({ to, icon, label }) => (
           <NavLink

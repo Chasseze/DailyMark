@@ -6,7 +6,8 @@ import tseslint from "typescript-eslint";
 import { globalIgnores } from "eslint/config";
 
 export default tseslint.config([
-  globalIgnores(["dist", "setup.js"]),
+  // supabase/.temp holds bundles the local CLI stack writes on `supabase start`.
+  globalIgnores(["dist", "setup.js", "supabase/.temp"]),
   {
     files: ["**/*.{ts,tsx}"],
     extends: [

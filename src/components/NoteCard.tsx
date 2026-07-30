@@ -1,5 +1,8 @@
 import type { Note } from "../lib/types";
 import { useNotes } from "../context/notes-context";
+import { markdownPreview } from "../lib/markdown";
+import Markdown from "./Markdown";
+import ReadAloudButton from "./ReadAloudButton";
 
 interface Props {
   note: Note;
@@ -9,10 +12,10 @@ interface Props {
 export default function NoteCard({ note, onClick }: Props) {
   const { togglePin, deleteNote } = useNotes();
 
-  const preview = note.content
-    .replace(/[#*`>[\]!-]/g, "")
-    .slice(0, 120)
-    .trim();
+  // Cards show the note the way it will read: headings, bold, bullets and
+  // checkboxes, just smaller.
+  const preview = markdownPreview(note.content);
+  const spoken = [note.title, note.content].filter((part) => part.trim()).join("\n\n");
 
   const date = new Date(note.updated_at).toLocaleDateString(undefined, {
     month: "short", day: "numeric",
@@ -28,9 +31,13 @@ export default function NoteCard({ note, onClick }: Props) {
           <h3 className="note-title truncate text-[0.95rem] text-white light:text-slate-900">
             {note.title || "Untitled"}
           </h3>
-          <p className="mt-1 line-clamp-2 text-xs text-slate-400 light:text-slate-500">
-            {preview || "No content yet"}
-          </p>
+          {preview.trim() ? (
+            <div className="note-card-preview mt-1 text-xs text-slate-400 light:text-slate-500">
+              <Markdown compact>{preview}</Markdown>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-slate-400 light:text-slate-500">No content yet</p>
+          )}
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[10px] text-slate-500">{date}</span>
             {note.tags.map((tag) => (
@@ -40,24 +47,31 @@ export default function NoteCard({ note, onClick }: Props) {
             ))}
           </div>
         </div>
-        <div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            onClick={(e) => { e.stopPropagation(); void togglePin(note.id); }}
-            className={
-              "rounded-lg p-1 text-sm transition-colors hover:bg-white/10 " +
-              (note.is_pinned ? "text-amber-400" : "text-slate-500")
-            }
-            title={note.is_pinned ? "Unpin" : "Pin"}
-          >
-            📌
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); if (confirm("Delete this note?")) void deleteNote(note.id); }}
-            className="rounded-lg p-1 text-sm text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
-            title="Delete"
-          >
-            🗑️
-          </button>
+        <div className="flex flex-col gap-1">
+          {/* Listening stays reachable without hovering — it's an accessibility path. */}
+          <ReadAloudButton
+            compact
+            request={{ id: "note:" + note.id, label: note.title || "Untitled", text: spoken }}
+          />
+          <div className="flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <button
+              onClick={(e) => { e.stopPropagation(); void togglePin(note.id); }}
+              className={
+                "rounded-lg p-1 text-sm transition-colors hover:bg-white/10 " +
+                (note.is_pinned ? "text-amber-400" : "text-slate-500")
+              }
+              title={note.is_pinned ? "Unpin" : "Pin"}
+            >
+              📌
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); if (confirm("Delete this note?")) void deleteNote(note.id); }}
+              className="rounded-lg p-1 text-sm text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+              title="Delete"
+            >
+              🗑️
+            </button>
+          </div>
         </div>
       </div>
     </div>
