@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../context/theme-context";
+import { useMood } from "../context/mood-context";
 import { useNotes } from "../context/notes-context";
 import { useAuth } from "../context/auth-context";
 import { useSpeech } from "../context/speech-context";
@@ -14,12 +15,14 @@ import {
   voiceLanguages,
   voicesForLanguage,
 } from "../lib/speech";
+import { NOTES_MOODS } from "../lib/moods";
 import type { Theme } from "../lib/types";
 
 const SAMPLE = "This is how DailyMark will sound when it reads your notes aloud.";
 
 export default function Settings() {
   const { theme, resolved, setTheme, toggle } = useTheme();
+  const { mood, setMood } = useMood();
   const { notes, notebooks } = useNotes();
   const { user, signOut } = useAuth();
   const speech = useSpeech();
@@ -102,6 +105,40 @@ export default function Settings() {
               (resolved === "dark" ? "left-0.5" : "left-[calc(100%-1.625rem)]")
             } />
           </button>
+        </div>
+
+        <h3 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Notes mood
+        </h3>
+        <p className="mb-2 text-[11px] leading-relaxed text-slate-500">
+          Compare three palette directions — amber accent and glass stay in all of them.
+        </p>
+        <div className="space-y-2">
+          {NOTES_MOODS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setMood(option.id)}
+              className={
+                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors " +
+                (mood === option.id
+                  ? "bg-amber-500/15 text-amber-400"
+                  : "bg-slate-800/30 text-slate-400 hover:text-slate-200 light:bg-slate-100 light:text-slate-600")
+              }
+            >
+              <span
+                className="h-8 w-8 shrink-0 rounded-lg shadow-inner ring-1 ring-white/15"
+                style={{ backgroundColor: option.swatch }}
+                aria-hidden="true"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-white light:text-slate-900">
+                  {option.label}
+                </span>
+                <span className="block text-[11px] text-slate-500">{option.blurb}</span>
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 

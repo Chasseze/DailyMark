@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
+import { MoodProvider } from "./context/MoodContext";
 import { AuthProvider } from "./context/AuthContext";
 import { SpeechProvider } from "./context/SpeechContext";
 import App from "./App";
@@ -14,11 +15,13 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <SpeechProvider>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </SpeechProvider>
+        <MoodProvider>
+          <SpeechProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </SpeechProvider>
+        </MoodProvider>
       </ThemeProvider>
     </BrowserRouter>
   </StrictMode>

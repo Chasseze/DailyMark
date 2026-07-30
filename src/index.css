@@ -16,6 +16,96 @@
   --color-accent: #f59e0b;
 }
 
+/* Notes workspace moods — warm amber accent + glass stay constant; paper,
+   masthead blue, and ambient glow shift so you can compare directions. */
+:root,
+:root[data-mood="cobalt"] {
+  --mood-masthead: #1d4ed8;
+  --mood-paper: #0b1220;
+  --mood-ink: #f8fafc;
+  --mood-muted: oklch(0.72 0.02 260);
+  --mood-sidebar: oklch(0.22 0.03 260 / 0.55);
+  --mood-row-hover: oklch(1 0 0 / 0.05);
+  --mood-row-active: oklch(0.75 0.15 85 / 0.14);
+  --mood-glow-a: oklch(0.55 0.12 75 / 0.16);
+  --mood-glow-b: oklch(0.4 0.08 250 / 0.28);
+  --mood-glass: oklch(0.32 0.025 260 / 0.7);
+  --mood-glass-border: oklch(1 0 0 / 0.09);
+  --color-paper: var(--mood-paper);
+  --color-ink: var(--mood-ink);
+}
+
+:root[data-mood="midnight"] {
+  --mood-masthead: #1e3a8a;
+  --mood-paper: #070a12;
+  --mood-ink: #f8fafc;
+  --mood-muted: oklch(0.7 0.02 70);
+  --mood-sidebar: oklch(0.18 0.02 260 / 0.65);
+  --mood-row-hover: oklch(0.75 0.1 75 / 0.08);
+  --mood-row-active: oklch(0.75 0.16 75 / 0.18);
+  --mood-glow-a: oklch(0.55 0.14 70 / 0.22);
+  --mood-glow-b: oklch(0.28 0.05 260 / 0.35);
+  --mood-glass: oklch(0.26 0.02 260 / 0.76);
+  --mood-glass-border: oklch(0.8 0.08 75 / 0.12);
+}
+
+:root[data-mood="harbor"] {
+  --mood-masthead: #0f4c81;
+  --mood-paper: #0c1522;
+  --mood-ink: #f1f5f9;
+  --mood-muted: oklch(0.72 0.03 230);
+  --mood-sidebar: oklch(0.28 0.035 230 / 0.5);
+  --mood-row-hover: oklch(0.7 0.05 230 / 0.1);
+  --mood-row-active: oklch(0.75 0.15 85 / 0.16);
+  --mood-glow-a: oklch(0.55 0.1 75 / 0.14);
+  --mood-glow-b: oklch(0.42 0.07 230 / 0.3);
+  --mood-glass: oklch(0.34 0.03 230 / 0.68);
+  --mood-glass-border: oklch(1 0 0 / 0.1);
+}
+
+:root.light,
+:root.light[data-mood="cobalt"] {
+  --mood-masthead: #1d4ed8;
+  --mood-paper: #eef2f8;
+  --mood-ink: #0f172a;
+  --mood-muted: oklch(0.45 0.02 260);
+  --mood-sidebar: oklch(1 0 0 / 0.72);
+  --mood-row-hover: oklch(0.4 0.05 260 / 0.06);
+  --mood-row-active: oklch(0.75 0.14 85 / 0.18);
+  --mood-glow-a: oklch(0.85 0.08 75 / 0.4);
+  --mood-glow-b: oklch(0.85 0.05 250 / 0.3);
+  --mood-glass: oklch(1 0 0 / 0.78);
+  --mood-glass-border: oklch(0 0 0 / 0.07);
+}
+
+:root.light[data-mood="midnight"] {
+  --mood-masthead: #1e3a8a;
+  --mood-paper: #e9edf5;
+  --mood-ink: #111827;
+  --mood-muted: oklch(0.45 0.025 260);
+  --mood-sidebar: oklch(1 0 0 / 0.7);
+  --mood-row-hover: oklch(0.7 0.1 75 / 0.1);
+  --mood-row-active: oklch(0.75 0.14 75 / 0.2);
+  --mood-glow-a: oklch(0.85 0.1 75 / 0.45);
+  --mood-glow-b: oklch(0.8 0.04 260 / 0.28);
+  --mood-glass: oklch(1 0 0 / 0.8);
+  --mood-glass-border: oklch(0.4 0.04 260 / 0.1);
+}
+
+:root.light[data-mood="harbor"] {
+  --mood-masthead: #0f4c81;
+  --mood-paper: #e8eef4;
+  --mood-ink: #0c1929;
+  --mood-muted: oklch(0.45 0.03 230);
+  --mood-sidebar: oklch(1 0 0 / 0.74);
+  --mood-row-hover: oklch(0.45 0.05 230 / 0.08);
+  --mood-row-active: oklch(0.75 0.14 85 / 0.18);
+  --mood-glow-a: oklch(0.85 0.08 75 / 0.35);
+  --mood-glow-b: oklch(0.82 0.05 230 / 0.35);
+  --mood-glass: oklch(1 0 0 / 0.8);
+  --mood-glass-border: oklch(0.35 0.04 230 / 0.1);
+}
+
 body {
   font-family: var(--font-sans);
   font-feature-settings: "ss01" on, "cv11" on;
@@ -54,29 +144,20 @@ html {
   border-radius: 999px;
 }
 
-/* Atmosphere behind the column — avoids a flat single-color canvas. */
+/* Atmosphere behind the column — mood-driven glow, not a flat canvas. */
 .app-shell {
   background:
-    radial-gradient(120% 80% at 50% -10%, oklch(0.45 0.08 75 / 0.18), transparent 55%),
-    radial-gradient(80% 50% at 100% 100%, oklch(0.35 0.04 250 / 0.25), transparent 50%),
-    var(--color-paper);
-}
-:root.light .app-shell {
-  background:
-    radial-gradient(120% 80% at 50% -10%, oklch(0.85 0.08 75 / 0.45), transparent 55%),
-    radial-gradient(80% 50% at 100% 100%, oklch(0.9 0.03 250 / 0.35), transparent 50%),
-    #f8fafc;
+    radial-gradient(120% 80% at 50% -10%, var(--mood-glow-a), transparent 55%),
+    radial-gradient(80% 50% at 100% 100%, var(--mood-glow-b), transparent 50%),
+    var(--mood-paper);
+  color: var(--mood-ink);
 }
 
 .glass {
-  background: oklch(0.32 0.02 260 / 0.72);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid oklch(1 0 0 / 0.08);
-}
-:root.light .glass {
-  background: oklch(1 0 0 / 0.78);
-  border: 1px solid oklch(0 0 0 / 0.06);
+  background: var(--mood-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--mood-glass-border);
 }
 
 /* Skip expensive blur when the user prefers reduced transparency, or on
@@ -85,10 +166,123 @@ html {
   .glass {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    background: oklch(0.28 0.015 260 / 0.96);
+    background: color-mix(in oklab, var(--mood-paper) 92%, var(--mood-ink));
   }
-  :root.light .glass {
-    background: oklch(1 0 0 / 0.96);
+}
+
+/* ── Notes master-detail workspace ────────────────────────────────────────── */
+
+.notes-masthead {
+  background: var(--mood-masthead);
+  color: #ffffff;
+  box-shadow: 0 10px 28px color-mix(in oklab, var(--mood-masthead) 35%, transparent);
+  animation: notesMastheadIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.notes-workspace {
+  display: grid;
+  grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr);
+  min-height: calc(100svh - 3.5rem);
+}
+
+.notes-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--mood-glass-border);
+  background: var(--mood-sidebar);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: notesSidebarIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.notes-file-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.notes-file-row:hover {
+  background: var(--mood-row-hover);
+}
+
+.notes-file-row[data-active="true"] {
+  background: var(--mood-row-active);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.notes-file-glyph {
+  display: flex;
+  height: 1.65rem;
+  width: 1.65rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.4rem;
+  background: oklch(1 0 0 / 0.06);
+  color: var(--color-accent);
+}
+
+.notes-preview-pane {
+  min-width: 0;
+  min-height: 0;
+  animation: notesPreviewIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.notes-empty-preview {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+@keyframes notesSidebarIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes notesPreviewIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes notesMastheadIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
+  .notes-workspace {
+    grid-template-columns: 1fr;
+    min-height: calc(100svh - 3.5rem);
+  }
+
+  .notes-workspace[data-pane="list"] .notes-preview-pane,
+  .notes-workspace[data-pane="preview"] .notes-sidebar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-sidebar,
+  .notes-preview-pane,
+  .notes-masthead {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (update: slow) {
+  .notes-sidebar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 
