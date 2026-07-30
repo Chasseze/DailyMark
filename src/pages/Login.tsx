@@ -6,7 +6,8 @@ import { errorMessage } from "../lib/supabase";
 type Mode = "signin" | "signup";
 
 export default function Login() {
-  const { session, loading, signIn, signUp, signInWithGoogle } = useAuth();
+  const { session, loading, signIn, signUp, signInWithGoogle, resendConfirmation } =
+    useAuth();
   const location = useLocation();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -15,11 +16,32 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Email waiting on the confirmation link — enables Resend. */
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+
+  // After the user clicks the confirm link, Supabase redirects here with
+  // tokens / type in the hash or query. Derive the banner from the URL so we
+  // don't need a cascading setState effect on mount.
+  const params = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const urlError =
+    params.get("error_description") || hash.get("error_description");
+  const confirmType = params.get("type") || hash.get("type");
+  const urlBannerError = urlError
+    ? decodeURIComponent(urlError.replace(/\+/g, " "))
+    : null;
+  const urlBannerNotice =
+    !urlBannerError && (confirmType === "signup" || confirmType === "email")
+      ? "Email confirmed. You can sign in now."
+      : null;
+  const displayError = error ?? urlBannerError;
+  const displayNotice = notice ?? urlBannerNotice;
+  const effectiveMode =
+    urlBannerNotice && !error && !notice ? ("signin" as Mode) : mode;
 
   if (loading) return null;
 
   if (session) {
-    // Send people back where they were headed before the guard intercepted.
     const from = (location.state as { from?: string } | null)?.from ?? "/notes";
     return <Navigate to={from} replace />;
   }
@@ -31,17 +53,46 @@ export default function Login() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const needsConfirmation = await signUp(email, password);
-        if (needsConfirmation) {
+        const result = await signUp(email, password);
+        if (result.status === "confirm_email") {
+          setPendingEmail(email);
           setNotice(
-            "Account created. Check " + email + " for a confirmation link, " +
-              "then sign in."
+            "Account created. We sent a confirmation link to " +
+              email +
+              ". Open it to activate your account, then sign in."
+          );
+          setMode("signin");
+          setPassword("");
+        } else if (result.status === "already_registered") {
+          setPendingEmail(email);
+          setError(
+            "That email is already registered. Sign in, or resend the confirmation link if you never verified it."
           );
           setMode("signin");
         }
+        // signed_in → AuthProvider session update navigates via the guard above
       } else {
         await signIn(email, password);
       }
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResend = async () => {
+    const target = pendingEmail || email;
+    if (!target) {
+      setError("Enter the email you signed up with, then tap Resend.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await resendConfirmation(target);
+      setPendingEmail(target);
+      setNotice("Confirmation email resent to " + target + ". Check your inbox (and spam).");
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -54,7 +105,6 @@ export default function Login() {
     setBusy(true);
     try {
       await signInWithGoogle();
-      // On success the browser navigates away to Google, so nothing follows.
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -67,11 +117,13 @@ export default function Login() {
         <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-amber-400/90">
           DailyMark
         </p>
-        <h1 className="page-title text-white light:text-slate-900">Welcome back</h1>
+        <h1 className="page-title text-white light:text-slate-900">
+          {effectiveMode === "signin" ? "Welcome back" : "Join DailyMark"}
+        </h1>
         <p className="mb-8 mt-2 text-sm text-slate-400 light:text-slate-500">
-          {mode === "signin"
+          {effectiveMode === "signin"
             ? "Sign in to reach your notes."
-            : "Create an account to get started."}
+            : "Create an account — we'll email you a confirmation link."}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -100,7 +152,7 @@ export default function Login() {
               type="password"
               required
               minLength={6}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              autoComplete={effectiveMode === "signup" ? "new-password" : "current-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -108,12 +160,12 @@ export default function Login() {
             />
           </div>
 
-          {error && (
-            <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{error}</p>
+          {displayError && (
+            <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{displayError}</p>
           )}
-          {notice && (
+          {displayNotice && (
             <p className="rounded-xl bg-green-500/10 p-3 text-xs text-green-400">
-              {notice}
+              {displayNotice}
             </p>
           )}
 
@@ -122,9 +174,20 @@ export default function Login() {
             disabled={busy}
             className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-3 text-sm font-semibold text-black transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
           >
-            {busy ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
+            {busy ? "Working…" : effectiveMode === "signin" ? "Sign in" : "Create account"}
           </button>
         </form>
+
+        {(pendingEmail || effectiveMode === "signin") && (
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={busy}
+            className="mt-3 w-full text-center text-xs text-slate-400 underline-offset-2 hover:text-amber-400 hover:underline disabled:opacity-50"
+          >
+            Resend confirmation email
+          </button>
+        )}
 
         <div className="my-5 flex items-center gap-3">
           <div className="h-px flex-1 bg-white/10 light:bg-slate-200" />
@@ -148,17 +211,17 @@ export default function Login() {
         </button>
 
         <p className="mt-6 text-center text-xs text-slate-500">
-          {mode === "signin" ? "No account yet?" : "Already have an account?"}{" "}
+          {effectiveMode === "signin" ? "No account yet?" : "Already have an account?"}{" "}
           <button
             type="button"
             onClick={() => {
-              setMode(mode === "signin" ? "signup" : "signin");
+              setMode(effectiveMode === "signin" ? "signup" : "signin");
               setError(null);
               setNotice(null);
             }}
             className="font-medium text-amber-400 hover:text-amber-300"
           >
-            {mode === "signin" ? "Create one" : "Sign in"}
+            {effectiveMode === "signin" ? "Create one" : "Sign in"}
           </button>
         </p>
       </div>

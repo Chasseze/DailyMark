@@ -44,10 +44,11 @@ script only refreshes npm dependencies.
   tables, so without the seed every PostgREST call fails with
   `permission denied for table ...`. The seed only exposes tables to the API
   roles; row-level security still enforces per-user isolation.
-- **Auth:** email confirmation is disabled locally (`enable_confirmations = false`),
-  so signup logs the user in immediately. New accounts get a profile row and three
-  starter notebooks (Inbox, Ideas, Journal) via a DB trigger. Confirmation emails
-  (if enabled) land in Mailpit at `http://localhost:54324`.
+- **Auth:** email confirmation is enabled locally (`enable_confirmations = true`)
+  so signup matches hosted behavior — Mailpit at `http://localhost:54324` catches
+  the confirmation mail. New accounts get a profile row and three starter
+  notebooks (Inbox, Ideas, Journal) via a DB trigger after they confirm and
+  sign in. Confirmation emails (and any other auth mail) land in Mailpit.
 - **Resetting the DB:** `supabase db reset` can fail in this CLI version with a
   "Could not find the supabase-go binary" error. To get a clean DB instead run
   `supabase stop --no-backup` then `supabase start` (this re-applies migrations and

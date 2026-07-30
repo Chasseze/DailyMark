@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { requireSupabase, supabase } from "../lib/supabase";
-import { AuthContext } from "./auth-context";
+import { AuthContext, type SignUpResult } from "./auth-context";
+
+/** Where email-confirm / OAuth flows should land after Supabase verifies. */
+function authRedirectTo() {
+  return `${window.location.origin}/login`;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -13,8 +18,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return;
 
     // getSession() reads the persisted session (including the tokens Supabase
-    // parses out of the URL after an OAuth redirect), so a reload keeps you
-    // logged in instead of bouncing to /login.
+    // parses out of the URL after an OAuth / email-confirm redirect), so a
+    // reload keeps you logged in instead of bouncing to /login.
     let active = true;
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
@@ -41,21 +46,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string): Promise<SignUpResult> => {
     const { data, error } = await requireSupabase().auth.signUp({
       email,
       password,
+      options: {
+        // Must be allowlisted under Authentication → URL Configuration.
+        // Without this, the confirm link falls back to Site URL and often
+        // lands somewhere the SPA never handles.
+        emailRedirectTo: authRedirectTo(),
+      },
     });
     if (error) throw error;
-    // With email confirmation on, signUp returns a user but no session — the
-    // caller needs to know to show "check your inbox" rather than navigating.
-    return data.session === null;
+
+    // Supabase returns a user with an empty identities array when the email
+    // is already registered — and it does NOT resend the confirmation mail.
+    // Treat that as "already registered" so the UI can guide the user.
+    const identities = data.user?.identities ?? [];
+    if (data.user && identities.length === 0) {
+      return { status: "already_registered" };
+    }
+
+    if (data.session) {
+      // Confirm email is off on the project — signup signed them in directly.
+      return { status: "signed_in" };
+    }
+
+    // Confirm email is on: Supabase queued the verification email and there
+    // is no session until they click the link.
+    return { status: "confirm_email" };
+  }, []);
+
+  const resendConfirmation = useCallback(async (email: string) => {
+    const { error } = await requireSupabase().auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: authRedirectTo() },
+    });
+    if (error) throw error;
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
+    // Land on /login so the session can settle on a public route.
     const { error } = await requireSupabase().auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: authRedirectTo() },
     });
     if (error) throw error;
   }, []);
@@ -72,10 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn,
       signUp,
+      resendConfirmation,
       signInWithGoogle,
       signOut,
     }),
-    [session, loading, signIn, signUp, signInWithGoogle, signOut]
+    [session, loading, signIn, signUp, resendConfirmation, signInWithGoogle, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
