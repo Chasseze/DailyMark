@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useStreak } from "../hooks/useStreak";
+import ReadAloudButton from "../components/ReadAloudButton";
 
 interface Quote {
   text: string;
@@ -299,9 +300,20 @@ export default function Daily() {
 
       {/* Quote of the day */}
       <section className="glass mb-4 rounded-3xl p-6">
-        <span className="inline-block rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
-          Quote of the day
-        </span>
+        <div className="flex items-start justify-between gap-2">
+          <span className="inline-block rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
+            Quote of the day
+          </span>
+          <ReadAloudButton
+            compact
+            request={{
+              id: "daily-quote",
+              label: "Quote of the day",
+              text: `${quote.text} — ${quote.source}`,
+              markdown: false,
+            }}
+          />
+        </div>
         <p className="note-title mt-4 text-xl leading-snug text-white light:text-slate-900">
           {quote.text}
         </p>

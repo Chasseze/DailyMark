@@ -245,6 +245,33 @@ html {
 :root.light .md-url { color: oklch(0.55 0.02 260); }
 :root.light .md-quote { color: oklch(0.45 0.06 150); }
 :root.light .md-marker { color: #b45309; }
+
+.speech-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: oklch(0.45 0.02 260 / 0.7);
+  outline: none;
+}
+:root.light .speech-slider { background: oklch(0.86 0.02 260); }
+.speech-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f6c453, #e8893a);
+  cursor: pointer;
+}
+.speech-slider::-moz-range-thumb {
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #f6c453, #e8893a);
+  cursor: pointer;
+}
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

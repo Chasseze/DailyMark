@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import Markdown from "../components/Markdown";
+import ReadAloudButton from "../components/ReadAloudButton";
 import { toggleTaskByIndex } from "../lib/markdown-edit";
 
 export default function NoteView() {
@@ -35,6 +36,9 @@ export default function NoteView() {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
+  // Reading the title first makes the spoken version match the page.
+  const spoken = [note.title, note.content].filter((part) => part.trim()).join("\n\n");
+
   const handleToggleTask = (index: number) => {
     const next = toggleTaskByIndex(note.content, index);
     if (next !== null) void updateNote(note.id, { content: next });
@@ -48,6 +52,9 @@ export default function NoteView() {
           ←
         </button>
         <div className="flex-1" />
+        <ReadAloudButton
+          request={{ id: "note:" + note.id, label: note.title || "Untitled", text: spoken }}
+        />
         <button onClick={() => void togglePin(note.id)}
           className={
             "rounded-xl p-2 text-sm transition-colors hover:bg-white/10 " +

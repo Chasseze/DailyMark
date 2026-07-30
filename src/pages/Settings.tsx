@@ -1,14 +1,32 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "../context/theme-context";
 import { useNotes } from "../context/notes-context";
 import { useAuth } from "../context/auth-context";
+import { useSpeech } from "../context/speech-context";
+import {
+  PITCH_MAX,
+  PITCH_MIN,
+  RATE_MAX,
+  RATE_MIN,
+  RATE_STEP,
+  describeVoice,
+  sortVoices,
+} from "../lib/speech";
 import type { Theme } from "../lib/types";
+
+const SAMPLE = "This is how DailyMark will sound when it reads your notes aloud.";
 
 export default function Settings() {
   const { theme, resolved, setTheme, toggle } = useTheme();
   const { notes, notebooks } = useNotes();
   const { user, signOut } = useAuth();
+  const speech = useSpeech();
   const [signingOut, setSigningOut] = useState(false);
+
+  const voices = useMemo(
+    () => sortVoices(speech.voices, typeof navigator !== "undefined" ? navigator.language : "en-US"),
+    [speech.voices]
+  );
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -64,6 +82,89 @@ export default function Settings() {
             } />
           </button>
         </div>
+      </div>
+
+      <div className="glass mb-4 rounded-2xl p-4">
+        <h2 className="mb-1 text-sm font-semibold text-slate-300 light:text-slate-700">Read aloud</h2>
+        {!speech.supported ? (
+          <p className="text-xs leading-relaxed text-slate-500">
+            This browser has no speech synthesis, so the listen buttons are hidden. Chrome, Edge and
+            Safari can read notes aloud.
+          </p>
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-slate-500">
+              Notes are spoken by your device — no audio leaves the browser.
+            </p>
+
+            <label className="block text-xs text-slate-500" htmlFor="voice">
+              Voice
+            </label>
+            <select
+              id="voice"
+              value={speech.prefs.voiceURI ?? ""}
+              onChange={(e) => speech.setVoiceURI(e.target.value || null)}
+              className="mt-1 w-full rounded-xl border border-white/5 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+            >
+              <option value="">System default</option>
+              {voices.map((voice) => (
+                <option key={voice.voiceURI} value={voice.voiceURI}>
+                  {describeVoice(voice)}
+                </option>
+              ))}
+            </select>
+            {voices.length === 0 && (
+              <p className="mt-1 text-[11px] text-slate-500">
+                No voices installed on this device yet — the system default is used.
+              </p>
+            )}
+
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+              <label htmlFor="rate">Speed</label>
+              <span className="text-amber-400">{speech.prefs.rate.toFixed(2)}×</span>
+            </div>
+            <input
+              id="rate"
+              type="range"
+              min={RATE_MIN}
+              max={RATE_MAX}
+              step={RATE_STEP}
+              value={speech.prefs.rate}
+              onChange={(e) => speech.setRate(Number(e.target.value))}
+              className="speech-slider mt-1 w-full"
+            />
+
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+              <label htmlFor="pitch">Pitch</label>
+              <span className="text-amber-400">{speech.prefs.pitch.toFixed(2)}</span>
+            </div>
+            <input
+              id="pitch"
+              type="range"
+              min={PITCH_MIN}
+              max={PITCH_MAX}
+              step={0.05}
+              value={speech.prefs.pitch}
+              onChange={(e) => speech.setPitch(Number(e.target.value))}
+              className="speech-slider mt-1 w-full"
+            />
+
+            <button
+              type="button"
+              onClick={() =>
+                speech.speak({
+                  id: "settings-sample",
+                  label: "Voice preview",
+                  text: SAMPLE,
+                  markdown: false,
+                })
+              }
+              className="mt-4 w-full rounded-xl bg-slate-800/30 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-amber-500/10 hover:text-amber-300 light:bg-slate-100 light:text-slate-600"
+            >
+              Hear a sample
+            </button>
+          </>
+        )}
       </div>
 
       <div className="glass mb-4 rounded-2xl p-4">

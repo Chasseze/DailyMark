@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
+import { useSpeech } from "../context/speech-context";
 import { errorMessage } from "../lib/supabase";
 import NoteCard from "../components/NoteCard";
 
@@ -8,6 +9,7 @@ const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"
 
 export default function Notes() {
   const { notes, notebooks, loading, error, addNote, addNotebook } = useNotes();
+  const { status: speechStatus } = useSpeech();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeNotebook, setActiveNotebook] = useState<string | null>(null);
@@ -192,7 +194,11 @@ export default function Notes() {
       <button
         onClick={handleQuickNote}
         disabled={busy}
-        className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 md:right-[calc(50%-15rem)]"
+        className={
+          "fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 md:right-[calc(50%-15rem)] " +
+          // Lifted clear of the read-aloud strip while it's on screen.
+          (speechStatus === "idle" ? "bottom-24" : "bottom-48")
+        }
       >
         <span className="text-2xl">+</span>
       </button>
