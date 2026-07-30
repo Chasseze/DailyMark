@@ -100,6 +100,7 @@ html {
 .prose-custom {
   font-family: var(--font-sans);
 }
+.prose-custom > :first-child { margin-top: 0; }
 .prose-custom h1 {
   font-family: var(--font-display);
   font-size: 1.5rem;
@@ -140,8 +141,110 @@ html {
 }
 .prose-custom th { background: oklch(0.3 0.02 260 / 0.5); }
 
-.editor-textarea { field-sizing: content; resize: none; min-height: 200px; }
+/* GFM task lists: a real checkbox the reader can tick, not a bullet. */
+.prose-custom .contains-task-list { list-style: none; padding-left: 0.15rem; }
+.prose-custom .task-list-item { display: flex; align-items: flex-start; gap: 0.5rem; }
+.prose-custom .task-list-item:has(input:checked) {
+  color: oklch(0.62 0.02 260);
+  text-decoration: line-through;
+}
+.md-task-checkbox {
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-top: 0.3rem;
+  accent-color: var(--color-accent);
+}
+.md-task-checkbox:not(:disabled) { cursor: pointer; }
 
+/* Denser prose for note cards, where the preview is a couple of lines tall. */
+.prose-compact { font-size: 0.75rem; line-height: 1.5; }
+.prose-compact :is(h1, h2, h3, h4, h5, h6) { font-size: 0.8rem; margin: 0 0 0.15rem; }
+.prose-compact :is(p, ul, ol, pre, blockquote, table) { margin: 0 0 0.2rem; }
+.prose-compact li { margin: 0; }
+.prose-compact pre { padding: 0.35rem 0.5rem; border-radius: 0.4rem; }
+.prose-compact blockquote { margin: 0 0 0.2rem; padding-left: 0.6rem; }
+.prose-compact hr { margin: 0.3rem 0; }
+.prose-compact .md-task-checkbox { margin-top: 0.2rem; }
+
+.note-card-preview {
+  max-height: 3.4rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+}
+
+/* ── Live Markdown editor ───────────────────────────────────────────────────
+   The highlighted mirror and the real <textarea> hold the same characters at
+   the same metrics, stacked on top of each other. Every token rule below is
+   metric-neutral — colour, weight faked with a text shadow, underlines,
+   backgrounds. A true bold face or a larger heading would change glyph
+   advances and slide the caret away from the text it points at. Italic is safe
+   here because no italic Figtree face is loaded, so the browser synthesises a
+   skew, which keeps advances identical. */
+
+.md-editor-surface { position: relative; min-height: 14rem; }
+
+.md-mirror,
+.md-editor-input {
+  margin: 0;
+  border: 0;
+  padding: 1rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: normal;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  tab-size: 2;
+  font-feature-settings: "ss01" on, "cv11" on;
+}
+
+.md-mirror { color: #f1f5f9; }
+:root.light .md-mirror { color: #0f172a; }
+
+.md-editor-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--color-accent);
+  outline: none;
+}
+/* Translucent so the painted text underneath stays readable when selected. */
+.md-editor-input::selection { background: oklch(0.75 0.15 85 / 0.32); }
+
+.md-syntax { color: oklch(0.62 0.03 260); }
+.md-heading { color: #fcd34d; text-shadow: 0 0 0.6px currentColor; }
+.md-strong { color: #ffffff; text-shadow: 0 0 0.6px currentColor; }
+.md-em { font-style: italic; }
+.md-strike { color: oklch(0.6 0.02 260); text-decoration: line-through; }
+.md-code-span {
+  background: oklch(0.35 0.02 260 / 0.55);
+  border-radius: 0.25rem;
+  color: #fbbf24;
+}
+.md-link-text { color: #f59e0b; text-decoration: underline; text-underline-offset: 2px; }
+.md-url { color: oklch(0.62 0.03 260); text-decoration: underline; }
+.md-quote { color: oklch(0.74 0.04 150); font-style: italic; }
+.md-marker { color: #f59e0b; text-shadow: 0 0 0.6px currentColor; }
+.md-task-done { color: oklch(0.6 0.02 260); text-decoration: line-through; }
+.md-rule { color: #f59e0b; }
+
+:root.light .md-syntax { color: oklch(0.62 0.02 260); }
+:root.light .md-heading { color: #b45309; }
+:root.light .md-strong { color: #0f172a; }
+:root.light .md-code-span { background: oklch(0.92 0.02 85 / 0.9); color: #92400e; }
+:root.light .md-link-text { color: #b45309; }
+:root.light .md-url { color: oklch(0.55 0.02 260); }
+:root.light .md-quote { color: oklch(0.45 0.06 150); }
+:root.light .md-marker { color: #b45309; }
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

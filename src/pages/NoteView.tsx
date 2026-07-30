@@ -1,12 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useNotes } from "../context/notes-context";
+import Markdown from "../components/Markdown";
+import { toggleTaskByIndex } from "../lib/markdown-edit";
 
 export default function NoteView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { notes, loading, deleteNote, togglePin } = useNotes();
+  const { notes, loading, deleteNote, togglePin, updateNote } = useNotes();
   const note = notes.find((n) => n.id === id);
 
   // Without this, opening a note link directly flashes "Note not found"
@@ -34,6 +34,11 @@ export default function NoteView() {
   const date = new Date(note.updated_at).toLocaleDateString(undefined, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
+
+  const handleToggleTask = (index: number) => {
+    const next = toggleTaskByIndex(note.content, index);
+    if (next !== null) void updateNote(note.id, { content: next });
+  };
 
   return (
     <div className="animate-in px-4 pt-4">
@@ -82,9 +87,10 @@ export default function NoteView() {
           </div>
         )}
 
-        <div className="prose-custom mt-4 text-sm leading-relaxed text-slate-300 light:text-slate-700">
+        <div className="mt-4 text-sm leading-relaxed text-slate-300 light:text-slate-700">
           {note.content.trim() ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
+            // Checkboxes stay live here: ticking one saves the note.
+            <Markdown onToggleTask={handleToggleTask}>{note.content}</Markdown>
           ) : (
             <p className="italic text-slate-500">This note is empty. Tap edit to add content.</p>
           )}

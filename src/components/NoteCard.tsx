@@ -1,5 +1,7 @@
 import type { Note } from "../lib/types";
 import { useNotes } from "../context/notes-context";
+import { markdownPreview } from "../lib/markdown";
+import Markdown from "./Markdown";
 
 interface Props {
   note: Note;
@@ -9,10 +11,9 @@ interface Props {
 export default function NoteCard({ note, onClick }: Props) {
   const { togglePin, deleteNote } = useNotes();
 
-  const preview = note.content
-    .replace(/[#*`>[\]!-]/g, "")
-    .slice(0, 120)
-    .trim();
+  // Cards show the note the way it will read: headings, bold, bullets and
+  // checkboxes, just smaller.
+  const preview = markdownPreview(note.content);
 
   const date = new Date(note.updated_at).toLocaleDateString(undefined, {
     month: "short", day: "numeric",
@@ -28,9 +29,13 @@ export default function NoteCard({ note, onClick }: Props) {
           <h3 className="note-title truncate text-[0.95rem] text-white light:text-slate-900">
             {note.title || "Untitled"}
           </h3>
-          <p className="mt-1 line-clamp-2 text-xs text-slate-400 light:text-slate-500">
-            {preview || "No content yet"}
-          </p>
+          {preview.trim() ? (
+            <div className="note-card-preview mt-1 text-xs text-slate-400 light:text-slate-500">
+              <Markdown compact>{preview}</Markdown>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-slate-400 light:text-slate-500">No content yet</p>
+          )}
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[10px] text-slate-500">{date}</span>
             {note.tags.map((tag) => (
