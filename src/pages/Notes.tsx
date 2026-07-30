@@ -71,7 +71,7 @@ export default function Notes() {
   return (
     <div className="px-4 pt-6">
       <div className="mb-6">
-        <h1 className="page-title text-white light:text-slate-900">My notes</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-white light:text-slate-900">My notes</h1>
         <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
           {loading ? "Loading…" : `${notes.length} note${notes.length !== 1 ? "s" : ""}`}
         </p>
@@ -94,7 +94,7 @@ export default function Notes() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search notes…"
-          className="w-full rounded-xl border border-white/5 bg-slate-900/50 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+          className="w-full rounded-xl border border-white/5 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900"
         />
       </div>
 
@@ -173,7 +173,7 @@ export default function Notes() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="mt-12 text-center">
-          <p className="note-title text-2xl text-slate-400 light:text-slate-500">
+          <p className="text-2xl font-bold tracking-tight text-slate-400 light:text-slate-500">
             {search ? "Nothing matched" : "Fresh page"}
           </p>
           <p className="mt-2 text-sm text-slate-500">

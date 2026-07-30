@@ -55,8 +55,19 @@ export default function BottomNav() {
                 : "text-slate-500 hover:text-slate-300 light:hover:text-slate-700")
             }
           >
-            {icon}
-            <span>{label}</span>
+            {({ isActive }) => (
+              <>
+                <span
+                  className={
+                    "flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-200 " +
+                    (isActive ? "bg-amber-500/15" : "")
+                  }
+                >
+                  {icon}
+                </span>
+                <span>{label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </div>
