@@ -142,6 +142,129 @@ html {
 
 .editor-textarea { field-sizing: content; resize: none; min-height: 200px; }
 
+/* ── Markdown composing surface ─────────────────────────────────────────────
+   A tokenized mirror of the text is painted behind a transparent textarea, so
+   the formatting the app recognized shows up under the caret while the textarea
+   keeps ownership of editing, selection and undo. Both layers must share every
+   metric that affects text layout, or the caret drifts away from the glyphs. */
+
+.md-input {
+  position: relative;
+  isolation: isolate;
+}
+
+.md-input__mirror,
+.md-input__area {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.75;
+  letter-spacing: 0;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.md-input__mirror {
+  min-height: 240px;
+  background: oklch(0.2 0.02 260 / 0.5);
+  border-color: oklch(1 0 0 / 0.05);
+  color: oklch(0.85 0.01 260);
+  pointer-events: none;
+}
+:root.light .md-input__mirror {
+  background: #f8fafc;
+  border-color: oklch(0 0 0 / 0.08);
+  color: #0f172a;
+}
+
+.md-input__area {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--color-accent);
+  outline: none;
+}
+.md-input:focus-within .md-input__mirror {
+  border-color: oklch(0.75 0.15 85 / 0.35);
+}
+.md-input__area::selection {
+  background: oklch(0.75 0.15 85 / 0.28);
+}
+
+/* Recognized markdown. Weight and slant only ever change inside a monospace
+   family, where the advance width is unchanged, so the mirror stays aligned. */
+.md-t--syntax { color: oklch(0.62 0.1 85 / 0.75); }
+.md-t--heading { color: oklch(0.92 0.06 85); font-weight: 700; }
+.md-t--strong { font-weight: 700; color: oklch(0.95 0.01 260); }
+.md-t--em { font-style: italic; color: oklch(0.88 0.03 85); }
+.md-t--strike { text-decoration: line-through; color: oklch(0.62 0.01 260); }
+.md-t--code,
+.md-t--codeblock { color: oklch(0.82 0.11 155); }
+.md-t--link { color: oklch(0.78 0.12 240); text-decoration: underline; text-underline-offset: 2px; }
+.md-t--image { color: oklch(0.78 0.12 300); }
+.md-t--url { color: oklch(0.6 0.05 240); }
+.md-t--quote { color: oklch(0.72 0.03 260); font-style: italic; }
+.md-t--checkbox { color: oklch(0.7 0.1 85); }
+.md-t--checkbox-done { color: oklch(0.75 0.15 145); }
+.md-t--done { color: oklch(0.6 0.01 260); text-decoration: line-through; }
+.md-t--rule { color: oklch(0.6 0.08 85 / 0.8); }
+.md-t--table-sep { color: oklch(0.6 0.06 200 / 0.8); }
+.md-t--placeholder { color: oklch(0.55 0.02 260); }
+
+.md-line--quote { background: oklch(0.75 0.15 85 / 0.06); }
+.md-line--code,
+.md-line--fence { background: oklch(0.55 0.1 155 / 0.07); }
+.md-line--heading { background: oklch(0.75 0.15 85 / 0.05); }
+
+:root.light .md-t--syntax { color: oklch(0.55 0.12 60); }
+:root.light .md-t--heading { color: oklch(0.42 0.1 60); }
+:root.light .md-t--strong { color: #0f172a; }
+:root.light .md-t--em { color: oklch(0.45 0.06 60); }
+:root.light .md-t--strike,
+:root.light .md-t--done { color: oklch(0.6 0.01 260); }
+:root.light .md-t--code,
+:root.light .md-t--codeblock { color: oklch(0.45 0.12 155); }
+:root.light .md-t--link { color: oklch(0.5 0.14 250); }
+:root.light .md-t--url { color: oklch(0.55 0.06 250); }
+:root.light .md-t--quote { color: oklch(0.45 0.03 260); }
+:root.light .md-t--placeholder { color: oklch(0.65 0.01 260); }
+:root.light .md-input__area::selection { background: oklch(0.8 0.14 85 / 0.35); }
+
+.md-tool {
+  min-width: 1.9rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: oklch(0.72 0.01 260);
+  background: oklch(0.32 0.02 260 / 0.5);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.md-tool:hover {
+  color: oklch(0.85 0.12 85);
+  background: oklch(0.4 0.04 85 / 0.35);
+}
+:root.light .md-tool {
+  color: #475569;
+  background: #f1f5f9;
+}
+:root.light .md-tool:hover {
+  color: oklch(0.45 0.12 60);
+  background: oklch(0.88 0.08 85 / 0.5);
+}
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }

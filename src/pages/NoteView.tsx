@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useNotes } from "../context/notes-context";
+import ReadAloud from "../components/ReadAloud";
 
 export default function NoteView() {
   const { id } = useParams<{ id: string }>();
@@ -81,6 +82,8 @@ export default function NoteView() {
             ))}
           </div>
         )}
+
+        <ReadAloud title={note.title} content={note.content} />
 
         <div className="prose-custom mt-4 text-sm leading-relaxed text-slate-300 light:text-slate-700">
           {note.content.trim() ? (
