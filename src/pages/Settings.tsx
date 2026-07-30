@@ -23,7 +23,7 @@ export default function Settings() {
 
   return (
     <div className="animate-in px-4 pt-6">
-      <h1 className="page-title mb-6 text-white light:text-slate-900">settings</h1>
+      <h1 className="page-title mb-6 text-white light:text-slate-900">Settings</h1>
 
       <div className="glass mb-4 rounded-2xl p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-300 light:text-slate-700">Account</h2>
@@ -51,7 +51,7 @@ export default function Settings() {
                   ? "bg-amber-500/20 text-amber-400"
                   : "bg-slate-800/30 text-slate-400 hover:text-slate-200 light:bg-slate-100 light:text-slate-500 light:hover:text-slate-700")
               }>
-              {t === "dark" && "🌙 "}{t === "light" && "☀️ "}{t === "system" && "💻 "}{t}
+              {t}
             </button>
           ))}
         </div>
@@ -70,11 +70,11 @@ export default function Settings() {
         <h2 className="mb-3 text-sm font-semibold text-slate-300 light:text-slate-700">Stats</h2>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-slate-800/30 p-3 light:bg-slate-100">
-            <p className="text-2xl font-bold text-white light:text-slate-900">{notes.length}</p>
-            <p className="text-xs text-slate-500">Notes</p>
+            <p className="note-title text-3xl text-white light:text-slate-900">{notes.length}</p>
+            <p className="mt-1 text-xs text-slate-500">Notes</p>
           </div>
           <div className="rounded-xl bg-slate-800/30 p-3 light:bg-slate-100">
-            <p className="text-2xl font-bold text-white light:text-slate-900">{notebooks.length}</p>
+            <p className="note-title text-3xl text-white light:text-slate-900">{notebooks.length}</p>
             <p className="text-xs text-slate-500">Notebooks</p>
           </div>
         </div>

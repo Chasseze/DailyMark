@@ -4,8 +4,8 @@
  */
 export default function SetupNotice() {
   return (
-    <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 bg-slate-950 px-6 text-white light:bg-white light:text-slate-900">
-      <h1 className="page-title text-white light:text-slate-900">almost there</h1>
+    <div className="app-shell mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 px-6 text-white light:text-slate-900">
+      <h1 className="page-title text-white light:text-slate-900">Almost there</h1>
 
       <p className="text-sm text-slate-400 light:text-slate-600">
         DailyMark needs a Supabase project before it can store anything. Three steps:

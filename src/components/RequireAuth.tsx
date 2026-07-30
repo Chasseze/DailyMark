@@ -9,7 +9,7 @@ export default function RequireAuth() {
   // check would bounce an already-signed-in user to /login on every reload.
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 light:bg-white">
+      <div className="app-shell flex min-h-screen items-center justify-center">
         <span className="text-sm text-slate-500">Loading…</span>
       </div>
     );

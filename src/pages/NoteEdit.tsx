@@ -93,7 +93,7 @@ function NoteEditor({ note }: { note: Note }) {
 
       <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
         placeholder="Note title..."
-        className="mb-3 w-full bg-transparent text-xl font-bold text-white placeholder-slate-600 focus:outline-none light:text-slate-900 light:placeholder-slate-300"
+        className="note-title mb-3 w-full bg-transparent text-2xl text-white placeholder-slate-600 focus:outline-none light:text-slate-900 light:placeholder-slate-300"
       />
 
       <div className="mb-3 flex items-center gap-2">

@@ -21,11 +21,11 @@ export default function NoteCard({ note, onClick }: Props) {
   return (
     <div
       onClick={onClick}
-      className="group glass rounded-2xl p-4 cursor-pointer transition-all duration-200 hover:scale-[1.01] hover:border-amber-500/20 active:scale-[0.99]"
+      className="note-card group glass cursor-pointer rounded-2xl p-4 transition-all duration-200 hover:border-amber-500/25 hover:brightness-110 active:scale-[0.99]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold text-white light:text-slate-900">
+          <h3 className="note-title truncate text-[0.95rem] text-white light:text-slate-900">
             {note.title || "Untitled"}
           </h3>
           <p className="mt-1 line-clamp-2 text-xs text-slate-400 light:text-slate-500">

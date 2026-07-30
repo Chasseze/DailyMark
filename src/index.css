@@ -7,21 +7,39 @@
 @custom-variant light (&:where(.light, .light *));
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
-  /* Page titles. Great Vibes ships weight 400 only — never pair it with
-     font-bold or the browser fakes the weight and the strokes smear. */
-  --font-script: "Great Vibes", "Segoe Script", cursive;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", monospace;
+
+  --color-ink: #f8fafc;
+  --color-paper: #020617;
+  --color-accent: #f59e0b;
 }
 
-/* Calligraphy has tall ascenders and deep descenders, so it needs looser
-   leading than the sans headings it replaces or the loops clip. */
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01" on, "cv11" on;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Soft editorial titles for "my notes", "daily spark", "settings", brand. */
 .page-title {
-  font-family: var(--font-script);
-  font-size: 3rem;
-  line-height: 1.35;
-  font-weight: 400;
-  letter-spacing: 0.01em;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: clamp(2.25rem, 6vw, 2.85rem);
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variation-settings: "SOFT" 50, "WONK" 0;
+}
+
+.note-title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variation-settings: "SOFT" 40, "WONK" 0;
 }
 
 html {
@@ -36,19 +54,66 @@ html {
   border-radius: 999px;
 }
 
+/* Atmosphere behind the column — avoids a flat single-color canvas. */
+.app-shell {
+  background:
+    radial-gradient(120% 80% at 50% -10%, oklch(0.45 0.08 75 / 0.18), transparent 55%),
+    radial-gradient(80% 50% at 100% 100%, oklch(0.35 0.04 250 / 0.25), transparent 50%),
+    var(--color-paper);
+}
+:root.light .app-shell {
+  background:
+    radial-gradient(120% 80% at 50% -10%, oklch(0.85 0.08 75 / 0.45), transparent 55%),
+    radial-gradient(80% 50% at 100% 100%, oklch(0.9 0.03 250 / 0.35), transparent 50%),
+    #f8fafc;
+}
+
 .glass {
-  background: oklch(0.35 0.02 260 / 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: oklch(0.32 0.02 260 / 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid oklch(1 0 0 / 0.08);
 }
 :root.light .glass {
-  background: oklch(1 0 0 / 0.7);
+  background: oklch(1 0 0 / 0.78);
   border: 1px solid oklch(0 0 0 / 0.06);
 }
 
-.prose-custom h1 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.75rem; letter-spacing: -0.02em; }
-.prose-custom h2 { font-size: 1.25rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
+/* Skip expensive blur when the user prefers reduced transparency, or on
+   coarse pointers where battery/GPU cost matters more than polish. */
+@media (prefers-reduced-transparency: reduce), (update: slow) {
+  .glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: oklch(0.28 0.015 260 / 0.96);
+  }
+  :root.light .glass {
+    background: oklch(1 0 0 / 0.96);
+  }
+}
+
+.note-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
+}
+
+.prose-custom {
+  font-family: var(--font-sans);
+}
+.prose-custom h1 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.75rem;
+  letter-spacing: -0.02em;
+}
+.prose-custom h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+  letter-spacing: -0.015em;
+}
 .prose-custom h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; }
 .prose-custom p { margin-bottom: 0.75rem; line-height: 1.75; }
 .prose-custom ul, .prose-custom ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
@@ -78,13 +143,22 @@ html {
 .editor-textarea { field-sizing: content; resize: none; min-height: 200px; }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-in { animation: fadeInUp 0.3s ease-out; }
+.animate-in { animation: fadeInUp 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in { animation: none; }
+  html { scroll-behavior: auto; }
+}
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.75 0.15 85 / 0.4); }
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.75 0.15 85 / 0.35); }
   50% { box-shadow: 0 0 0 8px oklch(0.75 0.15 85 / 0); }
 }
 .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-glow { animation: none; }
+}

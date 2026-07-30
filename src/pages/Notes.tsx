@@ -69,17 +69,29 @@ export default function Notes() {
   return (
     <div className="px-4 pt-6">
       <div className="mb-6">
-        <h1 className="page-title text-white light:text-slate-900">my notes</h1>
-        <p className="mt-1 text-sm text-slate-400 light:text-slate-500">
+        <h1 className="page-title text-white light:text-slate-900">My notes</h1>
+        <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
           {loading ? "Loading…" : `${notes.length} note${notes.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 
       <div className="relative mb-4">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+        <svg
+          viewBox="0 0 24 24"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path strokeLinecap="round" d="m16.5 16.5 3 3" />
+        </svg>
         <input
-          type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search notes..."
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search notes…"
           className="w-full rounded-xl border border-white/5 bg-slate-900/50 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900"
         />
       </div>
@@ -159,11 +171,13 @@ export default function Notes() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="mt-12 text-center">
-          <span className="text-4xl">📄</span>
-          <p className="mt-3 text-sm text-slate-500">
-            {search ? "No notes match your search" : "No notes yet"}
+          <p className="note-title text-2xl text-slate-400 light:text-slate-500">
+            {search ? "Nothing matched" : "Fresh page"}
           </p>
-          <button onClick={handleQuickNote} disabled={busy} className="mt-3 rounded-full bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/20 disabled:opacity-50">
+          <p className="mt-2 text-sm text-slate-500">
+            {search ? "Try a different search." : "Start with a quick note."}
+          </p>
+          <button onClick={handleQuickNote} disabled={busy} className="mt-4 rounded-full bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/20 disabled:opacity-50">
             Create your first note
           </button>
         </div>

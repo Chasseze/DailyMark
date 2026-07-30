@@ -35,24 +35,24 @@ export default function Daily() {
 
   return (
     <div className="animate-in px-4 pt-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="page-title text-white light:text-slate-900">daily spark</h1>
-          <p className="mt-1 text-sm text-slate-400 light:text-slate-500">
+          <h1 className="page-title text-white light:text-slate-900">Daily spark</h1>
+          <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
             {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
           </p>
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5">
-          <span className="text-lg">🔥</span>
-          <span className="text-sm font-bold text-amber-400">{streak ?? "–"}</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-amber-500/80">Streak</span>
+          <span className="text-sm font-semibold text-amber-400">{streak ?? "–"}</span>
         </div>
       </div>
 
       <div className="glass rounded-3xl p-6">
-        <span className="inline-block rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
-          {today.type === "quote" ? "💬 Quote of the Day" : "🧠 Daily Quiz"}
+        <span className="inline-block rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
+          {today.type === "quote" ? "Quote of the day" : "Daily quiz"}
         </span>
-        <p className="mt-4 text-lg leading-relaxed text-white light:text-slate-900">{today.text}</p>
+        <p className="note-title mt-4 text-xl leading-snug text-white light:text-slate-900">{today.text}</p>
 
         {today.type === "quote" && (
           <p className="mt-3 text-sm text-slate-400">— {today.source}</p>
@@ -86,15 +86,16 @@ export default function Daily() {
             "mt-4 rounded-xl p-3 text-sm font-medium " +
             (isCorrect ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400")
           }>
-            {isCorrect ? "✅ Correct! Well done." : "❌ Not quite. The answer is: " + today.answer}
+            {isCorrect ? "Correct — well done." : "Not quite. The answer is: " + today.answer}
           </div>
         )}
       </div>
 
       {today.type === "quote" && (
-        <div className="mt-4 glass rounded-2xl p-4">
+        <div className="glass mt-4 rounded-2xl p-4">
           <p className="text-sm text-slate-400 light:text-slate-500">
-            What does this quote mean to you? <span className="text-amber-400">Jot it down →</span>
+            What does this quote mean to you?{" "}
+            <span className="font-medium text-amber-400">Jot it down →</span>
           </p>
         </div>
       )}

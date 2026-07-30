@@ -67,7 +67,7 @@ export default function NoteView() {
       </div>
 
       <article>
-        <h1 className="mb-1 text-2xl font-bold text-white light:text-slate-900">
+        <h1 className="note-title mb-1 text-2xl text-white light:text-slate-900">
           {note.title || "Untitled"}
         </h1>
         <p className="mb-4 text-xs text-slate-500">{date}</p>
