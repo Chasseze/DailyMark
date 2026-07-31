@@ -1,4 +1,4 @@
-import { useSpeech } from "../context/speech-context";
+import { useSpeechControls } from "../context/speech-context";
 import type { SpeechRequest } from "../context/speech-context";
 import { markdownToPlainText } from "../lib/markdown";
 
@@ -34,7 +34,7 @@ const PlayIcon = () => (
  * Hidden when the browser has no speech synthesis at all; Settings explains why.
  */
 export default function ReadAloudButton({ request, compact = false, className = "" }: Props) {
-  const { supported, status, activeId, toggle } = useSpeech();
+  const { supported, status, activeId, toggle } = useSpeechControls();
   if (!supported) return null;
 
   const active = activeId === request.id;

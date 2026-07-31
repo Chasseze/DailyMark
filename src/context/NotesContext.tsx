@@ -1,8 +1,25 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { NewNote, Note, Notebook, NoteUpdate } from "../lib/types";
+import type { NoteRow } from "../lib/database.types";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
 import { NotesContext } from "./notes-context";
+
+const LIST_COLUMNS =
+  "id,user_id,notebook_id,title,preview,is_pinned,tags,created_at,updated_at";
+
+function asListNote(row: Omit<NoteRow, "content"> & { content?: string }): Note {
+  return {
+    ...row,
+    content: "",
+    preview: row.preview ?? "",
+    bodyLoaded: false,
+  };
+}
+
+function asHydratedNote(row: NoteRow): Note {
+  return { ...row, preview: row.preview ?? "", bodyLoaded: true };
+}
 
 export function NotesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -12,17 +29,21 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Avoid depending togglePin on the full notes array identity.
+  const notesRef = useRef(notes);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
 
   const fetchAll = useCallback(async (uid: string | null) => {
     if (!uid) return { notes: [] as Note[], notebooks: [] as Notebook[] };
 
     const db = requireSupabase();
-    // RLS already scopes both tables to the current user; the ordering is what
-    // the Notes page renders, so it comes from the indexed query.
+    // Slim list: preview instead of full content. Opened notes hydrate via ensureNote.
     const [notesRes, notebooksRes] = await Promise.all([
       db
         .from("notes")
-        .select("*")
+        .select(LIST_COLUMNS)
         .order("is_pinned", { ascending: false })
         .order("updated_at", { ascending: false }),
       db.from("notebooks").select("*").order("created_at"),
@@ -31,11 +52,12 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     if (notesRes.error) throw notesRes.error;
     if (notebooksRes.error) throw notebooksRes.error;
 
-    return { notes: notesRes.data, notebooks: notebooksRes.data };
+    return {
+      notes: (notesRes.data as Omit<NoteRow, "content">[]).map(asListNote),
+      notebooks: notebooksRes.data,
+    };
   }, []);
 
-  // Every state update happens after an await, never synchronously in the
-  // effect body — that's what keeps this off the cascading-render path.
   const refresh = useCallback(async () => {
     try {
       const data = await fetchAll(userId);
@@ -49,9 +71,6 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     }
   }, [fetchAll, userId]);
 
-  // Reload whenever the signed-in user changes. The `active` guard drops a
-  // response that arrives after the user switched, so a slow request for the
-  // previous account can't land its rows in the new one's session.
   useEffect(() => {
     let active = true;
 
@@ -74,6 +93,26 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchAll, userId]);
 
+  const ensureNote = useCallback(async (id: string) => {
+    const existing = notesRef.current.find((n) => n.id === id);
+    if (existing?.bodyLoaded) return existing;
+
+    const db = requireSupabase();
+    const { data, error: err } = await db.from("notes").select("*").eq("id", id).maybeSingle();
+    if (err) throw err;
+    if (!data) return null;
+
+    const hydrated = asHydratedNote(data as NoteRow);
+    setNotes((prev) => {
+      const idx = prev.findIndex((n) => n.id === id);
+      if (idx === -1) return [hydrated, ...prev];
+      const next = prev.slice();
+      next[idx] = hydrated;
+      return next;
+    });
+    return hydrated;
+  }, []);
+
   const addNote = useCallback(
     async (note: NewNote) => {
       const db = requireSupabase();
@@ -86,16 +125,15 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         .single();
       if (err) throw err;
 
-      setNotes((prev) => [data, ...prev]);
-      return data;
+      const hydrated = asHydratedNote(data as NoteRow);
+      setNotes((prev) => [hydrated, ...prev]);
+      return hydrated;
     },
     [userId]
   );
 
   const updateNote = useCallback(async (id: string, data: NoteUpdate) => {
     const db = requireSupabase();
-    // updated_at is set by a database trigger, so the returned row is the
-    // authority on it rather than a clock guess made here.
     const { data: row, error: err } = await db
       .from("notes")
       .update(data)
@@ -104,7 +142,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       .single();
     if (err) throw err;
 
-    setNotes((prev) => prev.map((n) => (n.id === id ? row : n)));
+    const hydrated = asHydratedNote(row as NoteRow);
+    setNotes((prev) => prev.map((n) => (n.id === id ? hydrated : n)));
   }, []);
 
   const deleteNote = useCallback(async (id: string) => {
@@ -117,11 +156,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   const togglePin = useCallback(
     async (id: string) => {
-      const current = notes.find((n) => n.id === id);
+      const current = notesRef.current.find((n) => n.id === id);
       if (!current) return;
       await updateNote(id, { is_pinned: !current.is_pinned });
     },
-    [notes, updateNote]
+    [updateNote]
   );
 
   const addNotebook = useCallback(
@@ -142,22 +181,34 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     [userId]
   );
 
-  return (
-    <NotesContext.Provider
-      value={{
-        notes,
-        notebooks,
-        loading,
-        error,
-        addNote,
-        updateNote,
-        deleteNote,
-        togglePin,
-        addNotebook,
-        refresh,
-      }}
-    >
-      {children}
-    </NotesContext.Provider>
+  const value = useMemo(
+    () => ({
+      notes,
+      notebooks,
+      loading,
+      error,
+      addNote,
+      updateNote,
+      deleteNote,
+      togglePin,
+      addNotebook,
+      ensureNote,
+      refresh,
+    }),
+    [
+      notes,
+      notebooks,
+      loading,
+      error,
+      addNote,
+      updateNote,
+      deleteNote,
+      togglePin,
+      addNotebook,
+      ensureNote,
+      refresh,
+    ]
   );
+
+  return <NotesContext.Provider value={value}>{children}</NotesContext.Provider>;
 }

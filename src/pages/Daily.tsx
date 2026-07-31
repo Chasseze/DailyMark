@@ -58,11 +58,11 @@ function bootstrapProgress(key: string): { progress: QuizProgress; questions: Qu
   return { progress: freshProgress(key, 0, questions), questions };
 }
 
-const TIER_FLOURISH: Record<ReturnType<typeof resultTier>, { emoji: string; label: string }> = {
-  perfect: { emoji: "🏆", label: "Perfect score" },
-  strong: { emoji: "🌟", label: "Excellent" },
-  ok: { emoji: "✨", label: "Nice work" },
-  try: { emoji: "💪", label: "Keep going" },
+const TIER_FLOURISH: Record<ReturnType<typeof resultTier>, { label: string }> = {
+  perfect: { label: "Perfect score" },
+  strong: { label: "Excellent" },
+  ok: { label: "Nice work" },
+  try: { label: "Keep going" },
 };
 
 export default function Daily() {
@@ -170,7 +170,7 @@ export default function Daily() {
             })}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5">
+        <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-1.5">
           <span className="text-[11px] font-medium uppercase tracking-wider text-amber-500/80">
             Streak
           </span>
@@ -180,7 +180,7 @@ export default function Daily() {
 
       <section className="glass mb-4 rounded-3xl p-6">
         <div className="flex items-start justify-between gap-2">
-          <span className="inline-block rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
+          <span className="inline-block rounded-lg bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
             Quote of the day
           </span>
           <ReadAloudButton
@@ -207,7 +207,7 @@ export default function Daily() {
 
       <section className="glass rounded-3xl p-6">
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-block rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
+          <span className="inline-block rounded-lg bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
             Daily quiz
           </span>
           {progress.phase !== "ready" && progress.phase !== "results" && (
@@ -246,9 +246,8 @@ export default function Daily() {
                 return (
                   <span
                     key={category}
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${chip.tone}`}
+                    className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-medium ${chip.tone}`}
                   >
-                    <span aria-hidden="true">{chip.emoji}</span>
                     {chip.label}
                   </span>
                 );
@@ -267,11 +266,8 @@ export default function Daily() {
         {(progress.phase === "question" || progress.phase === "feedback") && current && meta && (
           <div key={questionKey} className="quiz-panel mt-4">
             <div
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${meta.tone}`}
+              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-medium ${meta.tone}`}
             >
-              <span className="quiz-category-emoji text-sm" aria-hidden="true">
-                {meta.emoji}
-              </span>
               {meta.label}
             </div>
             <p className="note-title mt-3 text-lg leading-snug text-white light:text-slate-900">
@@ -348,10 +344,7 @@ export default function Daily() {
 
         {progress.phase === "results" && (
           <div className="quiz-results mt-4 text-center">
-            <div className="quiz-results-badge mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10 text-3xl">
-              <span aria-hidden="true">{flourish.emoji}</span>
-            </div>
-            <p className="mt-3 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
               {flourish.label}
               {progress.attempt > 0 ? ` · round ${progress.attempt + 1}` : ""}
             </p>

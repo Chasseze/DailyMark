@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import { errorMessage } from "../lib/supabase";
@@ -7,10 +7,30 @@ import MarkdownEditor from "../components/MarkdownEditor";
 
 export default function NoteEdit() {
   const { id } = useParams<{ id: string }>();
-  const { notes, loading } = useNotes();
+  const { notes, loading, ensureNote } = useNotes();
   const note = notes.find((n) => n.id === id);
+  const [hydrateError, setHydrateError] = useState<string | null>(null);
+  const awaitingBody =
+    Boolean(id) && !loading && !hydrateError && (!note || !note.bodyLoaded);
 
-  if (loading) {
+  useEffect(() => {
+    if (!id || loading) return;
+    if (note?.bodyLoaded) return;
+    let active = true;
+    void ensureNote(id)
+      .then((row) => {
+        if (!active) return;
+        if (!row) setHydrateError("Note not found");
+      })
+      .catch((err) => {
+        if (active) setHydrateError(errorMessage(err));
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, loading, note?.bodyLoaded, ensureNote]);
+
+  if (loading || awaitingBody) {
     return (
       <div className="flex h-full min-h-[16rem] items-center justify-center">
         <p className="text-sm text-slate-500">Loading…</p>
@@ -18,17 +38,22 @@ export default function NoteEdit() {
     );
   }
 
-  if (!note) {
+  if (!note || hydrateError) {
     return (
       <div className="flex h-full min-h-[16rem] items-center justify-center">
-        <p className="text-slate-400">Note not found</p>
+        <p className="text-slate-400">{hydrateError ?? "Note not found"}</p>
       </div>
     );
   }
 
-  // Keyed by id so switching notes remounts the form with fresh initial state,
-  // instead of an effect that would clobber in-progress edits on every save.
   return <NoteEditor key={note.id} note={note} />;
+}
+
+function sameTags(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  const left = [...a].sort();
+  const right = [...b].sort();
+  return left.every((tag, i) => tag === right[i]);
 }
 
 function NoteEditor({ note }: { note: Note }) {
@@ -42,27 +67,48 @@ function NoteEditor({ note }: { note: Note }) {
   const [notebookId, setNotebookId] = useState<string | null>(note.notebook_id);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [leavePrompt, setLeavePrompt] = useState(false);
+
+  const dirty =
+    title !== note.title ||
+    content !== note.content ||
+    notebookId !== note.notebook_id ||
+    !sameTags(tags, note.tags);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || !dirty) return;
     setSaving(true);
     setSaveError(null);
     try {
       await updateNote(note.id, { title, content, tags, notebook_id: notebookId });
       navigate("/notes/" + note.id);
     } catch (err) {
-      // Stay on the page so the user's unsaved text isn't thrown away.
       setSaveError(errorMessage(err));
       setSaving(false);
     }
   };
 
-  const handleGoBack = async () => {
-    if (title.trim() || content.trim()) {
-      await handleSave();
-    } else {
+  const handleGoBack = () => {
+    if (!dirty) {
       navigate("/notes/" + note.id);
+      return;
     }
+    setLeavePrompt(true);
+  };
+
+  const discardAndLeave = () => {
+    setLeavePrompt(false);
+    navigate("/notes/" + note.id);
   };
 
   const addTag = () => {
@@ -74,16 +120,63 @@ function NoteEditor({ note }: { note: Note }) {
   return (
     <div className="px-4 py-4 md:px-6 md:py-5">
       <div className="mb-4 flex items-center gap-3">
-        <button onClick={handleGoBack}
-          className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900">
-          ←
+        <button
+          type="button"
+          onClick={handleGoBack}
+          aria-label="Back"
+          className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.5 9 12l6.5 6.5" />
+          </svg>
         </button>
         <div className="flex-1" />
-        <button onClick={handleSave} disabled={saving}
-          className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-sm font-semibold text-black transition-all hover:scale-105 active:scale-95 disabled:opacity-50">
+        {dirty && (
+          <span className="mr-1 text-[11px] font-medium uppercase tracking-wider text-amber-400/80">
+            Unsaved
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => void handleSave()}
+          disabled={saving || !dirty}
+          className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-sm font-semibold text-black transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+        >
           {saving ? "Saving…" : "Save"}
         </button>
       </div>
+
+      {leavePrompt && (
+        <div className="mb-3 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
+          <p className="text-sm text-amber-200 light:text-amber-800">
+            You have unsaved changes.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={saving}
+              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={discardAndLeave}
+              className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 light:bg-slate-200 light:text-slate-800"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeavePrompt(false)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400"
+            >
+              Keep editing
+            </button>
+          </div>
+        </div>
+      )}
 
       {saveError && (
         <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
@@ -91,15 +184,21 @@ function NoteEditor({ note }: { note: Note }) {
         </div>
       )}
 
-      <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
         placeholder="Note title..."
         className="note-title mb-3 w-full bg-transparent text-2xl text-white placeholder-slate-600 focus:outline-none light:text-slate-900 light:placeholder-slate-300"
       />
 
       <div className="mb-3 flex items-center gap-2">
         <span className="text-xs text-slate-500">Notebook:</span>
-        <select value={notebookId ?? ""} onChange={(e) => setNotebookId(e.target.value || null)}
-          className="rounded-lg border border-white/5 bg-slate-800/50 px-2 py-1 text-xs text-slate-300 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700">
+        <select
+          value={notebookId ?? ""}
+          onChange={(e) => setNotebookId(e.target.value || null)}
+          className="rounded-lg border border-white/5 bg-slate-800/50 px-2 py-1 text-xs text-slate-300 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+        >
           <option value="">None</option>
           {notebooks.map((nb) => (
             <option key={nb.id} value={nb.id}>{nb.name}</option>
@@ -110,21 +209,33 @@ function NoteEditor({ note }: { note: Note }) {
       <div className="mb-4">
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-400">
+            <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-400">
               {tag}
-              <button onClick={() => setTags(tags.filter((t) => t !== tag))}
-                className="ml-0.5 text-amber-500 hover:text-red-400">×</button>
+              <button
+                type="button"
+                onClick={() => setTags(tags.filter((t) => t !== tag))}
+                aria-label={`Remove ${tag}`}
+                className="ml-0.5 text-amber-500 hover:text-red-400"
+              >
+                ×
+              </button>
             </span>
           ))}
         </div>
         <div className="mt-2 flex gap-2">
-          <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)}
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
             placeholder="Add tag..."
             className="flex-1 rounded-lg border border-white/5 bg-slate-800/50 px-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-900"
           />
-          <button onClick={addTag}
-            className="rounded-lg bg-slate-800/50 px-3 py-1 text-xs text-slate-400 hover:text-white light:bg-slate-100 light:hover:text-slate-900">
+          <button
+            type="button"
+            onClick={addTag}
+            className="rounded-lg bg-slate-800/50 px-3 py-1 text-xs text-slate-400 hover:text-white light:bg-slate-100 light:hover:text-slate-900"
+          >
             Add
           </button>
         </div>

@@ -13,6 +13,8 @@ export interface NotesContextType {
   deleteNote: (id: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
   addNotebook: (name: string, color: string) => Promise<Notebook>;
+  /** Load the full Markdown body for a list row (no-op if already hydrated). */
+  ensureNote: (id: string) => Promise<Note | null>;
   refresh: () => Promise<void>;
 }
 

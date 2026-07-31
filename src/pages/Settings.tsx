@@ -3,7 +3,7 @@ import { useTheme } from "../context/theme-context";
 import { useMood } from "../context/mood-context";
 import { useNotes } from "../context/notes-context";
 import { useAuth } from "../context/auth-context";
-import { useSpeech } from "../context/speech-context";
+import { useSpeechControls } from "../context/speech-context";
 import {
   PITCH_MAX,
   PITCH_MIN,
@@ -25,7 +25,7 @@ export default function Settings() {
   const { mood, setMood } = useMood();
   const { notes, notebooks } = useNotes();
   const { user, signOut } = useAuth();
-  const speech = useSpeech();
+  const speech = useSpeechControls();
   const [signingOut, setSigningOut] = useState(false);
 
   const locale = typeof navigator !== "undefined" ? navigator.language : "en-US";
