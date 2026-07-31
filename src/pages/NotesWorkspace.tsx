@@ -15,12 +15,12 @@ export default function NotesWorkspace() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="notes-masthead sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3.5">
-        <div className="min-w-0">
+      <header className="notes-masthead sticky top-0 z-40 flex items-center justify-between gap-3 px-4 py-3.5">
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-[1.15rem] font-bold tracking-tight text-white">
             My Notes
           </h1>
-          <p className="mt-0.5 hidden text-[11px] text-white/70 sm:block">
+          <p className="mt-0.5 hidden truncate text-[11px] text-white/70 sm:block">
             {moodMeta.blurb}
           </p>
         </div>
