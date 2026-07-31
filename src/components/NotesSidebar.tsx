@@ -1,9 +1,17 @@
 import { useMemo, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
+import { markdownToPlainText } from "../lib/markdown";
 import { errorMessage } from "../lib/supabase";
 
 const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
+
+/** First paragraph of a note, clamped to ~3 lines in the sidebar card. */
+function openingParagraph(content: string): string {
+  const plain = markdownToPlainText(content).replace(/\r/g, "").trim();
+  if (!plain) return "";
+  return plain.split(/\n\s*\n/)[0]?.replace(/\n+/g, " ").trim() ?? "";
+}
 
 export default function NotesSidebar() {
   const { notes, notebooks, loading, error, addNote, addNotebook } = useNotes();
@@ -195,9 +203,9 @@ export default function NotesSidebar() {
         )}
 
         {loading ? (
-          <div className="space-y-1.5 px-1">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-10 animate-pulse rounded-lg bg-white/5 light:bg-slate-200/70" />
+          <div className="space-y-2 px-0.5">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-xl bg-white/5 light:bg-slate-200/70" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -215,40 +223,58 @@ export default function NotesSidebar() {
             </button>
           </div>
         ) : (
-          <nav className="space-y-0.5" aria-label="Notes files">
+          <nav className="notes-file-list" aria-label="Notes files">
             {filtered.map((note) => {
               const active = selectedId === note.id;
+              const preview = openingParagraph(note.content);
+              const date = new Date(note.updated_at).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              });
+
               return (
                 <NavLink
                   key={note.id}
                   to={"/notes/" + note.id}
-                  className="notes-file-row"
+                  className="notes-file-card"
                   data-active={active ? "true" : "false"}
                 >
-                  <span className="notes-file-glyph" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 3.75h7.5L19 8.25v12a.75.75 0 0 1-.75.75H7.75A.75.75 0 0 1 7 20.25V3.75Z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 3.75V8H19" />
-                    </svg>
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1">
-                      <span className="truncate text-[0.82rem] font-medium text-white light:text-slate-900">
-                        {note.title || "Untitled"}
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="min-w-0 flex-1 truncate text-[0.88rem] font-semibold tracking-tight text-white light:text-slate-900">
+                      {note.title || "Untitled"}
+                    </h3>
+                    {note.is_pinned && (
+                      <span className="mt-1 shrink-0 text-[0.55rem] text-amber-400" aria-label="Pinned">
+                        ●
                       </span>
-                      {note.is_pinned && (
-                        <span className="shrink-0 text-[0.55rem] text-amber-400" aria-label="Pinned">
-                          ●
+                    )}
+                  </div>
+
+                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
+                    {date}
+                  </p>
+
+                  {note.tags.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {note.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-md bg-amber-500/12 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+                        >
+                          {tag}
                         </span>
-                      )}
-                    </span>
-                    <span className="mt-0.5 block truncate text-[10px] text-slate-500">
-                      {new Date(note.updated_at).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {preview ? (
+                    <p className="notes-file-card__preview mt-2 text-[11px] leading-relaxed text-slate-400 light:text-slate-500">
+                      {preview}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-[11px] italic text-slate-500">No content yet</p>
+                  )}
                 </NavLink>
               );
             })}
