@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useSpeech } from "../context/speech-context";
+import { useSpeechControls, useSpeechProgress } from "../context/speech-context";
 
 const RATES = [0.8, 1, 1.25, 1.5, 1.75];
 
@@ -42,9 +42,6 @@ export default function ReadAloudBar() {
   const {
     status,
     label,
-    chunks,
-    chunkIndex,
-    wordRange,
     error,
     prefs,
     setRate,
@@ -53,7 +50,8 @@ export default function ReadAloudBar() {
     stop,
     skip,
     dismissError,
-  } = useSpeech();
+  } = useSpeechControls();
+  const { chunks, chunkIndex, wordRange } = useSpeechProgress();
 
   if (status === "idle" && !error) return null;
 

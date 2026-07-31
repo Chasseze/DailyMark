@@ -12,7 +12,8 @@ import {
 } from "../lib/speech";
 import { markdownToPlainText } from "../lib/markdown";
 import {
-  SpeechContext,
+  SpeechControlsContext,
+  SpeechProgressContext,
   type SpeechPrefs,
   type SpeechRequest,
   type SpeechStatus,
@@ -365,7 +366,7 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     };
   }, [supported]);
 
-  const value = useMemo(
+  const controls = useMemo(
     () => ({
       supported,
       voices,
@@ -376,9 +377,6 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       status,
       activeId,
       label,
-      chunks,
-      chunkIndex,
-      wordRange,
       error,
       speak,
       toggle,
@@ -398,9 +396,6 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
       status,
       activeId,
       label,
-      chunks,
-      chunkIndex,
-      wordRange,
       error,
       speak,
       toggle,
@@ -412,5 +407,18 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     ]
   );
 
-  return <SpeechContext.Provider value={value}>{children}</SpeechContext.Provider>;
+  const progress = useMemo(
+    () => ({
+      chunks,
+      chunkIndex,
+      wordRange,
+    }),
+    [chunks, chunkIndex, wordRange]
+  );
+
+  return (
+    <SpeechControlsContext.Provider value={controls}>
+      <SpeechProgressContext.Provider value={progress}>{children}</SpeechProgressContext.Provider>
+    </SpeechControlsContext.Provider>
+  );
 }

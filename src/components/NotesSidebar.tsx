@@ -1,25 +1,16 @@
 import { useMemo, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
-import { markdownToPlainText } from "../lib/markdown";
 import { errorMessage } from "../lib/supabase";
 
 const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
 
-/** First ~3 lines of a note for the sidebar card preview. */
-function openingParagraph(content: string): string {
-  const plain = markdownToPlainText(content).replace(/\r/g, "").trim();
+/** Opening preview from the DB snippet, wrapped to ~3 lines via CSS. */
+function openingLines(preview: string): string {
+  const plain = preview.trim();
   if (!plain) return "";
-
-  const lines = plain
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length >= 2) return lines.slice(0, 3).join("\n");
-
-  // Single block of prose — keep it intact; CSS line-clamp wraps to 3 lines.
-  return lines[0] ?? "";
+  // Prefer sentence-ish breaks so line-clamp has natural wraps.
+  return plain.replace(/([.!?])\s+/g, "$1\n");
 }
 
 export default function NotesSidebar() {
@@ -42,7 +33,7 @@ export default function NotesSidebar() {
       list = list.filter(
         (n) =>
           n.title.toLowerCase().includes(q) ||
-          n.content.toLowerCase().includes(q) ||
+          n.preview.toLowerCase().includes(q) ||
           n.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
@@ -235,7 +226,7 @@ export default function NotesSidebar() {
           <nav className="notes-file-list" aria-label="Notes files">
             {filtered.map((note) => {
               const active = selectedId === note.id;
-              const preview = openingParagraph(note.content);
+              const preview = openingLines(note.preview);
               const date = new Date(note.updated_at).toLocaleDateString(undefined, {
                 month: "short",
                 day: "numeric",

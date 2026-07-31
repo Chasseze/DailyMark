@@ -19,7 +19,8 @@ export interface SpeechRequest {
   markdown?: boolean;
 }
 
-export interface SpeechContextType {
+/** Infrequent controls — safe for Layout, buttons, and Settings to subscribe to. */
+export interface SpeechControlsType {
   supported: boolean;
   voices: SpeechSynthesisVoice[];
   prefs: SpeechPrefs;
@@ -31,10 +32,6 @@ export interface SpeechContextType {
   /** Request id currently loaded into the player, playing or paused. */
   activeId: string | null;
   label: string | null;
-  chunks: string[];
-  chunkIndex: number;
-  /** Character range of the word being spoken inside the current chunk. */
-  wordRange: [number, number] | null;
   error: string | null;
 
   speak: (request: SpeechRequest) => void;
@@ -47,12 +44,37 @@ export interface SpeechContextType {
   dismissError: () => void;
 }
 
-// Split from SpeechContext.tsx so that file only exports a component, which is
-// what React Fast Refresh needs to hot-reload the provider.
-export const SpeechContext = createContext<SpeechContextType | null>(null);
+/** High-frequency playback progress — only the read-aloud bar should subscribe. */
+export interface SpeechProgressType {
+  chunks: string[];
+  chunkIndex: number;
+  /** Character range of the word being spoken inside the current chunk. */
+  wordRange: [number, number] | null;
+}
 
-export function useSpeech() {
-  const ctx = useContext(SpeechContext);
-  if (!ctx) throw new Error("useSpeech must be used within SpeechProvider");
+export type SpeechContextType = SpeechControlsType & SpeechProgressType;
+
+export const SpeechControlsContext = createContext<SpeechControlsType | null>(null);
+export const SpeechProgressContext = createContext<SpeechProgressType | null>(null);
+
+/** @deprecated Prefer useSpeechControls / useSpeechProgress to avoid word-boundary churn. */
+export function useSpeech(): SpeechContextType {
+  const controls = useContext(SpeechControlsContext);
+  const progress = useContext(SpeechProgressContext);
+  if (!controls || !progress) {
+    throw new Error("useSpeech must be used within SpeechProvider");
+  }
+  return { ...controls, ...progress };
+}
+
+export function useSpeechControls() {
+  const ctx = useContext(SpeechControlsContext);
+  if (!ctx) throw new Error("useSpeechControls must be used within SpeechProvider");
+  return ctx;
+}
+
+export function useSpeechProgress() {
+  const ctx = useContext(SpeechProgressContext);
+  if (!ctx) throw new Error("useSpeechProgress must be used within SpeechProvider");
   return ctx;
 }

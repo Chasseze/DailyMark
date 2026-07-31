@@ -21,6 +21,8 @@ export type NoteRow = {
   notebook_id: string | null;
   title: string;
   content: string;
+  /** Plain opening snippet for list cards — kept in sync by a DB trigger. */
+  preview: string;
   is_pinned: boolean;
   tags: string[];
   created_at: string;
@@ -65,6 +67,7 @@ export type Database = {
           notebook_id?: string | null;
           title?: string;
           content?: string;
+          preview?: string;
           is_pinned?: boolean;
           tags?: string[];
         };
@@ -72,6 +75,7 @@ export type Database = {
           notebook_id?: string | null;
           title?: string;
           content?: string;
+          preview?: string;
           is_pinned?: boolean;
           tags?: string[];
         };

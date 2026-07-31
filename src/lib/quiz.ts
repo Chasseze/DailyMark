@@ -24,31 +24,29 @@ export interface QuizProgress {
   phase: QuizPhase;
 }
 
-/** Visual cue for each category — small and labelled, not decorative clutter. */
+/** Visual cue for each category — label + tone only, no emoji clutter. */
 export const CATEGORY_META: Record<
   QuizCategory,
-  { emoji: string; label: string; tone: string }
+  { label: string; tone: string }
 > = {
-  Medicine: { emoji: "🩺", label: "Medicine", tone: "text-rose-400 bg-rose-500/10" },
-  Science: { emoji: "🔬", label: "Science", tone: "text-sky-400 bg-sky-500/10" },
+  Medicine: { label: "Medicine", tone: "text-rose-400 bg-rose-500/10" },
+  Science: { label: "Science", tone: "text-sky-400 bg-sky-500/10" },
   "Current Affairs": {
-    emoji: "📰",
     label: "Current affairs",
     tone: "text-violet-400 bg-violet-500/10",
   },
   "General Knowledge": {
-    emoji: "🧠",
     label: "General knowledge",
     tone: "text-amber-400 bg-amber-500/10",
   },
-  History: { emoji: "📜", label: "History", tone: "text-orange-400 bg-orange-500/10" },
-  Geography: { emoji: "🌍", label: "Geography", tone: "text-emerald-400 bg-emerald-500/10" },
-  Technology: { emoji: "💻", label: "Technology", tone: "text-cyan-400 bg-cyan-500/10" },
-  Literature: { emoji: "📚", label: "Literature", tone: "text-fuchsia-400 bg-fuchsia-500/10" },
-  Philosophy: { emoji: "💭", label: "Philosophy", tone: "text-indigo-400 bg-indigo-500/10" },
-  Art: { emoji: "🎨", label: "Art", tone: "text-pink-400 bg-pink-500/10" },
-  Math: { emoji: "∑", label: "Math", tone: "text-teal-400 bg-teal-500/10" },
-  Culture: { emoji: "🎭", label: "Culture", tone: "text-lime-400 bg-lime-500/10" },
+  History: { label: "History", tone: "text-orange-400 bg-orange-500/10" },
+  Geography: { label: "Geography", tone: "text-emerald-400 bg-emerald-500/10" },
+  Technology: { label: "Technology", tone: "text-cyan-400 bg-cyan-500/10" },
+  Literature: { label: "Literature", tone: "text-fuchsia-400 bg-fuchsia-500/10" },
+  Philosophy: { label: "Philosophy", tone: "text-indigo-400 bg-indigo-500/10" },
+  Art: { label: "Art", tone: "text-pink-400 bg-pink-500/10" },
+  Math: { label: "Math", tone: "text-teal-400 bg-teal-500/10" },
+  Culture: { label: "Culture", tone: "text-lime-400 bg-lime-500/10" },
 };
 
 export function dateKey(d = new Date()): string {

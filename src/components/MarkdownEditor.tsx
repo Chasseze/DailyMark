@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useDeferredValue, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import Markdown from "./Markdown";
 import MarkdownHighlight from "./MarkdownHighlight";
 import MarkdownToolbar, { type MdCommand } from "./MarkdownToolbar";
@@ -182,6 +182,9 @@ export default function MarkdownEditor({ content, onChange }: Props) {
 
   const showSource = view !== "preview";
   const showRich = view !== "source";
+  // Keep the textarea live; defer the expensive remark render so typing stays smooth.
+  const deferredContent = useDeferredValue(content);
+  const richContent = view === "live" ? deferredContent : content;
 
   return (
     <div>
@@ -231,8 +234,8 @@ export default function MarkdownEditor({ content, onChange }: Props) {
           <div>
             {view === "live" && <PaneLabel>Rich text</PaneLabel>}
             <div className="min-h-[14rem] rounded-2xl border border-white/5 bg-slate-900/30 p-4 text-sm text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-700">
-              {content.trim() ? (
-                <Markdown onToggleTask={handleToggleTask}>{content}</Markdown>
+              {richContent.trim() ? (
+                <Markdown onToggleTask={handleToggleTask}>{richContent}</Markdown>
               ) : (
                 <p className="italic text-slate-500">Rich text appears here as you type…</p>
               )}
