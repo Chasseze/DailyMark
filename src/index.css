@@ -274,6 +274,8 @@ html {
   -webkit-line-clamp: 3;
   line-clamp: 3;
   overflow: hidden;
+  white-space: pre-line;
+  min-height: 3.15em;
 }
 
 .mood-picker__trigger {

@@ -6,11 +6,20 @@ import { errorMessage } from "../lib/supabase";
 
 const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
 
-/** First paragraph of a note, clamped to ~3 lines in the sidebar card. */
+/** First ~3 lines of a note for the sidebar card preview. */
 function openingParagraph(content: string): string {
   const plain = markdownToPlainText(content).replace(/\r/g, "").trim();
   if (!plain) return "";
-  return plain.split(/\n\s*\n/)[0]?.replace(/\n+/g, " ").trim() ?? "";
+
+  const lines = plain
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length >= 2) return lines.slice(0, 3).join("\n");
+
+  // Single block of prose — keep it intact; CSS line-clamp wraps to 3 lines.
+  return lines[0] ?? "";
 }
 
 export default function NotesSidebar() {
