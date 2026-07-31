@@ -181,72 +181,34 @@ html {
 
 .notes-workspace {
   display: grid;
-  grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr);
-  gap: 0.75rem;
-  min-height: calc(100svh - 3.5rem - 4.5rem);
-  padding: 0.75rem 0.75rem 0;
+  grid-template-columns: 1fr;
+  min-height: calc(100svh - 3.5rem - 5rem);
 }
 
 .notes-sidebar {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: calc(100svh - 3.5rem - 6.5rem);
-  border: 1px solid var(--mood-glass-border);
-  border-radius: 1rem;
-  background: var(--mood-sidebar);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 18px 40px oklch(0 0 0 / 0.22);
+  background: transparent;
   animation: notesSidebarIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.notes-file-row {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.55rem;
-  border-radius: 0.65rem;
-  padding: 0.55rem 0.65rem;
-  text-align: left;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-
-.notes-file-row:hover {
-  background: var(--mood-row-hover);
-}
-
-.notes-file-row[data-active="true"] {
-  background: var(--mood-row-active);
-  box-shadow: inset 3px 0 0 var(--color-accent);
-}
-
-.notes-file-glyph {
-  display: flex;
-  height: 1.65rem;
-  width: 1.65rem;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.4rem;
-  background: oklch(1 0 0 / 0.06);
-  color: var(--color-accent);
 }
 
 .notes-file-list {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.75rem;
 }
 
 .notes-file-card {
   display: block;
   width: 100%;
-  border-radius: 0.85rem;
+  border-radius: 1.25rem;
   border: 1px solid var(--mood-glass-border);
-  background: color-mix(in oklab, var(--mood-glass) 88%, transparent);
-  padding: 0.75rem 0.8rem;
+  background: var(--mood-glass);
+  padding: 1rem 1.1rem;
   text-align: left;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 1px 0 oklch(1 0 0 / 0.04);
   transition:
     background 0.18s ease,
@@ -276,6 +238,22 @@ html {
   overflow: hidden;
   white-space: pre-line;
   min-height: 3.15em;
+}
+
+.notes-preview-pane {
+  min-width: 0;
+  min-height: 0;
+  animation: notesPreviewIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.notes-empty-preview {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  text-align: center;
 }
 
 .mood-picker__trigger {
@@ -342,26 +320,15 @@ html {
   background: var(--mood-row-active);
 }
 
-.notes-preview-pane {
-  min-width: 0;
-  min-height: 0;
-  border-radius: 1rem;
-  animation: notesPreviewIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.notes-empty-preview {
-  display: flex;
-  min-height: 100%;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1.5rem;
-  text-align: center;
+/* Single-column shell: list and preview take turns, matching Daily / Settings. */
+.notes-workspace[data-pane="list"] .notes-preview-pane,
+.notes-workspace[data-pane="preview"] .notes-sidebar {
+  display: none;
 }
 
 @keyframes notesSidebarIn {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes notesPreviewIn {
@@ -374,28 +341,6 @@ html {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@media (max-width: 767px) {
-  .notes-workspace {
-    grid-template-columns: 1fr;
-    min-height: calc(100svh - 3.5rem);
-    gap: 0;
-    padding: 0;
-  }
-
-  .notes-sidebar {
-    max-height: none;
-    min-height: calc(100svh - 3.5rem - 4.5rem);
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .notes-workspace[data-pane="list"] .notes-preview-pane,
-  .notes-workspace[data-pane="preview"] .notes-sidebar {
-    display: none;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .notes-sidebar,
   .notes-preview-pane,
@@ -405,7 +350,7 @@ html {
 }
 
 @media (prefers-reduced-transparency: reduce), (update: slow) {
-  .notes-sidebar {
+  .notes-file-card {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }

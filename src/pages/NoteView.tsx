@@ -86,7 +86,7 @@ function NoteArticle({ note }: { note: Note }) {
         <button
           type="button"
           onClick={() => navigate("/notes")}
-          className={iconBtn + " md:hidden"}
+          className={iconBtn}
           aria-label="Back to note list"
         >
           <BackIcon />

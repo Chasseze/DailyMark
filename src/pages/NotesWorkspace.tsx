@@ -1,7 +1,10 @@
 import { Outlet, useLocation, useParams } from "react-router-dom";
 import NotesSidebar from "../components/NotesSidebar";
 
-/** Master-detail notes shell: left file nav + preview/edit pane. */
+/**
+ * Notes shell in the same centered column as Daily / Settings.
+ * List and preview swap in one column (same rhythm as the other tabs).
+ */
 export default function NotesWorkspace() {
   const { id } = useParams<{ id?: string }>();
   const location = useLocation();
@@ -38,7 +41,7 @@ export function NotesEmptyPreview() {
         Choose a note
       </h2>
       <p className="mt-2 max-w-sm text-sm text-slate-400 light:text-slate-500">
-        Pick a file from the left sidebar to open its preview here.
+        Pick a note below to open it here.
       </p>
     </div>
   );
