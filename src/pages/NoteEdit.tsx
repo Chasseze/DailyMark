@@ -185,8 +185,8 @@ function NoteEditor({ note }: { note: Note }) {
         : null;
 
   return (
-    <div className="px-4 py-4 md:px-6 md:py-5">
-      <div className="mb-4 flex items-center gap-3">
+    <div className="note-view animate-in px-4 pt-6">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={handleGoBack}

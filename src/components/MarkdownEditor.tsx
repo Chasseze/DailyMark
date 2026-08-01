@@ -272,9 +272,9 @@ export default function MarkdownEditor({ content, onChange, noteId }: Props) {
         <p className="mb-2 text-xs text-red-400">{uploadError}</p>
       )}
 
-      <div className={view === "live" ? "grid grid-cols-1 gap-3 md:grid-cols-2" : "block"}>
+      <div className={view === "live" ? "grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2" : "block min-w-0"}>
         {showSource && (
-          <div>
+          <div className="min-w-0">
             {view === "live" && <PaneLabel>Markdown</PaneLabel>}
             <div className="md-editor-surface rounded-2xl border border-white/5 bg-slate-900/50 focus-within:border-amber-500/30 light:border-slate-200 light:bg-slate-50">
               <MarkdownHighlight source={content} />
@@ -294,9 +294,9 @@ export default function MarkdownEditor({ content, onChange, noteId }: Props) {
         )}
 
         {showRich && (
-          <div>
+          <div className="min-w-0">
             {view === "live" && <PaneLabel>Rich text</PaneLabel>}
-            <div className="min-h-[14rem] rounded-2xl border border-white/5 bg-slate-900/30 p-4 text-sm text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-700">
+            <div className="min-h-[14rem] min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/30 p-4 text-sm text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-700">
               {richContent.trim() ? (
                 <Markdown onToggleTask={handleToggleTask}>{richContent}</Markdown>
               ) : (

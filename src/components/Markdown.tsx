@@ -33,6 +33,18 @@ export default function Markdown({ children, compact = false, className = "", on
         </a>
       );
     },
+    img({ src, alt, title }) {
+      if (!src) return null;
+      return (
+        <img
+          src={src}
+          alt={alt ?? ""}
+          title={title}
+          loading="lazy"
+          decoding="async"
+        />
+      );
+    },
     li({ node, className: liClass, children: items }) {
       const line = node?.position?.start.line ?? null;
       if (!liClass?.includes("task-list-item") || line === null) {
