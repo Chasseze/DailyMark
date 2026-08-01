@@ -181,7 +181,10 @@ html {
 
 .notes-workspace {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: calc(100svh - 3.5rem - 5rem);
 }
 
@@ -242,8 +245,24 @@ html {
 
 .notes-preview-pane {
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
+  overflow-x: clip;
   animation: notesPreviewIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.note-view {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.note-view__article {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  overflow-wrap: anywhere;
 }
 
 .notes-empty-preview {
@@ -363,8 +382,27 @@ html {
 
 .prose-custom {
   font-family: var(--font-sans);
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .prose-custom > :first-child { margin-top: 0; }
+.prose-custom img {
+  display: block;
+  box-sizing: border-box;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(28rem, 65svh);
+  margin: 0.85rem auto;
+  border-radius: 0.75rem;
+  object-fit: contain;
+  background: oklch(0.2 0.02 260 / 0.35);
+}
+:root.light .prose-custom img {
+  background: oklch(0.96 0.01 260 / 0.9);
+}
 .prose-custom h1 {
   font-family: var(--font-display);
   font-size: 1.5rem;
@@ -399,7 +437,14 @@ html {
 }
 .prose-custom a { color: oklch(0.75 0.15 85); text-decoration: underline; }
 .prose-custom hr { border: none; border-top: 1px solid oklch(0.4 0.02 260); margin: 1.5rem 0; }
-.prose-custom table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+.prose-custom table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
 .prose-custom th, .prose-custom td {
   border: 1px solid oklch(0.4 0.02 260); padding: 0.5rem 0.75rem; text-align: left;
 }

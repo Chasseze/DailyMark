@@ -93,8 +93,8 @@ function NoteArticle({ note }: { note: Note }) {
     "rounded-xl p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900";
 
   return (
-    <div className="flex h-full flex-col px-4 py-4 md:px-6 md:py-5">
-      <div className="mb-4 flex items-center gap-1.5">
+    <div className="note-view animate-in px-4 pt-6">
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
         <button
           type="button"
           onClick={() => navigate("/notes")}
@@ -103,7 +103,7 @@ function NoteArticle({ note }: { note: Note }) {
         >
           <BackIcon />
         </button>
-        <div className="flex-1" />
+        <div className="min-w-0 flex-1" />
         <ReadAloudButton
           request={{ id: "note:" + note.id, label: note.title || "Untitled", text: spoken }}
         />
@@ -191,8 +191,8 @@ function NoteArticle({ note }: { note: Note }) {
         <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{taskError}</div>
       )}
 
-      <article className="glass min-h-0 flex-1 overflow-y-auto rounded-2xl p-5 md:p-7">
-        <h1 className="note-title mb-1 text-2xl text-white light:text-slate-900">
+      <article className="note-view__article glass rounded-2xl p-5">
+        <h1 className="note-title mb-1 break-words text-2xl text-white light:text-slate-900">
           {note.title || "Untitled"}
         </h1>
         <p className="mb-4 text-xs text-slate-500">{date}</p>
@@ -207,7 +207,7 @@ function NoteArticle({ note }: { note: Note }) {
           </div>
         )}
 
-        <div className="mt-2 text-sm leading-relaxed text-slate-300 light:text-slate-700">
+        <div className="mt-2 min-w-0 text-sm leading-relaxed text-slate-300 light:text-slate-700">
           {note.content.trim() ? (
             <Markdown onToggleTask={(line) => void handleToggleTask(line)}>{note.content}</Markdown>
           ) : (
