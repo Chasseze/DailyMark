@@ -11,6 +11,11 @@ export interface AuthContextType {
   user: User | null;
   /** True until the initial session lookup finishes. */
   loading: boolean;
+  /**
+   * True while the session came from a password-recovery link and the user
+   * still needs to set a new password before using the app.
+   */
+  passwordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   /**
    * Creates an account. With Confirm email enabled on the Supabase project,
@@ -19,6 +24,11 @@ export interface AuthContextType {
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   /** Resend the signup confirmation email (rate-limited by Supabase). */
   resendConfirmation: (email: string) => Promise<void>;
+  /** Email a password-reset link that lands back on /login. */
+  resetPassword: (email: string) => Promise<void>;
+  /** Set a new password after opening a recovery link. */
+  updatePassword: (password: string) => Promise<void>;
+  clearPasswordRecovery: () => void;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }

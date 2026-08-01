@@ -130,36 +130,90 @@ export function storageKey(key: string): string {
   return `dailymark.quiz.${key}`;
 }
 
+function normalizeProgress(key: string, parsed: Partial<QuizProgress>): QuizProgress | null {
+  if (parsed.dateKey !== key) return null;
+  if (!Array.isArray(parsed.questionIds) || parsed.questionIds.length === 0) return null;
+
+  const attempt = Number.isFinite(parsed.attempt) ? Math.max(0, Number(parsed.attempt)) : 0;
+  const index = Number.isFinite(parsed.index) ? Math.max(0, Number(parsed.index)) : 0;
+  const score = Number.isFinite(parsed.score) ? Math.max(0, Number(parsed.score)) : 0;
+  const phase: QuizPhase =
+    parsed.phase === "ready" ||
+    parsed.phase === "question" ||
+    parsed.phase === "feedback" ||
+    parsed.phase === "results"
+      ? parsed.phase
+      : "ready";
+
+  return {
+    dateKey: key,
+    attempt,
+    questionIds: parsed.questionIds.filter((id): id is string => typeof id === "string"),
+    index,
+    score,
+    selected: typeof parsed.selected === "string" ? parsed.selected : null,
+    phase,
+  };
+}
+
 export function loadProgress(key: string): QuizProgress | null {
   try {
     const raw = localStorage.getItem(storageKey(key));
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<QuizProgress>;
-    if (parsed.dateKey !== key) return null;
-    if (!Array.isArray(parsed.questionIds) || parsed.questionIds.length === 0) return null;
-
-    const attempt = Number.isFinite(parsed.attempt) ? Math.max(0, Number(parsed.attempt)) : 0;
-    const index = Number.isFinite(parsed.index) ? Math.max(0, Number(parsed.index)) : 0;
-    const score = Number.isFinite(parsed.score) ? Math.max(0, Number(parsed.score)) : 0;
-    const phase: QuizPhase =
-      parsed.phase === "ready" ||
-      parsed.phase === "question" ||
-      parsed.phase === "feedback" ||
-      parsed.phase === "results"
-        ? parsed.phase
-        : "ready";
-
-    return {
-      dateKey: key,
-      attempt,
-      questionIds: parsed.questionIds.filter((id): id is string => typeof id === "string"),
-      index,
-      score,
-      selected: typeof parsed.selected === "string" ? parsed.selected : null,
-      phase,
-    };
+    return normalizeProgress(key, JSON.parse(raw) as Partial<QuizProgress>);
   } catch {
     return null;
+  }
+}
+
+/** Prefer remote quiz progress when signed in; fall back to localStorage. */
+export async function loadProgressSynced(key: string): Promise<QuizProgress | null> {
+  const local = loadProgress(key);
+  try {
+    const { requireSupabase } = await import("./supabase");
+    const db = requireSupabase();
+    const { data: auth } = await db.auth.getSession();
+    if (!auth.session) return local;
+
+    const { data, error } = await db
+      .from("quiz_progress")
+      .select("*")
+      .eq("date_key", key)
+      .maybeSingle();
+    if (error || !data) return local;
+
+    const remote = normalizeProgress(key, {
+      dateKey: data.date_key,
+      attempt: data.attempt,
+      questionIds: data.question_ids,
+      index: data.index,
+      score: data.score,
+      selected: data.selected,
+      phase: data.phase,
+    });
+    if (!remote) return local;
+
+    // Keep whichever attempt is further along so a mid-quiz device isn't wiped.
+    if (
+      local &&
+      (local.attempt > remote.attempt ||
+        (local.attempt === remote.attempt && local.index > remote.index) ||
+        (local.attempt === remote.attempt &&
+          local.index === remote.index &&
+          local.phase === "results" &&
+          remote.phase !== "results"))
+    ) {
+      return local;
+    }
+
+    try {
+      localStorage.setItem(storageKey(key), JSON.stringify(remote));
+    } catch {
+      // ignore
+    }
+    return remote;
+  } catch {
+    return local;
   }
 }
 
@@ -169,6 +223,29 @@ export function saveProgress(progress: QuizProgress): void {
   } catch {
     // private mode / quota — quiz still works for the session
   }
+
+  // Best-effort cloud sync; never block the quiz UI on network.
+  void (async () => {
+    try {
+      const { requireSupabase } = await import("./supabase");
+      const db = requireSupabase();
+      const { data: auth } = await db.auth.getSession();
+      const uid = auth.session?.user.id;
+      if (!uid) return;
+      await db.from("quiz_progress").upsert({
+        user_id: uid,
+        date_key: progress.dateKey,
+        attempt: progress.attempt,
+        question_ids: progress.questionIds,
+        index: progress.index,
+        score: progress.score,
+        selected: progress.selected,
+        phase: progress.phase,
+      });
+    } catch {
+      // offline / RLS — local cache still has the progress
+    }
+  })();
 }
 
 export function resultMessage(score: number, total: number): string {

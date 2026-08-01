@@ -10,6 +10,7 @@ export type MdCommand =
   | "quote"
   | "code"
   | "link"
+  | "image"
   | "table";
 
 interface Tool {
@@ -32,6 +33,7 @@ const TOOLS: Tool[] = [
   { command: "quote", glyph: "❝", name: "Quote" },
   { command: "code", glyph: "‹›", name: "Code", shortcut: "E" },
   { command: "link", glyph: "🔗", name: "Link", shortcut: "K" },
+  { command: "image", glyph: "▣", name: "Image" },
   { command: "table", glyph: "▦", name: "Table" },
 ];
 

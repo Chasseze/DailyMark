@@ -2,8 +2,11 @@ import { useDeferredValue, useEffect, useRef, useState, type ClipboardEvent, typ
 import Markdown from "./Markdown";
 import MarkdownHighlight from "./MarkdownHighlight";
 import MarkdownToolbar, { type MdCommand } from "./MarkdownToolbar";
+import { useAuth } from "../context/auth-context";
 import { hasRichFormatting, htmlToMarkdown } from "../lib/html-to-markdown";
 import { looksLikeMarkdown } from "../lib/markdown";
+import { uploadNoteImage } from "../lib/note-images";
+import { errorMessage } from "../lib/supabase";
 import {
   BULLET,
   NUMBERED,
@@ -15,6 +18,7 @@ import {
   inListContext,
   indentLines,
   insertCodeBlock,
+  insertImage,
   insertLink,
   insertTable,
   pasteMarkdown,
@@ -27,6 +31,8 @@ import {
 interface Props {
   content: string;
   onChange: (content: string) => void;
+  /** When set, the image toolbar can upload into Storage for this note. */
+  noteId?: string;
 }
 
 type View = "live" | "source" | "preview";
@@ -67,6 +73,9 @@ function editFor(command: MdCommand, value: string, start: number, end: number):
     }
     case "link":
       return insertLink(value, start, end);
+    case "image":
+      // Handled asynchronously in the editor (file picker / upload).
+      return insertImage(value, start, end, "https://", "image");
     case "table":
       return insertTable(value, start, end);
   }
@@ -87,9 +96,12 @@ function insertOverSelection(text: string): boolean {
   }
 }
 
-export default function MarkdownEditor({ content, onChange }: Props) {
+export default function MarkdownEditor({ content, onChange, noteId }: Props) {
+  const { user } = useAuth();
   const [view, setView] = useState<View>("live");
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const pendingSelection = useRef<[number, number] | null>(null);
 
   // Selection has to be restored after React has committed the new value, or
@@ -116,9 +128,36 @@ export default function MarkdownEditor({ content, onChange }: Props) {
   };
 
   const runCommand = (command: MdCommand) => {
+    if (command === "image") {
+      if (noteId && user) {
+        fileRef.current?.click();
+        return;
+      }
+      const el = areaRef.current;
+      if (!el) return;
+      apply(insertImage(el.value, el.selectionStart, el.selectionEnd, "https://", "image"));
+      return;
+    }
     const el = areaRef.current;
     if (!el) return;
     apply(editFor(command, el.value, el.selectionStart, el.selectionEnd));
+  };
+
+  const handleImageFile = async (file: File | undefined) => {
+    if (!file || !noteId || !user) return;
+    setUploadError(null);
+    try {
+      const url = await uploadNoteImage(user.id, noteId, file);
+      const el = areaRef.current;
+      if (!el) {
+        onChange(content + (content.endsWith("\n") || !content ? "" : "\n") + `![${file.name}](${url})\n`);
+        return;
+      }
+      const alt = file.name.replace(/\.[^.]+$/, "") || "image";
+      apply(insertImage(el.value, el.selectionStart, el.selectionEnd, url, alt));
+    } catch (err) {
+      setUploadError(errorMessage(err));
+    }
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -156,6 +195,16 @@ export default function MarkdownEditor({ content, onChange }: Props) {
     const { selectionStart: start, selectionEnd: end } = el;
     const plain = event.clipboardData.getData("text/plain");
     const html = event.clipboardData.getData("text/html");
+    const image = [...event.clipboardData.items].find((item) => item.type.startsWith("image/"));
+
+    if (image && noteId && user) {
+      const file = image.getAsFile();
+      if (file) {
+        event.preventDefault();
+        void handleImageFile(file);
+        return;
+      }
+    }
 
     // A URL dropped onto selected text becomes a link around that text.
     if (plain && start !== end && /^(?:https?:\/\/|mailto:)\S+$/i.test(plain.trim())) {
@@ -208,6 +257,20 @@ export default function MarkdownEditor({ content, onChange }: Props) {
       </div>
 
       {showSource && <MarkdownToolbar onCommand={runCommand} />}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          void handleImageFile(file);
+        }}
+      />
+      {uploadError && (
+        <p className="mb-2 text-xs text-red-400">{uploadError}</p>
+      )}
 
       <div className={view === "live" ? "grid grid-cols-1 gap-3 md:grid-cols-2" : "block"}>
         {showSource && (

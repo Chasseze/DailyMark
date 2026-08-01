@@ -1,24 +1,47 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { NewNote, Note, Notebook, NoteUpdate } from "../lib/types";
-import type { NoteRow } from "../lib/database.types";
+import type { NoteRow, SearchNoteRow } from "../lib/database.types";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
 import { NotesContext } from "./notes-context";
 
 const LIST_COLUMNS =
-  "id,user_id,notebook_id,title,preview,is_pinned,tags,created_at,updated_at";
+  "id,user_id,notebook_id,title,preview,is_pinned,tags,deleted_at,created_at,updated_at";
 
 function asListNote(row: Omit<NoteRow, "content"> & { content?: string }): Note {
   return {
     ...row,
     content: "",
     preview: row.preview ?? "",
+    deleted_at: row.deleted_at ?? null,
     bodyLoaded: false,
   };
 }
 
 function asHydratedNote(row: NoteRow): Note {
-  return { ...row, preview: row.preview ?? "", bodyLoaded: true };
+  return {
+    ...row,
+    preview: row.preview ?? "",
+    deleted_at: row.deleted_at ?? null,
+    bodyLoaded: true,
+  };
+}
+
+function asSearchNote(row: SearchNoteRow): Note {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    notebook_id: row.notebook_id,
+    title: row.title,
+    content: "",
+    preview: row.preview ?? "",
+    is_pinned: row.is_pinned,
+    tags: row.tags ?? [],
+    deleted_at: row.deleted_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    bodyLoaded: false,
+  };
 }
 
 export function NotesProvider({ children }: { children: ReactNode }) {
@@ -26,34 +49,48 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const userId = user?.id ?? null;
 
   const [notes, setNotes] = useState<Note[]>([]);
+  const [trash, setTrash] = useState<Note[]>([]);
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Avoid depending togglePin on the full notes array identity.
   const notesRef = useRef(notes);
+  const trashRef = useRef(trash);
   useEffect(() => {
     notesRef.current = notes;
   }, [notes]);
+  useEffect(() => {
+    trashRef.current = trash;
+  }, [trash]);
 
   const fetchAll = useCallback(async (uid: string | null) => {
-    if (!uid) return { notes: [] as Note[], notebooks: [] as Notebook[] };
+    if (!uid) {
+      return { notes: [] as Note[], trash: [] as Note[], notebooks: [] as Notebook[] };
+    }
 
     const db = requireSupabase();
-    // Slim list: preview instead of full content. Opened notes hydrate via ensureNote.
-    const [notesRes, notebooksRes] = await Promise.all([
+    const [notesRes, trashRes, notebooksRes] = await Promise.all([
       db
         .from("notes")
         .select(LIST_COLUMNS)
+        .is("deleted_at", null)
         .order("is_pinned", { ascending: false })
         .order("updated_at", { ascending: false }),
+      db
+        .from("notes")
+        .select(LIST_COLUMNS)
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false }),
       db.from("notebooks").select("*").order("created_at"),
     ]);
 
     if (notesRes.error) throw notesRes.error;
+    if (trashRes.error) throw trashRes.error;
     if (notebooksRes.error) throw notebooksRes.error;
 
     return {
       notes: (notesRes.data as Omit<NoteRow, "content">[]).map(asListNote),
+      trash: (trashRes.data as Omit<NoteRow, "content">[]).map(asListNote),
       notebooks: notebooksRes.data,
     };
   }, []);
@@ -62,6 +99,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     try {
       const data = await fetchAll(userId);
       setNotes(data.notes);
+      setTrash(data.trash);
       setNotebooks(data.notebooks);
       setError(null);
     } catch (err) {
@@ -79,6 +117,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         const data = await fetchAll(userId);
         if (!active) return;
         setNotes(data.notes);
+        setTrash(data.trash);
         setNotebooks(data.notebooks);
         setError(null);
       } catch (err) {
@@ -94,7 +133,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   }, [fetchAll, userId]);
 
   const ensureNote = useCallback(async (id: string) => {
-    const existing = notesRef.current.find((n) => n.id === id);
+    const existing =
+      notesRef.current.find((n) => n.id === id) ?? trashRef.current.find((n) => n.id === id);
     if (existing?.bodyLoaded) return existing;
 
     const db = requireSupabase();
@@ -103,13 +143,16 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     if (!data) return null;
 
     const hydrated = asHydratedNote(data as NoteRow);
-    setNotes((prev) => {
+    const target = hydrated.deleted_at ? setTrash : setNotes;
+    const other = hydrated.deleted_at ? setNotes : setTrash;
+    target((prev) => {
       const idx = prev.findIndex((n) => n.id === id);
       if (idx === -1) return [hydrated, ...prev];
       const next = prev.slice();
       next[idx] = hydrated;
       return next;
     });
+    other((prev) => prev.filter((n) => n.id !== id));
     return hydrated;
   }, []);
 
@@ -143,15 +186,56 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     if (err) throw err;
 
     const hydrated = asHydratedNote(row as NoteRow);
-    setNotes((prev) => prev.map((n) => (n.id === id ? hydrated : n)));
+    if (hydrated.deleted_at) {
+      setNotes((prev) => prev.filter((n) => n.id !== id));
+      setTrash((prev) => {
+        const idx = prev.findIndex((n) => n.id === id);
+        if (idx === -1) return [hydrated, ...prev];
+        const next = prev.slice();
+        next[idx] = hydrated;
+        return next;
+      });
+    } else {
+      setTrash((prev) => prev.filter((n) => n.id !== id));
+      setNotes((prev) => {
+        const idx = prev.findIndex((n) => n.id === id);
+        if (idx === -1) return [hydrated, ...prev];
+        const next = prev.slice();
+        next[idx] = hydrated;
+        return next;
+      });
+    }
   }, []);
 
-  const deleteNote = useCallback(async (id: string) => {
+  const deleteNote = useCallback(
+    async (id: string) => {
+      await updateNote(id, { deleted_at: new Date().toISOString() });
+    },
+    [updateNote]
+  );
+
+  const restoreNote = useCallback(
+    async (id: string) => {
+      await updateNote(id, { deleted_at: null });
+    },
+    [updateNote]
+  );
+
+  const purgeNote = useCallback(async (id: string) => {
     const db = requireSupabase();
     const { error: err } = await db.from("notes").delete().eq("id", id);
     if (err) throw err;
-
     setNotes((prev) => prev.filter((n) => n.id !== id));
+    setTrash((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  const emptyTrash = useCallback(async () => {
+    const ids = trashRef.current.map((n) => n.id);
+    if (ids.length === 0) return;
+    const db = requireSupabase();
+    const { error: err } = await db.from("notes").delete().in("id", ids);
+    if (err) throw err;
+    setTrash([]);
   }, []);
 
   const togglePin = useCallback(
@@ -181,31 +265,77 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     [userId]
   );
 
+  const updateNotebook = useCallback(async (id: string, data: { name?: string; color?: string }) => {
+    const db = requireSupabase();
+    const { data: row, error: err } = await db
+      .from("notebooks")
+      .update(data)
+      .eq("id", id)
+      .select()
+      .single();
+    if (err) throw err;
+    setNotebooks((prev) => prev.map((nb) => (nb.id === id ? row : nb)));
+  }, []);
+
+  const deleteNotebook = useCallback(async (id: string) => {
+    const db = requireSupabase();
+    // FK on notes.notebook_id is ON DELETE SET NULL, so notes stay put.
+    const { error: err } = await db.from("notebooks").delete().eq("id", id);
+    if (err) throw err;
+    setNotebooks((prev) => prev.filter((nb) => nb.id !== id));
+    setNotes((prev) =>
+      prev.map((n) => (n.notebook_id === id ? { ...n, notebook_id: null } : n))
+    );
+  }, []);
+
+  const searchNotes = useCallback(async (query: string) => {
+    const q = query.trim();
+    if (!q) return [];
+    const db = requireSupabase();
+    const { data, error: err } = await db.rpc("search_notes", { q });
+    if (err) throw err;
+    return ((data ?? []) as SearchNoteRow[]).map(asSearchNote);
+  }, []);
+
   const value = useMemo(
     () => ({
       notes,
+      trash,
       notebooks,
       loading,
       error,
       addNote,
       updateNote,
       deleteNote,
+      restoreNote,
+      purgeNote,
+      emptyTrash,
       togglePin,
       addNotebook,
+      updateNotebook,
+      deleteNotebook,
       ensureNote,
+      searchNotes,
       refresh,
     }),
     [
       notes,
+      trash,
       notebooks,
       loading,
       error,
       addNote,
       updateNote,
       deleteNote,
+      restoreNote,
+      purgeNote,
+      emptyTrash,
       togglePin,
       addNotebook,
+      updateNotebook,
+      deleteNotebook,
       ensureNote,
+      searchNotes,
       refresh,
     ]
   );

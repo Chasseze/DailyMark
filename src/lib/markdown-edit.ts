@@ -204,6 +204,20 @@ export function insertLink(value: string, start: number, end: number, url?: stri
   };
 }
 
+/** Insert a Markdown image at the caret (or wrap selected alt text). */
+export function insertImage(value: string, start: number, end: number, url: string, alt = "image"): MdEdit {
+  const selected = value.slice(start, end).trim();
+  const label = selected || alt;
+  const text = `![${label}](${url})`;
+  return {
+    start,
+    end,
+    text,
+    selectionStart: start + 2,
+    selectionEnd: start + 2 + label.length,
+  };
+}
+
 /** Fenced code block around the selection, always on its own lines. */
 export function insertCodeBlock(value: string, start: number, end: number): MdEdit {
   const [from, to] = lineBounds(value, start, end);

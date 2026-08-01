@@ -1,4 +1,4 @@
-// Mirrors supabase/migrations/0001_init.sql. Once your project exists you can
+// Mirrors supabase/migrations/*.sql. Once your project exists you can
 // regenerate this instead of maintaining it by hand:
 //   npx supabase gen types typescript --project-id <ref> > src/lib/database.types.ts
 
@@ -25,6 +25,8 @@ export type NoteRow = {
   preview: string;
   is_pinned: boolean;
   tags: string[];
+  /** Soft-delete timestamp; null means the note is active. */
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -35,6 +37,33 @@ export type ProfileRow = {
   /** Postgres `date`, serialised as YYYY-MM-DD. */
   last_visit: string | null;
   created_at: string;
+};
+
+export type QuizProgressRow = {
+  user_id: string;
+  /** Postgres `date`, serialised as YYYY-MM-DD. */
+  date_key: string;
+  attempt: number;
+  question_ids: string[];
+  index: number;
+  score: number;
+  selected: string | null;
+  phase: "ready" | "question" | "feedback" | "results";
+  updated_at: string;
+};
+
+export type SearchNoteRow = {
+  id: string;
+  user_id: string;
+  notebook_id: string | null;
+  title: string;
+  preview: string;
+  is_pinned: boolean;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  rank: number;
 };
 
 // `Relationships` is part of the shape postgrest-js requires of every table
@@ -70,6 +99,7 @@ export type Database = {
           preview?: string;
           is_pinned?: boolean;
           tags?: string[];
+          deleted_at?: string | null;
         };
         Update: {
           notebook_id?: string | null;
@@ -78,6 +108,7 @@ export type Database = {
           preview?: string;
           is_pinned?: boolean;
           tags?: string[];
+          deleted_at?: string | null;
         };
         Relationships: [];
       };
@@ -94,6 +125,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      quiz_progress: {
+        Row: QuizProgressRow;
+        Insert: {
+          user_id: string;
+          date_key: string;
+          attempt?: number;
+          question_ids?: string[];
+          index?: number;
+          score?: number;
+          selected?: string | null;
+          phase?: QuizProgressRow["phase"];
+          updated_at?: string;
+        };
+        Update: {
+          attempt?: number;
+          question_ids?: string[];
+          index?: number;
+          score?: number;
+          selected?: string | null;
+          phase?: QuizProgressRow["phase"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -102,6 +157,10 @@ export type Database = {
       touch_streak: {
         Args: Record<PropertyKey, never>;
         Returns: ProfileRow;
+      };
+      search_notes: {
+        Args: { q: string };
+        Returns: SearchNoteRow[];
       };
     };
     Enums: Record<never, never>;
