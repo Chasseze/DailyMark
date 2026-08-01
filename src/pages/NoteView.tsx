@@ -4,14 +4,15 @@ import { useNotes } from "../context/notes-context";
 import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
 import { toggleTaskAtLine } from "../lib/markdown-edit";
+import { downloadText, noteToMarkdown, safeFilename } from "../lib/notes-io";
 import { errorMessage } from "../lib/supabase";
 import type { Note } from "../lib/types";
 
 export default function NoteView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { notes, loading, ensureNote } = useNotes();
-  const note = notes.find((n) => n.id === id);
+  const { notes, trash, loading, ensureNote } = useNotes();
+  const note = notes.find((n) => n.id === id) ?? trash.find((n) => n.id === id);
   const [hydrateError, setHydrateError] = useState<string | null>(null);
   const awaitingBody =
     Boolean(id) && !loading && !hydrateError && (!note || !note.bodyLoaded);
@@ -57,8 +58,9 @@ export default function NoteView() {
 
 function NoteArticle({ note }: { note: Note }) {
   const navigate = useNavigate();
-  const { deleteNote, togglePin, updateNote } = useNotes();
+  const { deleteNote, restoreNote, purgeNote, togglePin, updateNote } = useNotes();
   const [taskError, setTaskError] = useState<string | null>(null);
+  const trashed = Boolean(note.deleted_at);
 
   const date = new Date(note.updated_at).toLocaleDateString(undefined, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -67,6 +69,7 @@ function NoteArticle({ note }: { note: Note }) {
   const spoken = [note.title, note.content].filter((part) => part.trim()).join("\n\n");
 
   const handleToggleTask = async (line: number) => {
+    if (trashed) return;
     const next = toggleTaskAtLine(note.content, line);
     if (next === null) return;
     setTaskError(null);
@@ -75,6 +78,15 @@ function NoteArticle({ note }: { note: Note }) {
     } catch (err) {
       setTaskError(errorMessage(err));
     }
+  };
+
+  const handleExport = async () => {
+    let body = note;
+    if (!note.bodyLoaded) {
+      // ensureNote is already called by parent; content should be loaded.
+      body = note;
+    }
+    downloadText(safeFilename(body.title), noteToMarkdown(body));
   };
 
   const iconBtn =
@@ -97,38 +109,83 @@ function NoteArticle({ note }: { note: Note }) {
         />
         <button
           type="button"
-          onClick={() => void togglePin(note.id)}
-          className={
-            iconBtn + " " + (note.is_pinned ? "text-amber-400 hover:text-amber-300" : "")
-          }
-          aria-label={note.is_pinned ? "Unpin note" : "Pin note"}
-          title={note.is_pinned ? "Unpin" : "Pin"}
-        >
-          <PinIcon filled={note.is_pinned} />
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate("/notes/" + note.id + "/edit")}
+          onClick={() => void handleExport()}
           className={iconBtn}
-          aria-label="Edit note"
-          title="Edit"
+          aria-label="Export Markdown"
+          title="Export Markdown"
         >
-          <EditIcon />
+          <ExportIcon />
         </button>
-        <button
-          type="button"
-          onClick={async () => {
-            if (!confirm("Delete this note?")) return;
-            await deleteNote(note.id);
-            navigate("/notes");
-          }}
-          className={iconBtn + " hover:bg-red-500/10 hover:text-red-400"}
-          aria-label="Delete note"
-          title="Delete"
-        >
-          <TrashIcon />
-        </button>
+        {!trashed && (
+          <>
+            <button
+              type="button"
+              onClick={() => void togglePin(note.id)}
+              className={
+                iconBtn + " " + (note.is_pinned ? "text-amber-400 hover:text-amber-300" : "")
+              }
+              aria-label={note.is_pinned ? "Unpin note" : "Pin note"}
+              title={note.is_pinned ? "Unpin" : "Pin"}
+            >
+              <PinIcon filled={note.is_pinned} />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/notes/" + note.id + "/edit")}
+              className={iconBtn}
+              aria-label="Edit note"
+              title="Edit"
+            >
+              <EditIcon />
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm("Move this note to Trash?")) return;
+                await deleteNote(note.id);
+                navigate("/notes");
+              }}
+              className={iconBtn + " hover:bg-red-500/10 hover:text-red-400"}
+              aria-label="Move to trash"
+              title="Move to trash"
+            >
+              <TrashIcon />
+            </button>
+          </>
+        )}
+        {trashed && (
+          <>
+            <button
+              type="button"
+              onClick={async () => {
+                await restoreNote(note.id);
+              }}
+              className="rounded-xl bg-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-400"
+            >
+              Restore
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm("Delete forever?")) return;
+                await purgeNote(note.id);
+                navigate("/notes");
+              }}
+              className={iconBtn + " hover:bg-red-500/10 hover:text-red-400"}
+              aria-label="Delete forever"
+              title="Delete forever"
+            >
+              <TrashIcon />
+            </button>
+          </>
+        )}
       </div>
+
+      {trashed && (
+        <div className="mb-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          This note is in Trash.
+        </div>
+      )}
 
       {taskError && (
         <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{taskError}</div>
@@ -190,6 +247,14 @@ function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 7h14M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7m-6 0 0.6 11.2A1.5 1.5 0 0 0 10.6 20h2.8a1.5 1.5 0 0 0 1.5-1.8L15.5 7" />
+    </svg>
+  );
+}
+
+function ExportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v10m0 0 3.5-3.5M12 14l-3.5-3.5M5 18h14" />
     </svg>
   );
 }

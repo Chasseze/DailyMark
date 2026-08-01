@@ -1,13 +1,16 @@
-import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useStreak } from "../hooks/useStreak";
+import { useNotes } from "../context/notes-context";
 import ReadAloudButton from "../components/ReadAloudButton";
+import { errorMessage } from "../lib/supabase";
 import {
   CATEGORY_META,
   QUESTIONS_PER_DAY,
   dateKey,
   daySeed,
   loadProgress,
+  loadProgressSynced,
   pickQuestions,
   resolveQuestions,
   resultMessage,
@@ -67,11 +70,29 @@ const TIER_FLOURISH: Record<ReturnType<typeof resultTier>, { label: string }> = 
 
 export default function Daily() {
   const { streak } = useStreak();
+  const { addNote } = useNotes();
+  const navigate = useNavigate();
   const key = useMemo(() => dateKey(), []);
   const seed = useMemo(() => daySeed(key), [key]);
   const quote = useMemo(() => pickQuote(seed), [seed]);
+  const [jotBusy, setJotBusy] = useState(false);
+  const [jotError, setJotError] = useState<string | null>(null);
 
   const [{ progress, questions }, setState] = useState(() => bootstrapProgress(key));
+
+  // Prefer cloud progress once the session is ready (localStorage is the cache).
+  useEffect(() => {
+    let active = true;
+    void loadProgressSynced(key).then((remote) => {
+      if (!active || !remote) return;
+      const resolved = resolveQuestions(remote.questionIds);
+      if (!resolved) return;
+      setState({ progress: remote, questions: resolved });
+    });
+    return () => {
+      active = false;
+    };
+  }, [key]);
 
   const update = useCallback((next: QuizProgress, nextQuestions?: QuizQuestion[]) => {
     setState((prev) => ({
@@ -80,6 +101,26 @@ export default function Daily() {
     }));
     saveProgress(next);
   }, []);
+
+  const jotReflection = async () => {
+    if (jotBusy) return;
+    setJotBusy(true);
+    setJotError(null);
+    try {
+      const note = await addNote({
+        title: `Reflection · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+        content: `> ${quote.text}\n>\n> — ${quote.source}\n\n`,
+        notebook_id: null,
+        is_pinned: false,
+        tags: ["daily"],
+      });
+      navigate("/notes/" + note.id + "/edit");
+    } catch (err) {
+      setJotError(errorMessage(err));
+    } finally {
+      setJotBusy(false);
+    }
+  };
 
   const current = questions[Math.min(progress.index, Math.max(questions.length - 1, 0))];
   const isCorrect = progress.selected === current?.answer;
@@ -197,12 +238,15 @@ export default function Daily() {
           {quote.text}
         </p>
         <p className="mt-3 text-sm text-slate-400">— {quote.source}</p>
-        <Link
-          to="/notes"
-          className="mt-4 inline-block text-sm font-medium text-amber-400 hover:text-amber-300"
+        <button
+          type="button"
+          onClick={() => void jotReflection()}
+          disabled={jotBusy}
+          className="mt-4 inline-block text-sm font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50"
         >
-          Jot a reflection →
-        </Link>
+          {jotBusy ? "Opening note…" : "Jot a reflection →"}
+        </button>
+        {jotError && <p className="mt-2 text-xs text-red-400">{jotError}</p>}
       </section>
 
       <section className="glass rounded-3xl p-6">

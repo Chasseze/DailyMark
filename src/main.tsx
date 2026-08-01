@@ -5,6 +5,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { MoodProvider } from "./context/MoodContext";
 import { AuthProvider } from "./context/AuthContext";
 import { SpeechProvider } from "./context/SpeechContext";
+import { startReminderLoop } from "./lib/reminders";
 import App from "./App";
 import "./index.css";
 
@@ -26,3 +27,13 @@ createRoot(document.getElementById("root")!).render(
     </BrowserRouter>
   </StrictMode>
 );
+
+startReminderLoop();
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Installability is optional — the app works fine without a SW.
+    });
+  });
+}

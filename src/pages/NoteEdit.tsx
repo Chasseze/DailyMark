@@ -7,8 +7,8 @@ import MarkdownEditor from "../components/MarkdownEditor";
 
 export default function NoteEdit() {
   const { id } = useParams<{ id: string }>();
-  const { notes, loading, ensureNote } = useNotes();
-  const note = notes.find((n) => n.id === id);
+  const { notes, trash, loading, ensureNote } = useNotes();
+  const note = notes.find((n) => n.id === id) ?? trash.find((n) => n.id === id);
   const [hydrateError, setHydrateError] = useState<string | null>(null);
   const awaitingBody =
     Boolean(id) && !loading && !hydrateError && (!note || !note.bodyLoaded);
@@ -46,7 +46,27 @@ export default function NoteEdit() {
     );
   }
 
+  if (note.deleted_at) {
+    return <TrashedNoteNotice id={note.id} />;
+  }
+
   return <NoteEditor key={note.id} note={note} />;
+}
+
+function TrashedNoteNotice({ id }: { id: string }) {
+  const navigate = useNavigate();
+  return (
+    <div className="flex h-full min-h-[16rem] flex-col items-center justify-center px-4">
+      <p className="text-slate-400">This note is in Trash. Restore it before editing.</p>
+      <button
+        type="button"
+        onClick={() => navigate("/notes/" + id)}
+        className="mt-4 text-sm text-amber-400"
+      >
+        ← Back
+      </button>
+    </div>
+  );
 }
 
 function sameTags(a: string[], b: string[]) {
@@ -67,13 +87,20 @@ function NoteEditor({ note }: { note: Note }) {
   const [notebookId, setNotebookId] = useState<string | null>(note.notebook_id);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [leavePrompt, setLeavePrompt] = useState(false);
+  const [saved, setSaved] = useState({
+    title: note.title,
+    content: note.content,
+    tags: note.tags,
+    notebookId: note.notebook_id,
+  });
 
   const dirty =
-    title !== note.title ||
-    content !== note.content ||
-    notebookId !== note.notebook_id ||
-    !sameTags(tags, note.tags);
+    title !== saved.title ||
+    content !== saved.content ||
+    notebookId !== saved.notebookId ||
+    !sameTags(tags, saved.tags);
 
   useEffect(() => {
     if (!dirty) return;
@@ -85,17 +112,49 @@ function NoteEditor({ note }: { note: Note }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
 
+  // Autosave after a short pause in typing.
+  useEffect(() => {
+    if (!dirty) return;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setSaving(true);
+        setSaveError(null);
+        try {
+          await updateNote(note.id, {
+            title,
+            content,
+            tags,
+            notebook_id: notebookId,
+          });
+          setSaved({ title, content, tags, notebookId });
+          setLastSavedAt(new Date());
+        } catch (err) {
+          setSaveError(errorMessage(err));
+        } finally {
+          setSaving(false);
+        }
+      })();
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [title, content, tags, notebookId, dirty, note.id, updateNote]);
+
   const handleSave = async () => {
-    if (saving || !dirty) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      await updateNote(note.id, { title, content, tags, notebook_id: notebookId });
-      navigate("/notes/" + note.id);
-    } catch (err) {
-      setSaveError(errorMessage(err));
+    if (saving) return;
+    if (dirty) {
+      setSaving(true);
+      setSaveError(null);
+      try {
+        await updateNote(note.id, { title, content, tags, notebook_id: notebookId });
+        setSaved({ title, content, tags, notebookId });
+        setLastSavedAt(new Date());
+      } catch (err) {
+        setSaveError(errorMessage(err));
+        setSaving(false);
+        return;
+      }
       setSaving(false);
     }
+    navigate("/notes/" + note.id);
   };
 
   const handleGoBack = () => {
@@ -117,6 +176,14 @@ function NoteEditor({ note }: { note: Note }) {
     setTagInput("");
   };
 
+  const statusLabel = saving
+    ? "Saving…"
+    : dirty
+      ? "Unsaved"
+      : lastSavedAt
+        ? `Saved ${lastSavedAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+        : null;
+
   return (
     <div className="px-4 py-4 md:px-6 md:py-5">
       <div className="mb-4 flex items-center gap-3">
@@ -131,18 +198,18 @@ function NoteEditor({ note }: { note: Note }) {
           </svg>
         </button>
         <div className="flex-1" />
-        {dirty && (
+        {statusLabel && (
           <span className="mr-1 text-[11px] font-medium uppercase tracking-wider text-amber-400/80">
-            Unsaved
+            {statusLabel}
           </span>
         )}
         <button
           type="button"
           onClick={() => void handleSave()}
-          disabled={saving || !dirty}
+          disabled={saving}
           className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-sm font-semibold text-black transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
         >
-          {saving ? "Saving…" : "Save"}
+          {dirty ? (saving ? "Saving…" : "Save") : "Done"}
         </button>
       </div>
 
@@ -241,7 +308,7 @@ function NoteEditor({ note }: { note: Note }) {
         </div>
       </div>
 
-      <MarkdownEditor content={content} onChange={setContent} />
+      <MarkdownEditor content={content} onChange={setContent} noteId={note.id} />
     </div>
   );
 }

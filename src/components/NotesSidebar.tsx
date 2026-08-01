@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
+import { useStreak } from "../hooks/useStreak";
 import { errorMessage } from "../lib/supabase";
+import type { Note } from "../lib/types";
 
 const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
 
@@ -14,22 +16,94 @@ function openingLines(preview: string): string {
 }
 
 export default function NotesSidebar() {
-  const { notes, notebooks, loading, error, addNote, addNotebook } = useNotes();
+  const {
+    notes,
+    trash,
+    notebooks,
+    loading,
+    error,
+    addNote,
+    addNotebook,
+    updateNotebook,
+    deleteNotebook,
+    restoreNote,
+    purgeNote,
+    emptyTrash,
+    searchNotes,
+  } = useNotes();
+  const { streak } = useStreak();
   const { id: selectedId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeNotebook, setActiveNotebook] = useState<string | null>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [showTrash, setShowTrash] = useState(false);
+  const [ftsHits, setFtsHits] = useState<Note[] | null>(null);
+  const [ftsBusy, setFtsBusy] = useState(false);
   const [showNewNotebook, setShowNewNotebook] = useState(false);
   const [newNbName, setNewNbName] = useState("");
   const [newNbColor, setNewNbColor] = useState(COLORS[0]);
+  const [editingNb, setEditingNb] = useState<string | null>(null);
+  const [editNbName, setEditNbName] = useState("");
+  const [editNbColor, setEditNbColor] = useState(COLORS[0]);
   const [busy, setBusy] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
 
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const note of notes) for (const tag of note.tags) set.add(tag);
+    return [...set].sort();
+  }, [notes]);
+
+  const searchQuery = search.trim();
+  // Ignore stale FTS results when the query is cleared or Trash is open.
+  const activeFts = searchQuery && !showTrash ? ftsHits : null;
+
+  useEffect(() => {
+    if (!searchQuery || showTrash) return;
+
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setFtsBusy(true);
+      void searchNotes(searchQuery)
+        .then((hits) => {
+          if (active) setFtsHits(hits);
+        })
+        .catch(() => {
+          // Client filter below still works if FTS is unavailable.
+          if (active) setFtsHits(null);
+        })
+        .finally(() => {
+          if (active) setFtsBusy(false);
+        });
+    }, 280);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [searchQuery, showTrash, searchNotes]);
+
   const filtered = useMemo(() => {
-    let list = notes;
+    if (showTrash) {
+      let list = trash;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter(
+          (n) =>
+            n.title.toLowerCase().includes(q) ||
+            n.preview.toLowerCase().includes(q) ||
+            n.tags.some((t) => t.toLowerCase().includes(q))
+        );
+      }
+      return list;
+    }
+
+    let list = activeFts ?? notes;
     if (activeNotebook) list = list.filter((n) => n.notebook_id === activeNotebook);
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (activeTag) list = list.filter((n) => n.tags.includes(activeTag));
+    if (!activeFts && searchQuery) {
+      const q = searchQuery.toLowerCase();
       list = list.filter(
         (n) =>
           n.title.toLowerCase().includes(q) ||
@@ -42,10 +116,10 @@ export default function NotesSidebar() {
       if (!a.is_pinned && b.is_pinned) return 1;
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
-  }, [notes, activeNotebook, search]);
+  }, [notes, trash, activeNotebook, activeTag, searchQuery, showTrash, activeFts]);
 
   const handleQuickNote = async () => {
-    if (busy) return;
+    if (busy || showTrash) return;
     setBusy(true);
     setWriteError(null);
     try {
@@ -54,7 +128,7 @@ export default function NotesSidebar() {
         content: "",
         notebook_id: activeNotebook,
         is_pinned: false,
-        tags: [],
+        tags: activeTag ? [activeTag] : [],
       });
       navigate("/notes/" + note.id + "/edit");
     } catch (err) {
@@ -79,6 +153,35 @@ export default function NotesSidebar() {
     }
   };
 
+  const handleSaveNotebook = async () => {
+    if (!editingNb || !editNbName.trim() || busy) return;
+    setBusy(true);
+    setWriteError(null);
+    try {
+      await updateNotebook(editingNb, { name: editNbName.trim(), color: editNbColor });
+      setEditingNb(null);
+    } catch (err) {
+      setWriteError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteNotebook = async (id: string, name: string) => {
+    if (!confirm(`Delete notebook “${name}”? Notes stay; they just lose this notebook.`)) return;
+    setBusy(true);
+    setWriteError(null);
+    try {
+      await deleteNotebook(id);
+      if (activeNotebook === id) setActiveNotebook(null);
+      if (editingNb === id) setEditingNb(null);
+    } catch (err) {
+      setWriteError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <aside className="notes-sidebar">
       <div className="px-4 pt-6">
@@ -88,17 +191,24 @@ export default function NotesSidebar() {
             <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
               {loading
                 ? "Loading…"
-                : `${filtered.length} note${filtered.length !== 1 ? "s" : ""}`}
+                : showTrash
+                  ? `${filtered.length} in trash`
+                  : `${filtered.length} note${filtered.length !== 1 ? "s" : ""}`}
+              {!loading && streak != null && !showTrash && (
+                <span className="ml-2 text-amber-500/80">· {streak} day streak</span>
+              )}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleQuickNote()}
-            disabled={busy}
-            className="shrink-0 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-3.5 py-2 text-sm font-semibold text-black transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-          >
-            New
-          </button>
+          {!showTrash && (
+            <button
+              type="button"
+              onClick={() => void handleQuickNote()}
+              disabled={busy}
+              className="shrink-0 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-3.5 py-2 text-sm font-semibold text-black transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+            >
+              New
+            </button>
+          )}
         </div>
 
         <div className="relative mb-3">
@@ -117,18 +227,26 @@ export default function NotesSidebar() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search notes…"
+            placeholder={showTrash ? "Search trash…" : "Search notes…"}
             className="w-full rounded-xl border border-white/5 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-amber-500/35 focus:outline-none light:border-slate-200 light:bg-white/70 light:text-slate-900"
           />
+          {ftsBusy && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-500">
+              …
+            </span>
+          )}
         </div>
 
         <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
           <button
             type="button"
-            onClick={() => setActiveNotebook(null)}
+            onClick={() => {
+              setShowTrash(false);
+              setActiveNotebook(null);
+            }}
             className={
               "shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors " +
-              (!activeNotebook
+              (!showTrash && !activeNotebook
                 ? "bg-amber-500/20 text-amber-400"
                 : "text-slate-400 hover:bg-white/5 hover:text-slate-200 light:hover:bg-slate-100")
             }
@@ -139,13 +257,23 @@ export default function NotesSidebar() {
             <button
               key={nb.id}
               type="button"
-              onClick={() => setActiveNotebook(nb.id)}
+              onClick={() => {
+                setShowTrash(false);
+                setActiveNotebook(nb.id);
+              }}
+              onDoubleClick={() => {
+                setEditingNb(nb.id);
+                setEditNbName(nb.name);
+                setEditNbColor(nb.color);
+                setShowNewNotebook(false);
+              }}
               className={
                 "shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors " +
-                (activeNotebook === nb.id
+                (!showTrash && activeNotebook === nb.id
                   ? "bg-amber-500/20 text-amber-400"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200 light:hover:bg-slate-100")
               }
+              title="Double-click to rename"
             >
               <span
                 className="mr-1 inline-block h-1.5 w-1.5 rounded-full"
@@ -156,12 +284,63 @@ export default function NotesSidebar() {
           ))}
           <button
             type="button"
-            onClick={() => setShowNewNotebook(!showNewNotebook)}
+            onClick={() => {
+              setShowNewNotebook(!showNewNotebook);
+              setEditingNb(null);
+            }}
             className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-500 hover:bg-white/5 hover:text-slate-300"
           >
             +
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowTrash(true);
+              setActiveNotebook(null);
+              setActiveTag(null);
+            }}
+            className={
+              "shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors " +
+              (showTrash
+                ? "bg-red-500/15 text-red-400"
+                : "text-slate-500 hover:bg-white/5 hover:text-slate-300")
+            }
+          >
+            Trash{trash.length > 0 ? ` (${trash.length})` : ""}
+          </button>
         </div>
+
+        {!showTrash && allTags.length > 0 && (
+          <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
+            <button
+              type="button"
+              onClick={() => setActiveTag(null)}
+              className={
+                "shrink-0 rounded-md px-2 py-1 text-[10px] font-medium " +
+                (!activeTag
+                  ? "bg-white/10 text-slate-200 light:bg-slate-200 light:text-slate-700"
+                  : "text-slate-500 hover:text-slate-300")
+              }
+            >
+              Any tag
+            </button>
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                className={
+                  "shrink-0 rounded-md px-2 py-1 text-[10px] font-medium " +
+                  (activeTag === tag
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "text-slate-500 hover:bg-white/5 hover:text-slate-300")
+                }
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+        )}
 
         {showNewNotebook && (
           <div className="mb-3 space-y-2 rounded-2xl bg-black/20 p-3 light:bg-white/60">
@@ -198,6 +377,76 @@ export default function NotesSidebar() {
             </div>
           </div>
         )}
+
+        {editingNb && (
+          <div className="mb-3 space-y-2 rounded-2xl bg-black/20 p-3 light:bg-white/60">
+            <input
+              type="text"
+              value={editNbName}
+              onChange={(e) => setEditNbName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void handleSaveNotebook()}
+              className="w-full rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-sm text-white focus:outline-none light:border-slate-200 light:bg-white light:text-slate-900"
+            />
+            <div className="flex gap-1">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setEditNbColor(c)}
+                  className={
+                    "h-5 w-5 rounded-full border-2 transition-transform " +
+                    (editNbColor === c ? "scale-110 border-white" : "border-transparent")
+                  }
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveNotebook()}
+                className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingNb(null)}
+                className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-slate-300 light:bg-slate-200 light:text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteNotebook(editingNb, editNbName)}
+                className="rounded-lg px-3 py-1.5 text-xs text-red-400"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showTrash && trash.length > 0 && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm("Permanently delete everything in Trash?")) return;
+              setBusy(true);
+              try {
+                await emptyTrash();
+                navigate("/notes");
+              } catch (err) {
+                setWriteError(errorMessage(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="mb-3 w-full rounded-lg bg-red-500/10 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/15"
+          >
+            Empty trash
+          </button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -216,19 +465,25 @@ export default function NotesSidebar() {
         ) : filtered.length === 0 ? (
           <div className="glass mt-6 rounded-3xl px-4 py-10 text-center">
             <p className="text-sm font-semibold text-slate-400">
-              {search ? "Nothing matched" : "No notes yet"}
+              {showTrash
+                ? "Trash is empty"
+                : search || activeTag
+                  ? "Nothing matched"
+                  : "No notes yet"}
             </p>
-            <button
-              type="button"
-              onClick={() => void handleQuickNote()}
-              disabled={busy}
-              className="mt-3 text-sm font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50"
-            >
-              Create a note
-            </button>
+            {!showTrash && (
+              <button
+                type="button"
+                onClick={() => void handleQuickNote()}
+                disabled={busy}
+                className="mt-3 text-sm font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50"
+              >
+                Create a note
+              </button>
+            )}
           </div>
         ) : (
-          <nav className="notes-file-list" aria-label="Notes">
+          <nav className="notes-file-list" aria-label={showTrash ? "Trash" : "Notes"}>
             {filtered.map((note) => {
               const active = selectedId === note.id;
               const preview = openingLines(note.preview);
@@ -239,48 +494,82 @@ export default function NotesSidebar() {
               });
 
               return (
-                <NavLink
-                  key={note.id}
-                  to={"/notes/" + note.id}
-                  className="notes-file-card"
-                  data-active={active ? "true" : "false"}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="min-w-0 flex-1 truncate text-[0.95rem] font-semibold tracking-tight text-white light:text-slate-900">
-                      {note.title || "Untitled"}
-                    </h3>
-                    {note.is_pinned && (
-                      <span className="mt-1 shrink-0 text-[0.55rem] text-amber-400" aria-label="Pinned">
-                        ●
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
-                    {date}
-                  </p>
-
-                  {note.tags.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {note.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-md bg-amber-500/12 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
-                        >
-                          {tag}
+                <div key={note.id} className="relative">
+                  <NavLink
+                    to={"/notes/" + note.id}
+                    className="notes-file-card"
+                    data-active={active ? "true" : "false"}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="min-w-0 flex-1 truncate text-[0.95rem] font-semibold tracking-tight text-white light:text-slate-900">
+                        {note.title || "Untitled"}
+                      </h3>
+                      {note.is_pinned && !showTrash && (
+                        <span className="mt-1 shrink-0 text-[0.55rem] text-amber-400" aria-label="Pinned">
+                          ●
                         </span>
-                      ))}
+                      )}
+                    </div>
+
+                    <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
+                      {date}
+                    </p>
+
+                    {note.tags.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {note.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-md bg-amber-500/12 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {preview ? (
+                      <p className="notes-file-card__preview mt-2 text-[11px] leading-relaxed text-slate-400 light:text-slate-500">
+                        {preview}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-[11px] italic text-slate-500">No content yet</p>
+                    )}
+                  </NavLink>
+
+                  {showTrash && (
+                    <div className="mt-1 mb-2 flex gap-2 px-1">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await restoreNote(note.id);
+                          } catch (err) {
+                            setWriteError(errorMessage(err));
+                          }
+                        }}
+                        className="text-[11px] font-medium text-amber-400 hover:text-amber-300"
+                      >
+                        Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm("Delete forever?")) return;
+                          try {
+                            await purgeNote(note.id);
+                            if (selectedId === note.id) navigate("/notes");
+                          } catch (err) {
+                            setWriteError(errorMessage(err));
+                          }
+                        }}
+                        className="text-[11px] font-medium text-red-400 hover:text-red-300"
+                      >
+                        Delete forever
+                      </button>
                     </div>
                   )}
-
-                  {preview ? (
-                    <p className="notes-file-card__preview mt-2 text-[11px] leading-relaxed text-slate-400 light:text-slate-500">
-                      {preview}
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-[11px] italic text-slate-500">No content yet</p>
-                  )}
-                </NavLink>
+                </div>
               );
             })}
           </nav>

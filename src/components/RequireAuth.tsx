@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/auth-context";
 
 export default function RequireAuth() {
-  const { session, loading } = useAuth();
+  const { session, loading, passwordRecovery } = useAuth();
   const location = useLocation();
 
   // Render nothing until the session lookup settles. Redirecting during the
@@ -17,6 +17,12 @@ export default function RequireAuth() {
 
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  // Recovery links mint a session before the new password is set — keep them
+  // on /login so they finish the flow instead of landing in the app mid-reset.
+  if (passwordRecovery) {
+    return <Navigate to="/login" replace />;
   }
 
   return <Outlet />;

@@ -3,7 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { requireSupabase, supabase } from "../lib/supabase";
 import { AuthContext, type SignUpResult } from "./auth-context";
 
-/** Where email-confirm / OAuth flows should land after Supabase verifies. */
+/** Where email-confirm / OAuth / recovery flows should land after Supabase verifies. */
 function authRedirectTo() {
   return `${window.location.origin}/login`;
 }
@@ -13,6 +13,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Nothing to look up when there's no client, so don't start in a loading
   // state we'd immediately have to clear from inside the effect.
   const [loading, setLoading] = useState(supabase !== null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
     if (!supabase) return;
@@ -27,9 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
       setLoading(false);
+      if (event === "PASSWORD_RECOVERY") {
+        setPasswordRecovery(true);
+      }
     });
 
     return () => {
@@ -86,6 +90,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    const { error } = await requireSupabase().auth.resetPasswordForEmail(email, {
+      redirectTo: authRedirectTo(),
+    });
+    if (error) throw error;
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    const { error } = await requireSupabase().auth.updateUser({ password });
+    if (error) throw error;
+    setPasswordRecovery(false);
+  }, []);
+
+  const clearPasswordRecovery = useCallback(() => {
+    setPasswordRecovery(false);
+  }, []);
+
   const signInWithGoogle = useCallback(async () => {
     // Land on /login so the session can settle on a public route.
     const { error } = await requireSupabase().auth.signInWithOAuth({
@@ -98,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const { error } = await requireSupabase().auth.signOut();
     if (error) throw error;
+    setPasswordRecovery(false);
   }, []);
 
   const value = useMemo(
@@ -105,13 +127,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       user: session?.user ?? null,
       loading,
+      passwordRecovery,
       signIn,
       signUp,
       resendConfirmation,
+      resetPassword,
+      updatePassword,
+      clearPasswordRecovery,
       signInWithGoogle,
       signOut,
     }),
-    [session, loading, signIn, signUp, resendConfirmation, signInWithGoogle, signOut]
+    [
+      session,
+      loading,
+      passwordRecovery,
+      signIn,
+      signUp,
+      resendConfirmation,
+      resetPassword,
+      updatePassword,
+      clearPasswordRecovery,
+      signInWithGoogle,
+      signOut,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
