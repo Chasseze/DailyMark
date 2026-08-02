@@ -52,6 +52,20 @@ export type QuizProgressRow = {
   updated_at: string;
 };
 
+/** Curated shared stories — read-only for signed-in users. */
+export type ThoughtRow = {
+  id: string;
+  title: string;
+  content: string;
+  preview: string;
+  author: string;
+  source_name: string;
+  source_url: string;
+  tags: string[];
+  published_at: string;
+  created_at: string;
+};
+
 export type SearchNoteRow = {
   id: string;
   user_id: string;
@@ -146,6 +160,32 @@ export type Database = {
           selected?: string | null;
           phase?: QuizProgressRow["phase"];
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      thoughts: {
+        Row: ThoughtRow;
+        Insert: {
+          id?: string;
+          title: string;
+          content?: string;
+          preview?: string;
+          author?: string;
+          source_name?: string;
+          source_url?: string;
+          tags?: string[];
+          published_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          title?: string;
+          content?: string;
+          preview?: string;
+          author?: string;
+          source_name?: string;
+          source_url?: string;
+          tags?: string[];
+          published_at?: string;
         };
         Relationships: [];
       };

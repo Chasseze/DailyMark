@@ -12,6 +12,20 @@ const tabs = [
     ),
   },
   {
+    to: "/thoughts",
+    label: "Thoughts",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9.5 4.75h5a2 2 0 0 1 2 2v3.5a4.5 4.5 0 0 1-2.2 3.9L14 18.5l-2-.9-2 .9-.3-4.35A4.5 4.5 0 0 1 7.5 10.25v-3.5a2 2 0 0 1 2-2Z"
+        />
+        <path strokeLinecap="round" d="M10 8.5h4M10.5 11h3" />
+      </svg>
+    ),
+  },
+  {
     to: "/daily",
     label: "Daily",
     icon: (
@@ -39,13 +53,13 @@ export default function BottomNav() {
       className="border-t border-white/5 glass light:border-slate-200/80"
       style={{ paddingBottom: "max(0.55rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="mx-auto flex items-center justify-around px-2 pt-2.5">
+      <div className="mx-auto flex items-center justify-around px-1 pt-2.5">
         {tabs.map(({ to, icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              "flex flex-col items-center gap-1 rounded-xl px-5 py-1.5 text-[11px] font-medium tracking-wide transition-colors duration-200 " +
+              "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-medium tracking-wide transition-colors duration-200 " +
               (isActive
                 ? "text-amber-400"
                 : "text-slate-500 hover:text-slate-300 light:hover:text-slate-700")
@@ -61,7 +75,7 @@ export default function BottomNav() {
                 >
                   {icon}
                 </span>
-                <span>{label}</span>
+                <span className="truncate">{label}</span>
               </>
             )}
           </NavLink>
