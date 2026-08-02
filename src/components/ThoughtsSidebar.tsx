@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { NavLink, useParams } from "react-router-dom";
-import { useThoughts } from "../context/thoughts-context";
+import { useThoughts, type ThoughtsShelf } from "../context/thoughts-context";
 
 function openingLines(preview: string): string {
   const plain = preview.trim();
@@ -9,19 +9,22 @@ function openingLines(preview: string): string {
 }
 
 export default function ThoughtsSidebar() {
-  const { thoughts, loading, error } = useThoughts();
+  const { featured, saved, bookmarkIds, loading, error, rotationHint } = useThoughts();
   const { id: selectedId } = useParams<{ id?: string }>();
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [shelf, setShelf] = useState<ThoughtsShelf>("live");
+
+  const shelfList = shelf === "live" ? featured : saved;
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    for (const thought of thoughts) for (const tag of thought.tags) set.add(tag);
+    for (const thought of shelfList) for (const tag of thought.tags) set.add(tag);
     return [...set].sort();
-  }, [thoughts]);
+  }, [shelfList]);
 
   const filtered = useMemo(() => {
-    let list = thoughts;
+    let list = shelfList;
     if (activeTag) list = list.filter((t) => t.tags.includes(activeTag));
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -34,10 +37,8 @@ export default function ThoughtsSidebar() {
           t.tags.some((tag) => tag.toLowerCase().includes(q))
       );
     }
-    return [...list].sort(
-      (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
-    );
-  }, [thoughts, activeTag, search]);
+    return list;
+  }, [shelfList, activeTag, search]);
 
   return (
     <aside className="notes-sidebar">
@@ -47,8 +48,43 @@ export default function ThoughtsSidebar() {
           <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
             {loading
               ? "Loading…"
-              : `${filtered.length} curated piece${filtered.length !== 1 ? "s" : ""}`}
+              : shelf === "live"
+                ? `Live shelf · ${rotationHint}`
+                : `${saved.length} saved`}
           </p>
+        </div>
+
+        <div className="mb-3 flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setShelf("live");
+              setActiveTag(null);
+            }}
+            className={
+              "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors " +
+              (shelf === "live"
+                ? "bg-amber-500/20 text-amber-400"
+                : "bg-white/5 text-slate-400 hover:text-slate-200 light:bg-slate-100 light:text-slate-600")
+            }
+          >
+            Live
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShelf("saved");
+              setActiveTag(null);
+            }}
+            className={
+              "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors " +
+              (shelf === "saved"
+                ? "bg-amber-500/20 text-amber-400"
+                : "bg-white/5 text-slate-400 hover:text-slate-200 light:bg-slate-100 light:text-slate-600")
+            }
+          >
+            Saved{bookmarkIds.size > 0 ? ` · ${bookmarkIds.size}` : ""}
+          </button>
         </div>
 
         <div className="relative mb-3">
@@ -67,7 +103,7 @@ export default function ThoughtsSidebar() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search thoughts…"
+            placeholder={shelf === "live" ? "Search live shelf…" : "Search saved…"}
             className="w-full rounded-xl border border-white/5 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-amber-500/35 focus:outline-none light:border-slate-200 light:bg-white/70 light:text-slate-900"
           />
         </div>
@@ -106,7 +142,7 @@ export default function ThoughtsSidebar() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        {error && thoughts.length === 0 && (
+        {error && featured.length === 0 && (
           <div className="mb-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">
             {error}
           </div>
@@ -114,18 +150,27 @@ export default function ThoughtsSidebar() {
 
         {loading ? (
           <div className="space-y-3">
-            {[0, 1, 2, 3].map((i) => (
+            {[0, 1, 2].map((i) => (
               <div key={i} className="h-28 animate-pulse rounded-2xl bg-white/5 light:bg-slate-200/70" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="glass mt-6 rounded-3xl px-4 py-10 text-center">
             <p className="text-sm font-semibold text-slate-400">
-              {search || activeTag ? "Nothing matched" : "No thoughts yet"}
+              {search || activeTag
+                ? "Nothing matched"
+                : shelf === "saved"
+                  ? "Nothing saved yet"
+                  : "No thoughts yet"}
             </p>
+            {shelf === "saved" && !search && !activeTag && (
+              <p className="mt-2 text-xs text-slate-500">
+                Open a live piece and tap Save to keep it after it rotates out.
+              </p>
+            )}
           </div>
         ) : (
-          <nav className="notes-file-list" aria-label="Thoughts">
+          <nav className="notes-file-list" aria-label={shelf === "live" ? "Live thoughts" : "Saved thoughts"}>
             {filtered.map((thought) => {
               const active = selectedId === thought.id;
               const preview = openingLines(thought.preview || thought.content);
@@ -134,6 +179,7 @@ export default function ThoughtsSidebar() {
                 day: "numeric",
                 year: "numeric",
               });
+              const bookmarked = bookmarkIds.has(thought.id);
 
               return (
                 <NavLink
@@ -146,6 +192,11 @@ export default function ThoughtsSidebar() {
                     <h3 className="min-w-0 flex-1 truncate text-[0.95rem] font-semibold tracking-tight text-white light:text-slate-900">
                       {thought.title}
                     </h3>
+                    {bookmarked && (
+                      <span className="mt-0.5 shrink-0 text-amber-400" aria-label="Saved" title="Saved">
+                        <BookmarkGlyph filled />
+                      </span>
+                    )}
                   </div>
 
                   <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
@@ -180,5 +231,20 @@ export default function ThoughtsSidebar() {
         )}
       </div>
     </aside>
+  );
+}
+
+function BookmarkGlyph({ filled }: { filled?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 4.75h10A1.25 1.25 0 0 1 18.25 6v14L12 16.25 5.75 20V6A1.25 1.25 0 0 1 7 4.75Z" />
+    </svg>
   );
 }

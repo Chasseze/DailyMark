@@ -66,6 +66,12 @@ export type ThoughtRow = {
   created_at: string;
 };
 
+export type ThoughtBookmarkRow = {
+  user_id: string;
+  thought_id: string;
+  created_at: string;
+};
+
 export type SearchNoteRow = {
   id: string;
   user_id: string;
@@ -186,6 +192,18 @@ export type Database = {
           source_url?: string;
           tags?: string[];
           published_at?: string;
+        };
+        Relationships: [];
+      };
+      thought_bookmarks: {
+        Row: ThoughtBookmarkRow;
+        Insert: {
+          user_id: string;
+          thought_id: string;
+          created_at?: string;
+        };
+        Update: {
+          created_at?: string;
         };
         Relationships: [];
       };

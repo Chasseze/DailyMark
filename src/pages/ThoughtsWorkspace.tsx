@@ -42,7 +42,8 @@ export function ThoughtsEmptyPreview() {
         Choose a thought
       </h2>
       <p className="mt-2 max-w-sm text-sm text-slate-400 light:text-slate-500">
-        Curated stories and guidance from around the web — pick one to read.
+        A live shelf of curated stories — it refreshes every couple of days. Save any
+        piece you want to keep.
       </p>
     </div>
   );

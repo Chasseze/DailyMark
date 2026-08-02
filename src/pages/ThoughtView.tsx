@@ -1,14 +1,16 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
 import { useThoughts } from "../context/thoughts-context";
+import { errorMessage } from "../lib/supabase";
 import type { Thought } from "../lib/types";
 
 export default function ThoughtView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { thoughts, loading } = useThoughts();
-  const thought = thoughts.find((t) => t.id === id);
+  const { getThought, loading } = useThoughts();
+  const thought = id ? getThought(id) : undefined;
 
   if (loading) {
     return (
@@ -38,6 +40,12 @@ export default function ThoughtView() {
 
 function ThoughtArticle({ thought }: { thought: Thought }) {
   const navigate = useNavigate();
+  const { isBookmarked, toggleBookmark, featured, rotationHint } = useThoughts();
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const saved = isBookmarked(thought.id);
+  const onLiveShelf = featured.some((t) => t.id === thought.id);
+
   const date = new Date(thought.published_at).toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
@@ -48,6 +56,19 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
 
   const iconBtn =
     "rounded-xl p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900";
+
+  const handleBookmark = async () => {
+    if (busy) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await toggleBookmark(thought.id);
+    } catch (err) {
+      setActionError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="note-view animate-in px-4 pt-6">
@@ -73,9 +94,40 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
         <ReadAloudButton
           request={{ id: "thought:" + thought.id, label: thought.title, text: spoken }}
         />
+        <button
+          type="button"
+          onClick={() => void handleBookmark()}
+          disabled={busy}
+          className={
+            iconBtn +
+            " " +
+            (saved ? "text-amber-400 hover:text-amber-300" : "") +
+            " disabled:opacity-50"
+          }
+          aria-label={saved ? "Remove from saved" : "Save thought"}
+          title={saved ? "Saved" : "Save"}
+        >
+          <BookmarkIcon filled={saved} />
+        </button>
       </div>
 
+      {actionError && (
+        <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{actionError}</div>
+      )}
+
       <article className="note-view__article glass rounded-2xl p-5">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {onLiveShelf ? (
+            <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+              Live · {rotationHint}
+            </span>
+          ) : (
+            <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 light:bg-slate-100 light:text-slate-600">
+              From your saved
+            </span>
+          )}
+        </div>
+
         <h1 className="note-title mb-1 break-words text-2xl text-white light:text-slate-900">
           {thought.title}
         </h1>
@@ -108,6 +160,25 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
         <ThoughtAttribution thought={thought} />
       </article>
     </div>
+  );
+}
+
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7 4.75h10A1.25 1.25 0 0 1 18.25 6v14L12 16.25 5.75 20V6A1.25 1.25 0 0 1 7 4.75Z"
+      />
+    </svg>
   );
 }
 
