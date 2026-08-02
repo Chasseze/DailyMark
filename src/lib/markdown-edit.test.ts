@@ -12,6 +12,7 @@ import {
   insertCodeBlock,
   insertLink,
   insertTable,
+  insertWikiLink,
   pasteMarkdown,
   toggleLines,
   toggleTaskAtLine,
@@ -125,6 +126,18 @@ describe("insertLink", () => {
   it("wraps the selection when a url is supplied, as when pasting one", () => {
     const value = "the docs";
     expect(render(value, insertLink(value, 4, 8, "https://x.dev"))).toBe("the [[docs]](https://x.dev)");
+  });
+});
+
+describe("insertWikiLink", () => {
+  it("wraps the selection in wiki brackets and selects the title", () => {
+    const value = "see Inbox dump";
+    expect(render(value, insertWikiLink(value, 4, value.length))).toBe("see [[[Inbox dump]]]");
+  });
+
+  it("inserts a placeholder title when nothing is selected", () => {
+    const value = "see ";
+    expect(render(value, insertWikiLink(value, 4, 4))).toBe("see [[[Note title]]]");
   });
 });
 

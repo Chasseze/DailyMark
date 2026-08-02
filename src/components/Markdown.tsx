@@ -41,14 +41,21 @@ export default function Markdown({
     a({ href, title, children: label }) {
       if (href === "#missing-note") {
         return (
-          <span className="rounded-sm bg-amber-500/10 px-1 text-amber-400/90" title="No matching note">
+          <span
+            className="rounded-sm bg-amber-500/15 px-1 text-amber-300/90 underline decoration-dotted decoration-amber-500/50"
+            title="No note with this exact title — rename a note or fix the link"
+          >
             {label}
           </span>
         );
       }
       if (isInternalNoteHref(href)) {
         return (
-          <Link to={href} title={title} className="text-amber-400 underline">
+          <Link
+            to={href}
+            title={title ?? "Open linked note"}
+            className="font-medium text-amber-400 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-300"
+          >
             {label}
           </Link>
         );

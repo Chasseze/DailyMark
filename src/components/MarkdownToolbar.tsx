@@ -10,6 +10,7 @@ export type MdCommand =
   | "quote"
   | "code"
   | "link"
+  | "noteLink"
   | "image"
   | "table";
 
@@ -33,6 +34,7 @@ const TOOLS: Tool[] = [
   { command: "quote", glyph: "❝", name: "Quote" },
   { command: "code", glyph: "‹›", name: "Code", shortcut: "E" },
   { command: "link", glyph: "🔗", name: "Link", shortcut: "K" },
+  { command: "noteLink", glyph: "[[ ]]", name: "Note link", glyphClass: "font-mono tracking-tight" },
   { command: "image", glyph: "▣", name: "Image" },
   { command: "table", glyph: "▦", name: "Table" },
 ];

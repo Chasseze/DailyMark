@@ -104,6 +104,17 @@ describe("tokenizeMarkdown", () => {
     const [line] = tokenizeMarkdown("some_var_name");
     expect(line).toEqual([{ kind: "text", text: "some_var_name" }]);
   });
+
+  it("highlights wiki note links", () => {
+    const [line] = tokenizeMarkdown("See [[Inbox dump]] tomorrow");
+    expect(line).toEqual([
+      { kind: "text", text: "See " },
+      { kind: "syntax", text: "[[" },
+      { kind: "link", text: "Inbox dump" },
+      { kind: "syntax", text: "]]" },
+      { kind: "text", text: " tomorrow" },
+    ]);
+  });
 });
 
 describe("markdownToPlainText", () => {

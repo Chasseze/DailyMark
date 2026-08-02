@@ -21,6 +21,7 @@ import {
   insertImage,
   insertLink,
   insertTable,
+  insertWikiLink,
   pasteMarkdown,
   toggleLines,
   toggleTaskAtLine,
@@ -33,6 +34,8 @@ interface Props {
   onChange: (content: string) => void;
   /** When set, the image toolbar can upload into Storage for this note. */
   noteId?: string;
+  /** Enables `[[Note title]]` resolution in the rich preview. */
+  notes?: ReadonlyArray<{ id: string; title: string }>;
 }
 
 type View = "live" | "source" | "preview";
@@ -73,6 +76,8 @@ function editFor(command: MdCommand, value: string, start: number, end: number):
     }
     case "link":
       return insertLink(value, start, end);
+    case "noteLink":
+      return insertWikiLink(value, start, end);
     case "image":
       // Handled asynchronously in the editor (file picker / upload).
       return insertImage(value, start, end, "https://", "image");
@@ -96,7 +101,7 @@ function insertOverSelection(text: string): boolean {
   }
 }
 
-export default function MarkdownEditor({ content, onChange, noteId }: Props) {
+export default function MarkdownEditor({ content, onChange, noteId, notes }: Props) {
   const { user } = useAuth();
   const [view, setView] = useState<View>("live");
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -298,7 +303,9 @@ export default function MarkdownEditor({ content, onChange, noteId }: Props) {
             {view === "live" && <PaneLabel>Rich text</PaneLabel>}
             <div className="min-h-[14rem] min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/30 p-4 text-sm text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-700">
               {richContent.trim() ? (
-                <Markdown onToggleTask={handleToggleTask}>{richContent}</Markdown>
+                <Markdown notes={notes} onToggleTask={handleToggleTask}>
+                  {richContent}
+                </Markdown>
               ) : (
                 <p className="italic text-slate-500">Rich text appears here as you type…</p>
               )}
@@ -309,7 +316,9 @@ export default function MarkdownEditor({ content, onChange, noteId }: Props) {
 
       <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
         Markdown is always on: syntax is styled as you type, pasted rich text is converted, and
-        Enter carries lists forward.
+        Enter carries lists forward. Link another note with{" "}
+        <span className="font-mono text-slate-400">[[Exact title]]</span> (toolbar: Note link) —
+        matching titles become clickable in preview and when you open the note.
       </p>
     </div>
   );

@@ -172,6 +172,20 @@ function caretAfterLineEdit(
 const URL_LIKE = /^(?:https?:\/\/|mailto:|www\.)\S+$/i;
 
 /** `[text](url)` around the selection, with the useful half preselected. */
+/** Insert a `[[Note title]]` wiki link; selection becomes the title (or a placeholder). */
+export function insertWikiLink(value: string, start: number, end: number): MdEdit {
+  const selected = value.slice(start, end).trim();
+  const label = selected || "Note title";
+  const text = `[[${label}]]`;
+  return {
+    start,
+    end,
+    text,
+    selectionStart: start + 2,
+    selectionEnd: start + 2 + label.length,
+  };
+}
+
 export function insertLink(value: string, start: number, end: number, url?: string): MdEdit {
   const selected = value.slice(start, end).trim();
 
