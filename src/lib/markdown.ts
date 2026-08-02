@@ -205,6 +205,17 @@ function tokenizeInline(text: string, base: MdTokenKind): MdToken[] {
     }
 
     if (ch === "[") {
+      // Wiki note links: [[Exact note title]]
+      const wiki = /^\[\[([^\]]*)\]\]/.exec(rest);
+      if (wiki) {
+        flush();
+        tokens.push({ kind: "syntax", text: "[[" });
+        if (wiki[1]) tokens.push({ kind: "link", text: wiki[1] });
+        tokens.push({ kind: "syntax", text: "]]" });
+        i += wiki[0].length;
+        continue;
+      }
+
       const m = /^\[([^\]]*)\]\(([^)]*)\)/.exec(rest);
       if (m) {
         flush();

@@ -89,7 +89,7 @@ function fromDateInput(value: string): string | null {
 
 function NoteEditor({ note }: { note: Note }) {
   const navigate = useNavigate();
-  const { notebooks, updateNote } = useNotes();
+  const { notebooks, notes, updateNote } = useNotes();
   const { focus, toggleFocus } = useFocus();
 
   const [title, setTitle] = useState(note.title);
@@ -370,8 +370,12 @@ function NoteEditor({ note }: { note: Note }) {
         </div>
       </div>
 
-      <p className="mb-2 text-[11px] text-slate-500">Link notes with [[Title]]</p>
-      <MarkdownEditor content={content} onChange={setContent} noteId={note.id} />
+      <MarkdownEditor
+        content={content}
+        onChange={setContent}
+        noteId={note.id}
+        notes={notes}
+      />
     </div>
   );
 }
