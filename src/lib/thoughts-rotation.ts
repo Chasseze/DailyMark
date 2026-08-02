@@ -3,7 +3,7 @@ import type { Thought } from "./types";
 /** Live shelf refreshes this often (≤ 3 days as requested). */
 export const ROTATION_DAYS = 2;
 /** How many pieces sit on the live shelf each window. */
-export const FEATURED_COUNT = 3;
+export const FEATURED_COUNT = 5;
 
 const EPOCH_UTC = Date.UTC(2026, 0, 1);
 
