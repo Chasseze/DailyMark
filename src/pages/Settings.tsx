@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/theme-context";
 import { useMood } from "../context/mood-context";
 import { useNotes } from "../context/notes-context";
 import { useAuth } from "../context/auth-context";
 import { useSpeechControls } from "../context/speech-context";
 import { useStreak } from "../hooks/useStreak";
+import { buildWeeklyReviewMarkdown } from "../lib/weekly-review";
 import {
   PITCH_MAX,
   PITCH_MIN,
@@ -35,13 +37,15 @@ import type { Theme } from "../lib/types";
 const SAMPLE = "This is how DailyMark will sound when it reads your notes aloud.";
 
 export default function Settings() {
+  const navigate = useNavigate();
   const { theme, resolved, setTheme, toggle } = useTheme();
   const { mood, setMood } = useMood();
-  const { notes, trash, notebooks, addNote, ensureNote } = useNotes();
+  const { notes, trash, notebooks, addNote, ensureNote, inboxId, dueNotes } = useNotes();
   const { user, signOut } = useAuth();
   const { streak } = useStreak();
   const speech = useSpeechControls();
   const [signingOut, setSigningOut] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [ioBusy, setIoBusy] = useState(false);
   const [ioMessage, setIoMessage] = useState<string | null>(null);
   const [ioError, setIoError] = useState<string | null>(null);
@@ -354,6 +358,39 @@ export default function Settings() {
         {trash.length > 0 && (
           <p className="mt-3 text-xs text-slate-500">{trash.length} note{trash.length === 1 ? "" : "s"} in Trash</p>
         )}
+        {dueNotes.length > 0 && (
+          <p className="mt-2 text-xs text-amber-500/80">
+            {dueNotes.length} note{dueNotes.length === 1 ? "" : "s"} waiting for a revisit
+          </p>
+        )}
+        <button
+          type="button"
+          disabled={reviewBusy}
+          onClick={() => {
+            void (async () => {
+              setReviewBusy(true);
+              setIoError(null);
+              try {
+                const draft = buildWeeklyReviewMarkdown({ notes, streak });
+                const note = await addNote({
+                  title: draft.title,
+                  content: draft.content,
+                  notebook_id: inboxId,
+                  is_pinned: false,
+                  tags: ["weekly-review"],
+                });
+                navigate("/notes/" + note.id + "/edit");
+              } catch (err) {
+                setIoError(errorMessage(err));
+              } finally {
+                setReviewBusy(false);
+              }
+            })();
+          }}
+          className="mt-4 w-full rounded-xl bg-slate-800/30 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-50 light:bg-slate-100 light:text-slate-600"
+        >
+          {reviewBusy ? "Opening review…" : "Start weekly review"}
+        </button>
       </div>
 
       <div className="glass mb-4 rounded-2xl p-4">

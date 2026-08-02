@@ -10,6 +10,8 @@ export interface ThoughtsContextType {
   featured: Thought[];
   /** Bookmarked thoughts, newest bookmark first. */
   saved: Thought[];
+  /** User’s pinned Thought of the week, if any. */
+  pinned: Thought | null;
   bookmarkIds: ReadonlySet<string>;
   loading: boolean;
   error: string | null;
@@ -17,6 +19,7 @@ export interface ThoughtsContextType {
   rotationHint: string;
   isBookmarked: (id: string) => boolean;
   toggleBookmark: (id: string) => Promise<void>;
+  pinThought: (id: string | null) => Promise<void>;
   getThought: (id: string) => Thought | undefined;
   refresh: () => Promise<void>;
 }

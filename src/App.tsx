@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import RequireAuth from "./components/RequireAuth";
 import SetupNotice from "./components/SetupNotice";
+import { FocusProvider } from "./context/FocusContext";
 import { NotesProvider } from "./context/NotesContext";
 import { ThoughtsProvider } from "./context/ThoughtsContext";
 import { isSupabaseConfigured } from "./lib/supabase";
@@ -19,6 +20,7 @@ const ThoughtsEmptyPreview = lazy(() => import("./pages/ThoughtsEmptyPreview"));
 const ThoughtView = lazy(() => import("./pages/ThoughtView"));
 const Daily = lazy(() => import("./pages/Daily"));
 const Settings = lazy(() => import("./pages/Settings"));
+const SharedView = lazy(() => import("./pages/SharedView"));
 
 function RouteFallback() {
   return (
@@ -35,6 +37,7 @@ export default function App() {
     <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/s/:token" element={<SharedView />} />
 
         {/* Providers sit inside the guard so they only fetch with a session,
             and unmount (dropping data) on sign-out. */}
@@ -43,7 +46,9 @@ export default function App() {
             element={
               <NotesProvider>
                 <ThoughtsProvider>
-                  <Layout />
+                  <FocusProvider>
+                    <Layout />
+                  </FocusProvider>
                 </ThoughtsProvider>
               </NotesProvider>
             }

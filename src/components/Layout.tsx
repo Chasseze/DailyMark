@@ -3,6 +3,7 @@ import BottomNav from "./BottomNav";
 import ReadAloudBar from "./ReadAloudBar";
 import MoodPicker from "./MoodPicker";
 import { useSpeechControls } from "../context/speech-context";
+import { useFocus } from "../context/focus-context";
 import { NOTES_MOODS } from "../lib/moods";
 import { useMood } from "../context/mood-context";
 
@@ -10,6 +11,7 @@ export default function Layout() {
   const { status, error } = useSpeechControls();
   const location = useLocation();
   const { mood } = useMood();
+  const { focus, setFocus } = useFocus();
   const moodMeta = NOTES_MOODS.find((m) => m.id === mood) ?? NOTES_MOODS[0];
 
   const playerVisible = status !== "idle" || error !== null;
@@ -17,7 +19,7 @@ export default function Layout() {
   const isThoughtsRoute =
     location.pathname === "/thoughts" || location.pathname.startsWith("/thoughts/");
   const isEditing = /\/notes\/[^/]+\/edit\/?$/.test(location.pathname);
-  const hideNav = isEditing;
+  const hideChrome = focus || isEditing;
 
   const sectionLabel = isNotesRoute
     ? "Notes"
@@ -30,35 +32,54 @@ export default function Layout() {
           : "";
 
   return (
-    <div className="app-shell min-h-screen w-full text-white light:text-slate-900">
-      <header className="notes-masthead sticky top-0 z-40">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15">
-                <div className="h-2.5 w-2.5 rounded-[3px] bg-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[1.15rem] font-bold tracking-tight text-white">
-                  DailyMark
-                </p>
-                {sectionLabel && (
-                  <p className="truncate text-[11px] text-white/70">
-                    {sectionLabel}
-                    <span className="hidden sm:inline"> · {moodMeta.blurb}</span>
+    <div
+      className={
+        "app-shell min-h-screen w-full text-white light:text-slate-900 " +
+        (focus ? "focus-mode" : "")
+      }
+    >
+      {!focus && (
+        <header className="notes-masthead sticky top-0 z-40">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                  <div className="h-2.5 w-2.5 rounded-[3px] bg-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-[1.15rem] font-bold tracking-tight text-white">
+                    DailyMark
                   </p>
-                )}
+                  {sectionLabel && (
+                    <p className="truncate text-[11px] text-white/70">
+                      {sectionLabel}
+                      <span className="hidden sm:inline"> · {moodMeta.blurb}</span>
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
+            <MoodPicker />
           </div>
-          <MoodPicker />
+        </header>
+      )}
+
+      {focus && (
+        <div className="sticky top-0 z-40 flex justify-end px-4 py-2">
+          <button
+            type="button"
+            onClick={() => setFocus(false)}
+            className="rounded-xl bg-black/30 px-3 py-1.5 text-xs font-medium text-slate-300 backdrop-blur light:bg-white/80 light:text-slate-700"
+          >
+            Exit focus
+          </button>
         </div>
-      </header>
+      )}
 
       <main
         className={
           "mx-auto w-full max-w-2xl " +
-          (hideNav
+          (hideChrome
             ? playerVisible
               ? "pb-28"
               : "pb-6"
@@ -73,7 +94,7 @@ export default function Layout() {
       <div className="fixed bottom-0 left-0 right-0 z-50">
         <div className="mx-auto max-w-2xl">
           <ReadAloudBar />
-          {!hideNav && <BottomNav />}
+          {!hideChrome && <BottomNav />}
         </div>
       </div>
     </div>

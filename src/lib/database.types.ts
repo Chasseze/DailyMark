@@ -27,6 +27,8 @@ export type NoteRow = {
   tags: string[];
   /** Soft-delete timestamp; null means the note is active. */
   deleted_at: string | null;
+  /** Optional gentle “revisit by” reminder. */
+  revisit_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,6 +38,8 @@ export type ProfileRow = {
   streak: number;
   /** Postgres `date`, serialised as YYYY-MM-DD. */
   last_visit: string | null;
+  /** Thought pinned as “of the week” for this user. */
+  pinned_thought_id: string | null;
   created_at: string;
 };
 
@@ -62,8 +66,30 @@ export type ThoughtRow = {
   source_name: string;
   source_url: string;
   tags: string[];
+  /** Curated grouping, e.g. Habits / Focus / Writing. */
+  collection: string;
   published_at: string;
   created_at: string;
+};
+
+export type DailyMoodRow = {
+  user_id: string;
+  date_key: string;
+  mood: string;
+  note: string;
+  created_at: string;
+};
+
+export type ShareTokenRow = {
+  id: string;
+  user_id: string;
+  token: string;
+  target_type: "note" | "notebook";
+  note_id: string | null;
+  notebook_id: string | null;
+  created_at: string;
+  expires_at: string | null;
+  revoked_at: string | null;
 };
 
 export type ThoughtBookmarkRow = {
@@ -120,6 +146,7 @@ export type Database = {
           is_pinned?: boolean;
           tags?: string[];
           deleted_at?: string | null;
+          revisit_at?: string | null;
         };
         Update: {
           notebook_id?: string | null;
@@ -129,6 +156,7 @@ export type Database = {
           is_pinned?: boolean;
           tags?: string[];
           deleted_at?: string | null;
+          revisit_at?: string | null;
         };
         Relationships: [];
       };
@@ -138,10 +166,12 @@ export type Database = {
           id: string;
           streak?: number;
           last_visit?: string | null;
+          pinned_thought_id?: string | null;
         };
         Update: {
           streak?: number;
           last_visit?: string | null;
+          pinned_thought_id?: string | null;
         };
         Relationships: [];
       };
@@ -180,6 +210,7 @@ export type Database = {
           source_name?: string;
           source_url?: string;
           tags?: string[];
+          collection?: string;
           published_at?: string;
           created_at?: string;
         };
@@ -191,6 +222,7 @@ export type Database = {
           source_name?: string;
           source_url?: string;
           tags?: string[];
+          collection?: string;
           published_at?: string;
         };
         Relationships: [];
@@ -207,6 +239,40 @@ export type Database = {
         };
         Relationships: [];
       };
+      daily_moods: {
+        Row: DailyMoodRow;
+        Insert: {
+          user_id: string;
+          date_key: string;
+          mood: string;
+          note?: string;
+          created_at?: string;
+        };
+        Update: {
+          mood?: string;
+          note?: string;
+        };
+        Relationships: [];
+      };
+      share_tokens: {
+        Row: ShareTokenRow;
+        Insert: {
+          id?: string;
+          user_id: string;
+          token: string;
+          target_type: "note" | "notebook";
+          note_id?: string | null;
+          notebook_id?: string | null;
+          created_at?: string;
+          expires_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Update: {
+          expires_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -219,6 +285,10 @@ export type Database = {
       search_notes: {
         Args: { q: string };
         Returns: SearchNoteRow[];
+      };
+      get_shared_content: {
+        Args: { p_token: string };
+        Returns: unknown;
       };
     };
     Enums: Record<never, never>;
