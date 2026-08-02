@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStreak } from "../hooks/useStreak";
+import { useAuth } from "../context/auth-context";
 import { useNotes } from "../context/notes-context";
+import { useThoughts } from "../context/thoughts-context";
 import ReadAloudButton from "../components/ReadAloudButton";
-import { errorMessage } from "../lib/supabase";
+import { errorMessage, requireSupabase } from "../lib/supabase";
+import { buildWeeklyReviewMarkdown } from "../lib/weekly-review";
 import {
   CATEGORY_META,
   QUESTIONS_PER_DAY,
@@ -34,6 +37,13 @@ const QUOTES: Quote[] = [
   { text: "In the middle of difficulty lies opportunity.", source: "Albert Einstein" },
   { text: "Done is better than perfect.", source: "Sheryl Sandberg" },
 ];
+
+const MOODS = ["Calm", "Focused", "Tired", "Heavy", "Bright", "Unsure"] as const;
+type DailyMood = (typeof MOODS)[number];
+
+function isDailyMood(value: string): value is DailyMood {
+  return (MOODS as readonly string[]).includes(value);
+}
 
 function pickQuote(seed: number) {
   return QUOTES[seed % QUOTES.length];
@@ -70,13 +80,19 @@ const TIER_FLOURISH: Record<ReturnType<typeof resultTier>, { label: string }> = 
 
 export default function Daily() {
   const { streak } = useStreak();
-  const { addNote } = useNotes();
+  const { user } = useAuth();
+  const { addNote, notes, inboxId, dueNotes } = useNotes();
+  const { pinned } = useThoughts();
   const navigate = useNavigate();
   const key = useMemo(() => dateKey(), []);
   const seed = useMemo(() => daySeed(key), [key]);
   const quote = useMemo(() => pickQuote(seed), [seed]);
   const [jotBusy, setJotBusy] = useState(false);
   const [jotError, setJotError] = useState<string | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [selectedMood, setSelectedMood] = useState<DailyMood | null>(null);
+  const [moodBusy, setMoodBusy] = useState(false);
 
   const [{ progress, questions }, setState] = useState(() => bootstrapProgress(key));
 
@@ -94,6 +110,30 @@ export default function Daily() {
     };
   }, [key]);
 
+  // Load today's mood check-in from Supabase.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void (async () => {
+      try {
+        const db = requireSupabase();
+        const { data, error } = await db
+          .from("daily_moods")
+          .select("mood")
+          .eq("user_id", user.id)
+          .eq("date_key", key)
+          .maybeSingle();
+        if (!active || error || !data?.mood) return;
+        if (isDailyMood(data.mood)) setSelectedMood(data.mood);
+      } catch {
+        // offline / missing table — mood UI still works locally
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user, key]);
+
   const update = useCallback((next: QuizProgress, nextQuestions?: QuizQuestion[]) => {
     setState((prev) => ({
       progress: next,
@@ -101,6 +141,25 @@ export default function Daily() {
     }));
     saveProgress(next);
   }, []);
+
+  const selectMood = async (mood: DailyMood) => {
+    if (!user || moodBusy) return;
+    setSelectedMood(mood);
+    setMoodBusy(true);
+    try {
+      const db = requireSupabase();
+      const { error } = await db.from("daily_moods").upsert({
+        user_id: user.id,
+        date_key: key,
+        mood,
+      });
+      if (error) throw error;
+    } catch {
+      // Keep the optimistic selection; retry on next tap.
+    } finally {
+      setMoodBusy(false);
+    }
+  };
 
   const jotReflection = async () => {
     if (jotBusy) return;
@@ -122,12 +181,34 @@ export default function Daily() {
     }
   };
 
+  const startWeeklyReview = async () => {
+    if (reviewBusy) return;
+    setReviewBusy(true);
+    setReviewError(null);
+    try {
+      const { title, content } = buildWeeklyReviewMarkdown({ notes, streak });
+      const note = await addNote({
+        title,
+        content,
+        notebook_id: inboxId,
+        is_pinned: false,
+        tags: ["weekly-review"],
+      });
+      navigate("/notes/" + note.id + "/edit");
+    } catch (err) {
+      setReviewError(errorMessage(err));
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
   const current = questions[Math.min(progress.index, Math.max(questions.length - 1, 0))];
   const isCorrect = progress.selected === current?.answer;
   const total = questions.length || QUESTIONS_PER_DAY;
   const meta = current ? CATEGORY_META[current.category] : null;
   const tier = resultTier(progress.score, total);
   const flourish = TIER_FLOURISH[tier];
+  const revisitPreview = dueNotes.slice(0, 3);
 
   // Remount the question card when the prompt changes so the enter animation
   // plays — leave the phase out of the key so feedback does not re-animate options.
@@ -219,6 +300,73 @@ export default function Daily() {
         </div>
       </div>
 
+      <section className="mb-4">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+          How are you feeling?
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {MOODS.map((mood) => {
+            const active = selectedMood === mood;
+            return (
+              <button
+                key={mood}
+                type="button"
+                onClick={() => void selectMood(mood)}
+                disabled={moodBusy}
+                className={
+                  "rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50 " +
+                  (active
+                    ? "bg-amber-500/15 font-medium text-amber-400"
+                    : "bg-white/5 text-slate-400 hover:bg-white/8 hover:text-slate-200 light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200/80 light:hover:text-slate-800")
+                }
+              >
+                {mood}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {pinned && (
+        <Link
+          to={"/thoughts/" + pinned.id}
+          className="glass mb-4 block rounded-2xl p-4 transition-colors hover:bg-white/[0.04] light:hover:bg-slate-50"
+        >
+          <span className="text-[11px] font-medium uppercase tracking-wider text-amber-400/90">
+            Thought of the week
+          </span>
+          <p className="note-title mt-2 text-base leading-snug text-white light:text-slate-900">
+            {pinned.title}
+          </p>
+          <span className="mt-2 inline-block text-sm font-medium text-amber-400">Open →</span>
+        </Link>
+      )}
+
+      {revisitPreview.length > 0 && (
+        <section className="mb-4 rounded-2xl border border-white/5 bg-slate-900/30 px-4 py-3 light:border-slate-200 light:bg-slate-50/80">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              Revisit
+            </span>
+            {dueNotes.length > 3 && (
+              <span className="text-[11px] text-slate-500">+{dueNotes.length - 3} more</span>
+            )}
+          </div>
+          <ul className="mt-2 space-y-1.5">
+            {revisitPreview.map((note) => (
+              <li key={note.id}>
+                <Link
+                  to={"/notes/" + note.id}
+                  className="block truncate text-sm text-slate-300 transition-colors hover:text-amber-400 light:text-slate-700 light:hover:text-amber-600"
+                >
+                  {note.title.trim() || "Untitled"}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="glass mb-4 rounded-3xl p-6">
         <div className="flex items-start justify-between gap-2">
           <span className="inline-block rounded-lg bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
@@ -247,6 +395,17 @@ export default function Daily() {
           {jotBusy ? "Opening note…" : "Jot a reflection →"}
         </button>
         {jotError && <p className="mt-2 text-xs text-red-400">{jotError}</p>}
+        <div className="mt-4 border-t border-white/5 pt-4 light:border-slate-200">
+          <button
+            type="button"
+            onClick={() => void startWeeklyReview()}
+            disabled={reviewBusy}
+            className="text-sm font-medium text-slate-300 transition-colors hover:text-amber-400 disabled:opacity-50 light:text-slate-600 light:hover:text-amber-600"
+          >
+            {reviewBusy ? "Opening weekly review…" : "Start weekly review →"}
+          </button>
+          {reviewError && <p className="mt-2 text-xs text-red-400">{reviewError}</p>}
+        </div>
       </section>
 
       <section className="glass rounded-3xl p-6">

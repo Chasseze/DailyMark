@@ -26,6 +26,12 @@ export interface NotesContextType {
   ensureNote: (id: string) => Promise<Note | null>;
   /** Server-side full-text search; empty query returns []. */
   searchNotes: (query: string) => Promise<Note[]>;
+  /** Inbox starter notebook when present. */
+  inboxId: string | null;
+  /** Active notes with a revisit_at on or before today. */
+  dueNotes: Note[];
+  createNoteShare: (noteId: string) => Promise<string>;
+  createNotebookShare: (notebookId: string) => Promise<string>;
   refresh: () => Promise<void>;
 }
 

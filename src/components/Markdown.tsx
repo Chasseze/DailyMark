@@ -1,6 +1,8 @@
 import { createContext, useContext } from "react";
+import { Link } from "react-router-dom";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { expandWikiLinks, isInternalNoteHref } from "../lib/wiki-links";
 
 interface Props {
   children: string;
@@ -9,6 +11,8 @@ interface Props {
   className?: string;
   /** Receives the source line of the task checkbox that was clicked. */
   onToggleTask?: (line: number) => void;
+  /** When provided, `[[Note title]]` wiki links resolve to notes. */
+  notes?: ReadonlyArray<{ id: string; title: string }>;
 }
 
 /**
@@ -24,9 +28,31 @@ const TaskLineContext = createContext<number | null>(null);
  * tables, strikethrough, task lists, autolinks — is on everywhere the app shows
  * note content, so what you type is what you see without opting in.
  */
-export default function Markdown({ children, compact = false, className = "", onToggleTask }: Props) {
+export default function Markdown({
+  children,
+  compact = false,
+  className = "",
+  onToggleTask,
+  notes,
+}: Props) {
+  const source = notes ? expandWikiLinks(children, notes) : children;
+
   const components: Components = {
     a({ href, title, children: label }) {
+      if (href === "#missing-note") {
+        return (
+          <span className="rounded-sm bg-amber-500/10 px-1 text-amber-400/90" title="No matching note">
+            {label}
+          </span>
+        );
+      }
+      if (isInternalNoteHref(href)) {
+        return (
+          <Link to={href} title={title} className="text-amber-400 underline">
+            {label}
+          </Link>
+        );
+      }
       return (
         <a href={href} title={title} target="_blank" rel="noreferrer noopener">
           {label}
@@ -66,7 +92,7 @@ export default function Markdown({ children, compact = false, className = "", on
   return (
     <div className={`prose-custom${compact ? " prose-compact" : ""}${className ? ` ${className}` : ""}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {children}
+        {source}
       </ReactMarkdown>
     </div>
   );

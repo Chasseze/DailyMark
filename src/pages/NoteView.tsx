@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useFocus } from "../context/focus-context";
 import { useNotes } from "../context/notes-context";
 import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
 import { toggleTaskAtLine } from "../lib/markdown-edit";
 import { downloadText, noteToMarkdown, safeFilename } from "../lib/notes-io";
+import { shareUrl } from "../lib/share";
 import { errorMessage } from "../lib/supabase";
 import type { Note } from "../lib/types";
 
@@ -58,13 +60,25 @@ export default function NoteView() {
 
 function NoteArticle({ note }: { note: Note }) {
   const navigate = useNavigate();
-  const { deleteNote, restoreNote, purgeNote, togglePin, updateNote } = useNotes();
+  const { notes, deleteNote, restoreNote, purgeNote, togglePin, updateNote, createNoteShare } =
+    useNotes();
+  const { focus, toggleFocus } = useFocus();
   const [taskError, setTaskError] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
   const trashed = Boolean(note.deleted_at);
 
   const date = new Date(note.updated_at).toLocaleDateString(undefined, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
+
+  const revisitLabel = note.revisit_at
+    ? new Date(note.revisit_at).toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
 
   const spoken = [note.title, note.content].filter((part) => part.trim()).join("\n\n");
 
@@ -89,6 +103,19 @@ function NoteArticle({ note }: { note: Note }) {
     downloadText(safeFilename(body.title), noteToMarkdown(body));
   };
 
+  const handleShare = async () => {
+    setShareStatus(null);
+    try {
+      const token = await createNoteShare(note.id);
+      await navigator.clipboard.writeText(shareUrl(token));
+      setShareStatus("Link copied");
+      window.setTimeout(() => setShareStatus(null), 2000);
+    } catch (err) {
+      setShareStatus(errorMessage(err));
+      window.setTimeout(() => setShareStatus(null), 3500);
+    }
+  };
+
   const iconBtn =
     "rounded-xl p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900";
 
@@ -104,6 +131,18 @@ function NoteArticle({ note }: { note: Note }) {
           <BackIcon />
         </button>
         <div className="min-w-0 flex-1" />
+        {shareStatus && (
+          <span className="mr-1 text-[11px] font-medium text-amber-400/90">{shareStatus}</span>
+        )}
+        <button
+          type="button"
+          onClick={() => toggleFocus()}
+          className={iconBtn + " " + (focus ? "text-amber-400 hover:text-amber-300" : "")}
+          aria-label={focus ? "Exit focus mode" : "Enter focus mode"}
+          title={focus ? "Exit focus" : "Focus"}
+        >
+          <FocusIcon />
+        </button>
         <ReadAloudButton
           request={{ id: "note:" + note.id, label: note.title || "Untitled", text: spoken }}
         />
@@ -118,6 +157,15 @@ function NoteArticle({ note }: { note: Note }) {
         </button>
         {!trashed && (
           <>
+            <button
+              type="button"
+              onClick={() => void handleShare()}
+              className={iconBtn}
+              aria-label="Copy share link"
+              title="Share"
+            >
+              <ShareIcon />
+            </button>
             <button
               type="button"
               onClick={() => void togglePin(note.id)}
@@ -195,7 +243,10 @@ function NoteArticle({ note }: { note: Note }) {
         <h1 className="note-title mb-1 break-words text-2xl text-white light:text-slate-900">
           {note.title || "Untitled"}
         </h1>
-        <p className="mb-4 text-xs text-slate-500">{date}</p>
+        <p className={"text-xs text-slate-500 " + (revisitLabel ? "mb-1" : "mb-4")}>{date}</p>
+        {revisitLabel && (
+          <p className="mb-4 text-xs text-amber-500/70">Revisit by {revisitLabel}</p>
+        )}
 
         {note.tags.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-1.5">
@@ -209,7 +260,12 @@ function NoteArticle({ note }: { note: Note }) {
 
         <div className="mt-2 min-w-0 text-sm leading-relaxed text-slate-300 light:text-slate-700">
           {note.content.trim() ? (
-            <Markdown onToggleTask={(line) => void handleToggleTask(line)}>{note.content}</Markdown>
+            <Markdown
+              notes={notes}
+              onToggleTask={(line) => void handleToggleTask(line)}
+            >
+              {note.content}
+            </Markdown>
           ) : (
             <p className="italic text-slate-500">This note is empty. Tap edit to add content.</p>
           )}
@@ -255,6 +311,26 @@ function ExportIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v10m0 0 3.5-3.5M12 14l-3.5-3.5M5 18h14" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+      <circle cx="18" cy="5" r="2.25" />
+      <circle cx="6" cy="12" r="2.25" />
+      <circle cx="18" cy="19" r="2.25" />
+      <path strokeLinecap="round" d="M8.2 10.8 15.8 6.4M8.2 13.2l7.6 4.4" />
+    </svg>
+  );
+}
+
+function FocusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.25" />
+      <path strokeLinecap="round" d="M12 3.5v2.5M12 18v2.5M3.5 12h2.5M18 12h2.5" />
     </svg>
   );
 }

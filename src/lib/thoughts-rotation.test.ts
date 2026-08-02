@@ -18,6 +18,7 @@ function stub(id: string): Thought {
     author: "A",
     source_name: "S",
     source_url: "https://example.com",
+    collection: "General",
     tags: [],
     published_at: "2026-01-01T00:00:00Z",
     created_at: "2026-01-01T00:00:00Z",

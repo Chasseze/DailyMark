@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useFocus } from "../context/focus-context";
 import { useNotes } from "../context/notes-context";
 import { errorMessage } from "../lib/supabase";
 import type { Note } from "../lib/types";
@@ -76,15 +77,27 @@ function sameTags(a: string[], b: string[]) {
   return left.every((tag, i) => tag === right[i]);
 }
 
+function toDateInput(iso: string | null): string {
+  if (!iso) return "";
+  return iso.slice(0, 10);
+}
+
+function fromDateInput(value: string): string | null {
+  if (!value) return null;
+  return new Date(value + "T12:00:00").toISOString();
+}
+
 function NoteEditor({ note }: { note: Note }) {
   const navigate = useNavigate();
   const { notebooks, updateNote } = useNotes();
+  const { focus, toggleFocus } = useFocus();
 
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>(note.tags);
   const [notebookId, setNotebookId] = useState<string | null>(note.notebook_id);
+  const [revisitAt, setRevisitAt] = useState(toDateInput(note.revisit_at));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
@@ -94,12 +107,14 @@ function NoteEditor({ note }: { note: Note }) {
     content: note.content,
     tags: note.tags,
     notebookId: note.notebook_id,
+    revisitAt: toDateInput(note.revisit_at),
   });
 
   const dirty =
     title !== saved.title ||
     content !== saved.content ||
     notebookId !== saved.notebookId ||
+    revisitAt !== saved.revisitAt ||
     !sameTags(tags, saved.tags);
 
   useEffect(() => {
@@ -125,8 +140,9 @@ function NoteEditor({ note }: { note: Note }) {
             content,
             tags,
             notebook_id: notebookId,
+            revisit_at: fromDateInput(revisitAt),
           });
-          setSaved({ title, content, tags, notebookId });
+          setSaved({ title, content, tags, notebookId, revisitAt });
           setLastSavedAt(new Date());
         } catch (err) {
           setSaveError(errorMessage(err));
@@ -136,7 +152,7 @@ function NoteEditor({ note }: { note: Note }) {
       })();
     }, 1200);
     return () => window.clearTimeout(timer);
-  }, [title, content, tags, notebookId, dirty, note.id, updateNote]);
+  }, [title, content, tags, notebookId, revisitAt, dirty, note.id, updateNote]);
 
   const handleSave = async () => {
     if (saving) return;
@@ -144,8 +160,14 @@ function NoteEditor({ note }: { note: Note }) {
       setSaving(true);
       setSaveError(null);
       try {
-        await updateNote(note.id, { title, content, tags, notebook_id: notebookId });
-        setSaved({ title, content, tags, notebookId });
+        await updateNote(note.id, {
+          title,
+          content,
+          tags,
+          notebook_id: notebookId,
+          revisit_at: fromDateInput(revisitAt),
+        });
+        setSaved({ title, content, tags, notebookId, revisitAt });
         setLastSavedAt(new Date());
       } catch (err) {
         setSaveError(errorMessage(err));
@@ -205,6 +227,23 @@ function NoteEditor({ note }: { note: Note }) {
         )}
         <button
           type="button"
+          onClick={() => toggleFocus()}
+          aria-label={focus ? "Exit focus mode" : "Enter focus mode"}
+          title={focus ? "Exit focus" : "Focus"}
+          className={
+            "rounded-xl p-2 transition-colors hover:bg-white/5 light:hover:bg-slate-100 " +
+            (focus
+              ? "text-amber-400 hover:text-amber-300"
+              : "text-slate-400 hover:text-white light:hover:text-slate-900")
+          }
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.25" />
+            <path strokeLinecap="round" d="M12 3.5v2.5M12 18v2.5M3.5 12h2.5M18 12h2.5" />
+          </svg>
+        </button>
+        <button
+          type="button"
           onClick={() => void handleSave()}
           disabled={saving}
           className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-sm font-semibold text-black transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
@@ -259,18 +298,41 @@ function NoteEditor({ note }: { note: Note }) {
         className="note-title mb-3 w-full bg-transparent text-2xl text-white placeholder-slate-600 focus:outline-none light:text-slate-900 light:placeholder-slate-300"
       />
 
-      <div className="mb-3 flex items-center gap-2">
-        <span className="text-xs text-slate-500">Notebook:</span>
-        <select
-          value={notebookId ?? ""}
-          onChange={(e) => setNotebookId(e.target.value || null)}
-          className="rounded-lg border border-white/5 bg-slate-800/50 px-2 py-1 text-xs text-slate-300 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
-        >
-          <option value="">None</option>
-          {notebooks.map((nb) => (
-            <option key={nb.id} value={nb.id}>{nb.name}</option>
-          ))}
-        </select>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Notebook:</span>
+          <select
+            value={notebookId ?? ""}
+            onChange={(e) => setNotebookId(e.target.value || null)}
+            className="rounded-lg border border-white/5 bg-slate-800/50 px-2 py-1 text-xs text-slate-300 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+          >
+            <option value="">None</option>
+            {notebooks.map((nb) => (
+              <option key={nb.id} value={nb.id}>{nb.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="revisit-at" className="text-xs text-slate-500">
+            Revisit by:
+          </label>
+          <input
+            id="revisit-at"
+            type="date"
+            value={revisitAt}
+            onChange={(e) => setRevisitAt(e.target.value)}
+            className="rounded-lg border border-white/5 bg-slate-800/50 px-2 py-1 text-xs text-slate-300 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+          />
+          {revisitAt && (
+            <button
+              type="button"
+              onClick={() => setRevisitAt("")}
+              className="text-[11px] text-slate-500 hover:text-slate-300"
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mb-4">
@@ -308,6 +370,7 @@ function NoteEditor({ note }: { note: Note }) {
         </div>
       </div>
 
+      <p className="mb-2 text-[11px] text-slate-500">Link notes with [[Title]]</p>
       <MarkdownEditor content={content} onChange={setContent} noteId={note.id} />
     </div>
   );

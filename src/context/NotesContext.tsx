@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { NewNote, Note, Notebook, NoteUpdate } from "../lib/types";
 import type { NoteRow, SearchNoteRow } from "../lib/database.types";
+import { createNotebookShare, createNoteShare } from "../lib/share";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
 import { NotesContext } from "./notes-context";
 
 const LIST_COLUMNS =
-  "id,user_id,notebook_id,title,preview,is_pinned,tags,deleted_at,created_at,updated_at";
+  "id,user_id,notebook_id,title,preview,is_pinned,tags,deleted_at,revisit_at,created_at,updated_at";
 
 function asListNote(row: Omit<NoteRow, "content"> & { content?: string }): Note {
   return {
@@ -14,6 +15,7 @@ function asListNote(row: Omit<NoteRow, "content"> & { content?: string }): Note 
     content: "",
     preview: row.preview ?? "",
     deleted_at: row.deleted_at ?? null,
+    revisit_at: row.revisit_at ?? null,
     bodyLoaded: false,
   };
 }
@@ -23,6 +25,7 @@ function asHydratedNote(row: NoteRow): Note {
     ...row,
     preview: row.preview ?? "",
     deleted_at: row.deleted_at ?? null,
+    revisit_at: row.revisit_at ?? null,
     bodyLoaded: true,
   };
 }
@@ -38,6 +41,7 @@ function asSearchNote(row: SearchNoteRow): Note {
     is_pinned: row.is_pinned,
     tags: row.tags ?? [],
     deleted_at: row.deleted_at,
+    revisit_at: null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     bodyLoaded: false,
@@ -297,6 +301,38 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     return ((data ?? []) as SearchNoteRow[]).map(asSearchNote);
   }, []);
 
+  const inboxId = useMemo(
+    () => notebooks.find((nb) => nb.name.toLowerCase() === "inbox")?.id ?? null,
+    [notebooks]
+  );
+
+  const dueNotes = useMemo(() => {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    return notes
+      .filter((n) => n.revisit_at && new Date(n.revisit_at).getTime() <= end.getTime())
+      .sort(
+        (a, b) =>
+          new Date(a.revisit_at!).getTime() - new Date(b.revisit_at!).getTime()
+      );
+  }, [notes]);
+
+  const shareNote = useCallback(
+    async (noteId: string) => {
+      if (!userId) throw new Error("You must be signed in to share.");
+      return createNoteShare(userId, noteId);
+    },
+    [userId]
+  );
+
+  const shareNotebook = useCallback(
+    async (notebookId: string) => {
+      if (!userId) throw new Error("You must be signed in to share.");
+      return createNotebookShare(userId, notebookId);
+    },
+    [userId]
+  );
+
   const value = useMemo(
     () => ({
       notes,
@@ -316,6 +352,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       deleteNotebook,
       ensureNote,
       searchNotes,
+      inboxId,
+      dueNotes,
+      createNoteShare: shareNote,
+      createNotebookShare: shareNotebook,
       refresh,
     }),
     [
@@ -336,6 +376,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       deleteNotebook,
       ensureNote,
       searchNotes,
+      inboxId,
+      dueNotes,
+      shareNote,
+      shareNotebook,
       refresh,
     ]
   );

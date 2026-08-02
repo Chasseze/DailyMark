@@ -2,10 +2,30 @@ import { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import { useStreak } from "../hooks/useStreak";
+import { shareUrl } from "../lib/share";
 import { errorMessage } from "../lib/supabase";
 import type { Note } from "../lib/types";
 
 const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
 
 /** Opening preview from the DB snippet, wrapped to ~3 lines via CSS. */
 function openingLines(preview: string): string {
@@ -13,6 +33,14 @@ function openingLines(preview: string): string {
   if (!plain) return "";
   // Prefer sentence-ish breaks so line-clamp has natural wraps.
   return plain.replace(/([.!?])\s+/g, "$1\n");
+}
+
+function matchesSearch(note: Note, q: string): boolean {
+  return (
+    note.title.toLowerCase().includes(q) ||
+    note.preview.toLowerCase().includes(q) ||
+    note.tags.some((t) => t.toLowerCase().includes(q))
+  );
 }
 
 export default function NotesSidebar() {
@@ -30,6 +58,9 @@ export default function NotesSidebar() {
     purgeNote,
     emptyTrash,
     searchNotes,
+    inboxId,
+    dueNotes,
+    createNotebookShare,
   } = useNotes();
   const { streak } = useStreak();
   const { id: selectedId } = useParams<{ id?: string }>();
@@ -38,6 +69,7 @@ export default function NotesSidebar() {
   const [activeNotebook, setActiveNotebook] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showTrash, setShowTrash] = useState(false);
+  const [showDue, setShowDue] = useState(false);
   const [ftsHits, setFtsHits] = useState<Note[] | null>(null);
   const [ftsBusy, setFtsBusy] = useState(false);
   const [showNewNotebook, setShowNewNotebook] = useState(false);
@@ -47,7 +79,9 @@ export default function NotesSidebar() {
   const [editNbName, setEditNbName] = useState("");
   const [editNbColor, setEditNbColor] = useState(COLORS[0]);
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -56,11 +90,11 @@ export default function NotesSidebar() {
   }, [notes]);
 
   const searchQuery = search.trim();
-  // Ignore stale FTS results when the query is cleared or Trash is open.
-  const activeFts = searchQuery && !showTrash ? ftsHits : null;
+  // Ignore stale FTS results when the query is cleared or Trash/Due is open.
+  const activeFts = searchQuery && !showTrash && !showDue ? ftsHits : null;
 
   useEffect(() => {
-    if (!searchQuery || showTrash) return;
+    if (!searchQuery || showTrash || showDue) return;
 
     let active = true;
     const timer = window.setTimeout(() => {
@@ -82,19 +116,24 @@ export default function NotesSidebar() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [searchQuery, showTrash, searchNotes]);
+  }, [searchQuery, showTrash, showDue, searchNotes]);
 
   const filtered = useMemo(() => {
     if (showTrash) {
       let list = trash;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        list = list.filter(
-          (n) =>
-            n.title.toLowerCase().includes(q) ||
-            n.preview.toLowerCase().includes(q) ||
-            n.tags.some((t) => t.toLowerCase().includes(q))
-        );
+        list = list.filter((n) => matchesSearch(n, q));
+      }
+      return list;
+    }
+
+    if (showDue) {
+      let list = dueNotes;
+      if (activeTag) list = list.filter((n) => n.tags.includes(activeTag));
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter((n) => matchesSearch(n, q));
       }
       return list;
     }
@@ -104,19 +143,24 @@ export default function NotesSidebar() {
     if (activeTag) list = list.filter((n) => n.tags.includes(activeTag));
     if (!activeFts && searchQuery) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (n) =>
-          n.title.toLowerCase().includes(q) ||
-          n.preview.toLowerCase().includes(q) ||
-          n.tags.some((t) => t.toLowerCase().includes(q))
-      );
+      list = list.filter((n) => matchesSearch(n, q));
     }
     return [...list].sort((a, b) => {
       if (a.is_pinned && !b.is_pinned) return -1;
       if (!a.is_pinned && b.is_pinned) return 1;
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
-  }, [notes, trash, activeNotebook, activeTag, searchQuery, showTrash, activeFts]);
+  }, [
+    notes,
+    trash,
+    dueNotes,
+    activeNotebook,
+    activeTag,
+    searchQuery,
+    showTrash,
+    showDue,
+    activeFts,
+  ]);
 
   const handleQuickNote = async () => {
     if (busy || showTrash) return;
@@ -135,6 +179,85 @@ export default function NotesSidebar() {
       setWriteError(errorMessage(err));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleVoiceCapture = () => {
+    if (busy || listening || showTrash) return;
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) {
+      setWriteError("Voice capture is not supported in this browser.");
+      return;
+    }
+
+    setWriteError(null);
+    const recognition = new Ctor();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = navigator.language || "en-US";
+
+    recognition.onresult = (event) => {
+      const parts: string[] = [];
+      for (let i = 0; i < event.results.length; i++) {
+        const alt = event.results[i]?.[0]?.transcript;
+        if (alt) parts.push(alt);
+      }
+      const transcript = parts.join(" ").trim();
+      if (!transcript) {
+        setWriteError("No speech detected. Try again.");
+        setListening(false);
+        return;
+      }
+
+      setBusy(true);
+      void (async () => {
+        try {
+          const note = await addNote({
+            title: "Voice note",
+            content: transcript,
+            notebook_id: inboxId,
+            is_pinned: false,
+            tags: ["voice"],
+          });
+          navigate("/notes/" + note.id + "/edit");
+        } catch (err) {
+          setWriteError(errorMessage(err));
+        } finally {
+          setBusy(false);
+          setListening(false);
+        }
+      })();
+    };
+
+    recognition.onerror = (event) => {
+      setListening(false);
+      setWriteError(event.error ? `Voice capture failed: ${event.error}` : "Voice capture failed.");
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    try {
+      setListening(true);
+      recognition.start();
+    } catch (err) {
+      setListening(false);
+      setWriteError(errorMessage(err));
+    }
+  };
+
+  const handleShareNotebook = async () => {
+    if (!activeNotebook || busy) return;
+    setShareStatus(null);
+    setWriteError(null);
+    try {
+      const token = await createNotebookShare(activeNotebook);
+      await navigator.clipboard.writeText(shareUrl(token));
+      setShareStatus("Link copied");
+      window.setTimeout(() => setShareStatus(null), 2000);
+    } catch (err) {
+      setWriteError(errorMessage(err));
     }
   };
 
@@ -193,21 +316,40 @@ export default function NotesSidebar() {
                 ? "Loading…"
                 : showTrash
                   ? `${filtered.length} in trash`
-                  : `${filtered.length} note${filtered.length !== 1 ? "s" : ""}`}
+                  : showDue
+                    ? `${filtered.length} due`
+                    : `${filtered.length} note${filtered.length !== 1 ? "s" : ""}`}
               {!loading && streak != null && !showTrash && (
                 <span className="ml-2 text-amber-500/80">· {streak} day streak</span>
               )}
             </p>
           </div>
           {!showTrash && (
-            <button
-              type="button"
-              onClick={() => void handleQuickNote()}
-              disabled={busy}
-              className="shrink-0 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-3.5 py-2 text-sm font-semibold text-black transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-            >
-              New
-            </button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleVoiceCapture}
+                disabled={busy || listening}
+                className={
+                  "rounded-xl p-2 transition-colors disabled:opacity-50 " +
+                  (listening
+                    ? "bg-amber-500/20 text-amber-400"
+                    : "bg-white/5 text-slate-400 hover:bg-white/8 hover:text-slate-200 light:bg-slate-100 light:text-slate-600")
+                }
+                aria-label={listening ? "Listening…" : "Voice note"}
+                title={listening ? "Listening…" : "Voice note"}
+              >
+                <MicIcon />
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleQuickNote()}
+                disabled={busy}
+                className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-3.5 py-2 text-sm font-semibold text-black transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              >
+                New
+              </button>
+            </div>
           )}
         </div>
 
@@ -242,23 +384,43 @@ export default function NotesSidebar() {
             type="button"
             onClick={() => {
               setShowTrash(false);
+              setShowDue(false);
               setActiveNotebook(null);
             }}
             className={
               "shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors " +
-              (!showTrash && !activeNotebook
+              (!showTrash && !showDue && !activeNotebook
                 ? "bg-amber-500/20 text-amber-400"
                 : "text-slate-400 hover:bg-white/5 hover:text-slate-200 light:hover:bg-slate-100")
             }
           >
             All
           </button>
+          {dueNotes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowTrash(false);
+                setShowDue(true);
+                setActiveNotebook(null);
+              }}
+              className={
+                "shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors " +
+                (!showTrash && showDue
+                  ? "bg-amber-500/20 text-amber-400"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200 light:hover:bg-slate-100")
+              }
+            >
+              Due{dueNotes.length > 0 ? ` (${dueNotes.length})` : ""}
+            </button>
+          )}
           {notebooks.map((nb) => (
             <button
               key={nb.id}
               type="button"
               onClick={() => {
                 setShowTrash(false);
+                setShowDue(false);
                 setActiveNotebook(nb.id);
               }}
               onDoubleClick={() => {
@@ -269,7 +431,7 @@ export default function NotesSidebar() {
               }}
               className={
                 "shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors " +
-                (!showTrash && activeNotebook === nb.id
+                (!showTrash && !showDue && activeNotebook === nb.id
                   ? "bg-amber-500/20 text-amber-400"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200 light:hover:bg-slate-100")
               }
@@ -296,6 +458,7 @@ export default function NotesSidebar() {
             type="button"
             onClick={() => {
               setShowTrash(true);
+              setShowDue(false);
               setActiveNotebook(null);
               setActiveTag(null);
             }}
@@ -309,6 +472,22 @@ export default function NotesSidebar() {
             Trash{trash.length > 0 ? ` (${trash.length})` : ""}
           </button>
         </div>
+
+        {activeNotebook && !showTrash && !showDue && (
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleShareNotebook()}
+              disabled={busy}
+              className="rounded-lg px-2.5 py-1 text-[11px] font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200 disabled:opacity-50 light:hover:bg-slate-100"
+            >
+              Share
+            </button>
+            {shareStatus && (
+              <span className="text-[11px] text-amber-400/90">{shareStatus}</span>
+            )}
+          </div>
+        )}
 
         {!showTrash && allTags.length > 0 && (
           <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
@@ -467,11 +646,13 @@ export default function NotesSidebar() {
             <p className="text-sm font-semibold text-slate-400">
               {showTrash
                 ? "Trash is empty"
-                : search || activeTag
-                  ? "Nothing matched"
-                  : "No notes yet"}
+                : showDue
+                  ? "Nothing due"
+                  : search || activeTag
+                    ? "Nothing matched"
+                    : "No notes yet"}
             </p>
-            {!showTrash && (
+            {!showTrash && !showDue && (
               <button
                 type="button"
                 onClick={() => void handleQuickNote()}
@@ -483,7 +664,7 @@ export default function NotesSidebar() {
             )}
           </div>
         ) : (
-          <nav className="notes-file-list" aria-label={showTrash ? "Trash" : "Notes"}>
+          <nav className="notes-file-list" aria-label={showTrash ? "Trash" : showDue ? "Due" : "Notes"}>
             {filtered.map((note) => {
               const active = selectedId === note.id;
               const preview = openingLines(note.preview);
@@ -513,6 +694,15 @@ export default function NotesSidebar() {
 
                     <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
                       {date}
+                      {showDue && note.revisit_at && (
+                        <span className="ml-1.5 normal-case tracking-normal text-amber-500/70">
+                          · due{" "}
+                          {new Date(note.revisit_at).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      )}
                     </p>
 
                     {note.tags.length > 0 && (
@@ -576,5 +766,14 @@ export default function NotesSidebar() {
         )}
       </div>
     </aside>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+      <rect x="9" y="3.5" width="6" height="11" rx="3" />
+      <path strokeLinecap="round" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5" />
+    </svg>
   );
 }
