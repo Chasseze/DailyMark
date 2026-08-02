@@ -8,6 +8,7 @@ export type Notebook = Tables["notebooks"]["Row"];
 /** List rows omit full content until `ensureNote` hydrates them. */
 export type Note = Tables["notes"]["Row"] & { bodyLoaded: boolean };
 export type Profile = Tables["profiles"]["Row"];
+export type Thought = Tables["thoughts"]["Row"];
 
 /** Fields the user actually supplies when creating a note. */
 export type NewNote = Pick<

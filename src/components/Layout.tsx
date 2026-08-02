@@ -14,16 +14,20 @@ export default function Layout() {
 
   const playerVisible = status !== "idle" || error !== null;
   const isNotesRoute = location.pathname === "/notes" || location.pathname.startsWith("/notes/");
+  const isThoughtsRoute =
+    location.pathname === "/thoughts" || location.pathname.startsWith("/thoughts/");
   const isEditing = /\/notes\/[^/]+\/edit\/?$/.test(location.pathname);
   const hideNav = isEditing;
 
   const sectionLabel = isNotesRoute
     ? "Notes"
-    : location.pathname.startsWith("/daily")
-      ? "Daily"
-      : location.pathname.startsWith("/settings")
-        ? "Settings"
-        : "";
+    : isThoughtsRoute
+      ? "Thoughts"
+      : location.pathname.startsWith("/daily")
+        ? "Daily"
+        : location.pathname.startsWith("/settings")
+          ? "Settings"
+          : "";
 
   return (
     <div className="app-shell min-h-screen w-full text-white light:text-slate-900">

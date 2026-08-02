@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import RequireAuth from "./components/RequireAuth";
 import SetupNotice from "./components/SetupNotice";
 import { NotesProvider } from "./context/NotesContext";
+import { ThoughtsProvider } from "./context/ThoughtsContext";
 import { isSupabaseConfigured } from "./lib/supabase";
 
 // Route-level code splitting keeps the login shell small; markdown editor and
@@ -13,6 +14,9 @@ const NotesWorkspace = lazy(() => import("./pages/NotesWorkspace"));
 const NotesEmptyPreview = lazy(() => import("./pages/NotesEmptyPreview"));
 const NoteView = lazy(() => import("./pages/NoteView"));
 const NoteEdit = lazy(() => import("./pages/NoteEdit"));
+const ThoughtsWorkspace = lazy(() => import("./pages/ThoughtsWorkspace"));
+const ThoughtsEmptyPreview = lazy(() => import("./pages/ThoughtsEmptyPreview"));
+const ThoughtView = lazy(() => import("./pages/ThoughtView"));
 const Daily = lazy(() => import("./pages/Daily"));
 const Settings = lazy(() => import("./pages/Settings"));
 
@@ -32,13 +36,15 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        {/* NotesProvider sits inside the guard so it only ever fetches with a
-            session in hand, and unmounts (dropping its data) on sign-out. */}
+        {/* Providers sit inside the guard so they only fetch with a session,
+            and unmount (dropping data) on sign-out. */}
         <Route element={<RequireAuth />}>
           <Route
             element={
               <NotesProvider>
-                <Layout />
+                <ThoughtsProvider>
+                  <Layout />
+                </ThoughtsProvider>
               </NotesProvider>
             }
           >
@@ -47,6 +53,10 @@ export default function App() {
               <Route index element={<NotesEmptyPreview />} />
               <Route path=":id" element={<NoteView />} />
               <Route path=":id/edit" element={<NoteEdit />} />
+            </Route>
+            <Route path="/thoughts" element={<ThoughtsWorkspace />}>
+              <Route index element={<ThoughtsEmptyPreview />} />
+              <Route path=":id" element={<ThoughtView />} />
             </Route>
             <Route path="/daily" element={<Daily />} />
             <Route path="/settings" element={<Settings />} />
