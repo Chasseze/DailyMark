@@ -63,7 +63,7 @@ export default function BottomNav() {
               "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md border px-1.5 py-2 text-[11px] font-medium tracking-wide transition-colors duration-200 " +
               (isActive
                 ? "border-amber-500/45 bg-amber-500/20 text-amber-400"
-                : "border-white/12 bg-white/[0.06] text-slate-500 hover:border-white/28 hover:bg-white/[0.12] hover:text-slate-300 light:border-slate-300 light:bg-white light:text-slate-500 light:hover:border-slate-400 light:hover:bg-slate-50 light:hover:text-slate-800")
+                : "border-white/10 bg-slate-800/45 text-slate-500 hover:border-white/25 hover:bg-slate-800/70 hover:text-slate-300 light:border-slate-300 light:bg-slate-50 light:text-slate-500 light:hover:border-slate-400 light:hover:bg-white light:hover:text-slate-800")
             }
           >
             {icon}
