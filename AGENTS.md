@@ -54,6 +54,17 @@ script only refreshes npm dependencies.
   solid `bg-accent` or a tinted `bg-accent-soft`.
 - `backdrop-filter` is expensive per element. Blur the container, not each row.
 
+### Static assets and caching
+
+`vercel.json` pins `/assets/`, `/fonts/` and `/img/` to a one-year immutable
+`Cache-Control`. Vite content-hashes everything under `/assets`, so those are
+safe by construction. **`public/fonts/` and `public/img/` are not hashed — the
+filename is the cache key.** Changing one of those files in place will leave
+returning visitors on the old bytes for up to a year; rename the file (and its
+references in `index.html` / `index.css` / `Login.tsx`) instead. `/sw.js` and
+`index.html` are deliberately left revalidating, or a deploy could never reach
+anyone who has already visited.
+
 ### Non-obvious gotchas
 
 - **`supabase/seed.sql` is required for local dev.** Hosted Supabase auto-grants
