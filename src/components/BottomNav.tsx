@@ -52,32 +52,22 @@ export default function BottomNav() {
     <nav
       className="border-t border-white/5 glass light:border-slate-200/80"
       style={{ paddingBottom: "max(0.55rem, env(safe-area-inset-bottom))" }}
+      aria-label="Primary"
     >
-      <div className="mx-auto flex items-center justify-around px-1 pt-2.5">
+      <div className="mx-auto flex items-stretch gap-2 px-2.5 pt-2.5">
         {tabs.map(({ to, icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-medium tracking-wide transition-colors duration-200 " +
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md border px-1.5 py-2 text-[11px] font-medium tracking-wide transition-colors duration-200 " +
               (isActive
-                ? "text-amber-400"
-                : "text-slate-500 hover:text-slate-300 light:hover:text-slate-700")
+                ? "border-amber-500/45 bg-amber-500/20 text-amber-400"
+                : "border-white/10 bg-slate-800/45 text-slate-500 hover:border-white/25 hover:bg-slate-800/70 hover:text-slate-300 light:border-slate-300 light:bg-slate-50 light:text-slate-500 light:hover:border-slate-400 light:hover:bg-white light:hover:text-slate-800")
             }
           >
-            {({ isActive }) => (
-              <>
-                <span
-                  className={
-                    "flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-200 " +
-                    (isActive ? "bg-amber-500/15" : "")
-                  }
-                >
-                  {icon}
-                </span>
-                <span className="truncate">{label}</span>
-              </>
-            )}
+            {icon}
+            <span className="truncate">{label}</span>
           </NavLink>
         ))}
       </div>
