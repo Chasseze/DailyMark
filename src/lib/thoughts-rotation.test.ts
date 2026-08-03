@@ -97,7 +97,7 @@ describe("liveFeedLabel", () => {
 });
 
 describe("withDropCadenceDates", () => {
-  it("stages catalog onto a DROP_CADENCE_DAYS cadence ending today", () => {
+  it("stages catalog onto a DROP_CADENCE_DAYS cadence ending at now", () => {
     const bank = [
       stub("a", "2020-01-01T00:00:00Z"),
       stub("b", "2020-01-02T00:00:00Z"),
@@ -109,9 +109,19 @@ describe("withDropCadenceDates", () => {
 
     const newest = new Date(staged[2].published_at);
     const middle = new Date(staged[1].published_at);
-    expect(newest.getUTCDate()).toBe(3);
+    expect(newest.getTime()).toBe(now.getTime());
     expect(
       (newest.getTime() - middle.getTime()) / 86_400_000
     ).toBe(DROP_CADENCE_DAYS);
+  });
+
+  it("keeps the newest drop inside the live window immediately", () => {
+    const bank = [
+      stub("a", "2020-01-01T00:00:00Z"),
+      stub("b", "2020-01-02T00:00:00Z"),
+    ];
+    const now = new Date("2026-08-03T03:00:00Z");
+    const staged = withDropCadenceDates(bank, now);
+    expect(pickLiveThoughts(staged, now).map((t) => t.id)).toEqual(["b", "a"]);
   });
 });

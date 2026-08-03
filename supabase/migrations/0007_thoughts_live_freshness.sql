@@ -11,8 +11,7 @@ with ordered as (
 )
 update public.thoughts t
 set published_at =
-  date_trunc('day', timezone('utc', now()))
-  + interval '10 hours'
+  timezone('utc', now())
   - ((o.total - 1 - o.idx) * interval '2 days')
 from ordered o
 where t.id = o.id;

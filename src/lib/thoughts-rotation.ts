@@ -7,11 +7,6 @@ export const LIVE_MAX_AGE_DAYS = 3;
 
 const MS_PER_DAY = 86_400_000;
 
-/** UTC midnight for the calendar day of `date`. */
-export function startOfUtcDay(date = new Date()): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
 /** When this piece drops off the live feed (published_at + LIVE_MAX_AGE_DAYS). */
 export function liveExpiresAt(thought: Thought): Date {
   const published = new Date(thought.published_at).getTime();
@@ -76,7 +71,7 @@ export function rotationLabel(date = new Date()): string {
 }
 
 /**
- * Restage a fixed catalog onto a 2-day drop cadence ending today so local
+ * Restage a fixed catalog onto a 2-day drop cadence ending at `date` so local
  * demo / bundled fallback always has a real live window.
  */
 export function withDropCadenceDates(
@@ -86,7 +81,9 @@ export function withDropCadenceDates(
   const ordered = [...catalog].sort(
     (a, b) => new Date(a.published_at).getTime() - new Date(b.published_at).getTime()
   );
-  const newest = startOfUtcDay(date).getTime() + 10 * 3_600_000; // 10:00 UTC
+  // Anchor the newest drop at "now" (not a future clock time) so Live never
+  // hides the latest piece before its scheduled hour arrives.
+  const newest = date.getTime();
   return ordered.map((thought, index) => {
     const ageSteps = ordered.length - 1 - index;
     const published = new Date(newest - ageSteps * DROP_CADENCE_DAYS * MS_PER_DAY);
