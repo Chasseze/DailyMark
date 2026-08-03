@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { NavLink, useParams } from "react-router-dom";
 import { useThoughts, type ThoughtsShelf } from "../context/thoughts-context";
+import { isWithinLiveWindow } from "../lib/thoughts-rotation";
 import type { Thought } from "../lib/types";
 
 function openingLines(preview: string): string {
@@ -46,7 +47,12 @@ export default function ThoughtsSidebar() {
     return list;
   }, [shelfList, activeCollection, search]);
 
-  const showPinnedCard = shelf === "live" && Boolean(pinned);
+  // Pinned only stays on Live while it is still fresh and unsaved.
+  const showPinnedCard =
+    shelf === "live" &&
+    pinned != null &&
+    isWithinLiveWindow(pinned) &&
+    !bookmarkIds.has(pinned.id);
   const listItems = showPinnedCard && pinned
     ? filtered.filter((t) => t.id !== pinned.id)
     : filtered;
@@ -61,7 +67,7 @@ export default function ThoughtsSidebar() {
             {loading
               ? "Loading…"
               : shelf === "live"
-                ? `Live shelf · ${rotationHint}`
+                ? `Live feed · ${rotationHint}`
                 : `${saved.length} saved`}
           </p>
         </div>
@@ -115,7 +121,7 @@ export default function ThoughtsSidebar() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={shelf === "live" ? "Search live shelf…" : "Search saved…"}
+            placeholder={shelf === "live" ? "Search live feed…" : "Search saved…"}
             className="w-full rounded-xl border border-white/5 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-amber-500/35 focus:outline-none light:border-slate-200 light:bg-white/70 light:text-slate-900"
           />
         </div>
@@ -175,11 +181,16 @@ export default function ThoughtsSidebar() {
                 ? "Nothing matched"
                 : shelf === "saved"
                   ? "Nothing saved yet"
-                  : "No thoughts yet"}
+                  : "No live drops right now"}
             </p>
             {shelf === "saved" && !search && !activeCollection && (
               <p className="mt-2 text-xs text-slate-500">
-                Open a live piece and tap Save to keep it after it rotates out.
+                Open a live piece and tap Save — it leaves Live and stays here.
+              </p>
+            )}
+            {shelf === "live" && !search && !activeCollection && (
+              <p className="mt-2 text-xs text-slate-500">
+                Fresh pieces stay for 2–3 days, then drop off unless you save them.
               </p>
             )}
           </div>

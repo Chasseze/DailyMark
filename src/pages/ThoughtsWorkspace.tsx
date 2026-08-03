@@ -42,8 +42,8 @@ export function ThoughtsEmptyPreview() {
         Choose a thought
       </h2>
       <p className="mt-2 max-w-sm text-sm text-slate-400 light:text-slate-500">
-        A live shelf of curated stories — it refreshes every couple of days. Save any
-        piece you want to keep.
+        Fresh drops from around the web stay on Live for 2–3 days. Save a piece to
+        keep it — it moves into Saved when you bookmark it.
       </p>
     </div>
   );
