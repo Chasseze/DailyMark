@@ -3,6 +3,8 @@ import type { Thought } from "./types";
 /**
  * Bundled fallback when the `thoughts` table is empty or unreachable.
  * Bodies are original DailyMark summaries — not reprints of the sources.
+ * Published dates are restaged onto a 2-day drop cadence at load time so the
+ * Live feed always has a real 2–3 day freshness window offline.
  */
 export const THOUGHTS_BANK: Thought[] = [
   {

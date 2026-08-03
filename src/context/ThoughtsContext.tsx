@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Thought } from "../lib/types";
 import { THOUGHTS_BANK } from "../lib/thoughts-bank";
-import { pickRotatingThoughts, rotationLabel } from "../lib/thoughts-rotation";
+import {
+  liveFeedLabel,
+  pickLiveThoughts,
+  withDropCadenceDates,
+} from "../lib/thoughts-rotation";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
 import { ThoughtsContext } from "./thoughts-context";
 
 const BOOKMARK_CACHE = "dailymark.thought_bookmarks";
 const PIN_CACHE = "dailymark.pinned_thought";
+/** Re-evaluate live expiry without requiring a full page reload. */
+const NOW_TICK_MS = 60_000;
 
 function readBookmarkCache(userId: string): string[] {
   try {
@@ -51,6 +57,19 @@ function normalizeThought(row: Thought): Thought {
   return { ...row, collection: row.collection ?? "" };
 }
 
+/** Starter seed ids from 0004_thoughts — safe to restage onto the drop cadence. */
+const STARTER_THOUGHT_IDS = new Set(THOUGHTS_BANK.map((t) => t.id));
+
+function prepareCatalog(rows: Thought[], date: Date): Thought[] {
+  const normalized = rows.map(normalizeThought);
+  const allStarter =
+    normalized.length > 0 && normalized.every((t) => STARTER_THOUGHT_IDS.has(t.id));
+  if (!allStarter) return normalized;
+  // Until 0007 is applied (or when using the bundled bank), keep Live non-empty
+  // by placing starter drops on the 2-day cadence.
+  return withDropCadenceDates(normalized, date);
+}
+
 export function ThoughtsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -60,10 +79,16 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [now] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), NOW_TICK_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   const fetchAll = useCallback(async () => {
-    let nextCatalog = THOUGHTS_BANK.map(normalizeThought);
+    const asOf = new Date();
+    let nextCatalog = prepareCatalog(THOUGHTS_BANK, asOf);
 
     try {
       const db = requireSupabase();
@@ -72,13 +97,14 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
         .select("*")
         .order("published_at", { ascending: false });
       if (err) throw err;
-      if (data && data.length > 0) nextCatalog = (data as Thought[]).map(normalizeThought);
+      if (data && data.length > 0) nextCatalog = prepareCatalog(data as Thought[], asOf);
       setError(null);
     } catch (err) {
       setError(THOUGHTS_BANK.length ? null : errorMessage(err));
     }
 
     setCatalog(nextCatalog);
+    setNow(asOf);
 
     if (!userId) {
       setBookmarkIds(new Set());
@@ -128,7 +154,10 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchAll]);
 
-  const featured = useMemo(() => pickRotatingThoughts(catalog, now), [catalog, now]);
+  const featured = useMemo(
+    () => pickLiveThoughts(catalog, now, bookmarkIds),
+    [catalog, now, bookmarkIds]
+  );
 
   const saved = useMemo(() => {
     const byId = new Map(catalog.map((t) => [t.id, t]));
@@ -201,6 +230,8 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
     [userId]
   );
 
+  const rotationHint = useMemo(() => liveFeedLabel(featured, now), [featured, now]);
+
   const value = useMemo(
     () => ({
       catalog,
@@ -210,7 +241,7 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       bookmarkIds,
       loading,
       error,
-      rotationHint: rotationLabel(now),
+      rotationHint,
       isBookmarked,
       toggleBookmark,
       pinThought,
@@ -225,7 +256,7 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       bookmarkIds,
       loading,
       error,
-      now,
+      rotationHint,
       isBookmarked,
       toggleBookmark,
       pinThought,

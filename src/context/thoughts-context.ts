@@ -4,18 +4,18 @@ import type { Thought } from "../lib/types";
 export type ThoughtsShelf = "live" | "saved";
 
 export interface ThoughtsContextType {
-  /** Full curated catalog (not all shown at once). */
+  /** Full curated catalog (Live + older drops still reachable via Saved). */
   catalog: Thought[];
-  /** Current live rotation (refreshes every few days). */
+  /** Fresh web drops still inside the live window and not saved. */
   featured: Thought[];
-  /** Bookmarked thoughts, newest bookmark first. */
+  /** Bookmarked thoughts, newest bookmark first — leaves Live when saved. */
   saved: Thought[];
   /** User’s pinned Thought of the week, if any. */
   pinned: Thought | null;
   bookmarkIds: ReadonlySet<string>;
   loading: boolean;
   error: string | null;
-  /** e.g. "Rotates in 2 days" */
+  /** e.g. "Live up to 3 days" */
   rotationHint: string;
   isBookmarked: (id: string) => boolean;
   toggleBookmark: (id: string) => Promise<void>;

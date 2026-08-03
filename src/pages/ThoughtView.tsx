@@ -48,7 +48,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const saved = isBookmarked(thought.id);
   const isPinned = pinned?.id === thought.id;
-  const onLiveShelf = featured.some((t) => t.id === thought.id);
+  const onLiveShelf = !saved && featured.some((t) => t.id === thought.id);
 
   const date = new Date(thought.published_at).toLocaleDateString(undefined, {
     weekday: "long",
@@ -186,13 +186,17 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
 
       <article className="note-view__article glass rounded-2xl p-5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          {onLiveShelf ? (
+          {saved ? (
+            <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300 light:bg-slate-100 light:text-slate-600">
+              Saved
+            </span>
+          ) : onLiveShelf ? (
             <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
               Live · {rotationHint}
             </span>
           ) : (
             <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 light:bg-slate-100 light:text-slate-600">
-              From your saved
+              Off the live feed
             </span>
           )}
           {isPinned && (

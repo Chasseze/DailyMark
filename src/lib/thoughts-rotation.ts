@@ -1,65 +1,96 @@
 import type { Thought } from "./types";
 
-/** Live shelf refreshes this often (≤ 3 days as requested). */
-export const ROTATION_DAYS = 2;
-/** How many pieces sit on the live shelf each window. */
-export const FEATURED_COUNT = 5;
+/** New drops are meant to land about this often. */
+export const DROP_CADENCE_DAYS = 2;
+/** A live piece leaves the feed after this many days unless saved. */
+export const LIVE_MAX_AGE_DAYS = 3;
 
-const EPOCH_UTC = Date.UTC(2026, 0, 1);
+const MS_PER_DAY = 86_400_000;
 
-/** Integer window index that advances every `ROTATION_DAYS` calendar days. */
-export function rotationWindow(date = new Date()): number {
-  const day = Math.floor((date.getTime() - EPOCH_UTC) / 86_400_000);
-  return Math.floor(Math.max(0, day) / ROTATION_DAYS);
+/** When this piece drops off the live feed (published_at + LIVE_MAX_AGE_DAYS). */
+export function liveExpiresAt(thought: Thought): Date {
+  const published = new Date(thought.published_at).getTime();
+  return new Date(published + LIVE_MAX_AGE_DAYS * MS_PER_DAY);
 }
 
-/** UTC midnight when the *next* rotation window begins. */
-export function nextRotationAt(date = new Date()): Date {
-  const window = rotationWindow(date);
-  const nextDay = (window + 1) * ROTATION_DAYS;
-  return new Date(EPOCH_UTC + nextDay * 86_400_000);
-}
-
-function hashSeed(n: number): number {
-  let h = n >>> 0;
-  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
-  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
-  return (h ^ (h >>> 16)) >>> 0;
-}
-
-/** Deterministic shuffle so every user sees the same live shelf for a window. */
-export function seededOrder<T>(items: readonly T[], seed: number): T[] {
-  const order = items.slice();
-  let s = hashSeed(seed);
-  for (let i = order.length - 1; i > 0; i--) {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    const j = s % (i + 1);
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  return order;
+/** True while the piece is still inside the live freshness window. */
+export function isWithinLiveWindow(thought: Thought, date = new Date()): boolean {
+  const published = new Date(thought.published_at).getTime();
+  if (Number.isNaN(published)) return false;
+  const ageMs = date.getTime() - published;
+  return ageMs >= 0 && ageMs < LIVE_MAX_AGE_DAYS * MS_PER_DAY;
 }
 
 /**
- * Pick the live rotation from the full catalog. Stable across clients for the
- * same window; bookmarks are separate and can surface pieces that rotated out.
+ * Live feed: recent drops only, newest first.
+ * Saved/bookmarked pieces leave Live and live in the Saved shelf instead.
  */
-export function pickRotatingThoughts(
+export function pickLiveThoughts(
   catalog: readonly Thought[],
   date = new Date(),
-  count = FEATURED_COUNT
+  excludeIds?: ReadonlySet<string>
 ): Thought[] {
-  if (catalog.length === 0 || count <= 0) return [];
-  const sorted = [...catalog].sort((a, b) => a.id.localeCompare(b.id));
-  const ordered = seededOrder(sorted, rotationWindow(date));
-  return ordered.slice(0, Math.min(count, ordered.length));
+  return catalog
+    .filter((thought) => {
+      if (excludeIds?.has(thought.id)) return false;
+      return isWithinLiveWindow(thought, date);
+    })
+    .sort((a, b) => {
+      const byDate = new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+      if (byDate !== 0) return byDate;
+      return a.id.localeCompare(b.id);
+    });
 }
 
-/** Friendly label for the sidebar (“Rotates in 2 days”, “Rotates tomorrow”). */
+/** @deprecated Use pickLiveThoughts — kept for older imports during the rename. */
+export function pickRotatingThoughts(
+  catalog: readonly Thought[],
+  date = new Date()
+): Thought[] {
+  return pickLiveThoughts(catalog, date);
+}
+
+/** Friendly sidebar hint for how long the freshest live piece still has. */
+export function liveFeedLabel(live: readonly Thought[], date = new Date()): string {
+  if (live.length === 0) return "Next drop within a couple of days";
+
+  let soonestExpiry = Infinity;
+  for (const thought of live) {
+    soonestExpiry = Math.min(soonestExpiry, liveExpiresAt(thought).getTime());
+  }
+
+  const days = Math.max(0, Math.ceil((soonestExpiry - date.getTime()) / MS_PER_DAY));
+  if (days <= 0) return "Refreshing soon";
+  if (days === 1) return "Oldest drops off tomorrow";
+  return `Live up to ${LIVE_MAX_AGE_DAYS} days`;
+}
+
+/** @deprecated Use liveFeedLabel */
 export function rotationLabel(date = new Date()): string {
-  const next = nextRotationAt(date);
-  const ms = next.getTime() - date.getTime();
-  const days = Math.max(0, Math.ceil(ms / 86_400_000));
-  if (days <= 0) return "New shelf today";
-  if (days === 1) return "Rotates tomorrow";
-  return `Rotates in ${days} days`;
+  return liveFeedLabel([], date);
+}
+
+/**
+ * Restage a fixed catalog onto a 2-day drop cadence ending at `date` so local
+ * demo / bundled fallback always has a real live window.
+ */
+export function withDropCadenceDates(
+  catalog: readonly Thought[],
+  date = new Date()
+): Thought[] {
+  const ordered = [...catalog].sort(
+    (a, b) => new Date(a.published_at).getTime() - new Date(b.published_at).getTime()
+  );
+  // Anchor the newest drop at "now" (not a future clock time) so Live never
+  // hides the latest piece before its scheduled hour arrives.
+  const newest = date.getTime();
+  return ordered.map((thought, index) => {
+    const ageSteps = ordered.length - 1 - index;
+    const published = new Date(newest - ageSteps * DROP_CADENCE_DAYS * MS_PER_DAY);
+    return {
+      ...thought,
+      published_at: published.toISOString(),
+      created_at: thought.created_at || published.toISOString(),
+    };
+  });
 }
