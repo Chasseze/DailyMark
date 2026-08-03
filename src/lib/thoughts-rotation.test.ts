@@ -5,6 +5,7 @@ import {
   isWithinLiveWindow,
   liveExpiresAt,
   liveFeedLabel,
+  nextLiveBoundary,
   pickLiveThoughts,
   withDropCadenceDates,
 } from "./thoughts-rotation";
@@ -123,5 +124,41 @@ describe("withDropCadenceDates", () => {
     const now = new Date("2026-08-03T03:00:00Z");
     const staged = withDropCadenceDates(bank, now);
     expect(pickLiveThoughts(staged, now).map((t) => t.id)).toEqual(["b", "a"]);
+  });
+});
+
+describe("nextLiveBoundary", () => {
+  it("returns null when nothing can change", () => {
+    expect(nextLiveBoundary([], new Date("2026-08-03T00:00:00Z"))).toBeNull();
+    // Already past every expiry — the feed is stable from here on.
+    const stale = [stub("a", "2026-07-01T00:00:00Z")];
+    expect(nextLiveBoundary(stale, new Date("2026-08-03T00:00:00Z"))).toBeNull();
+  });
+
+  it("wakes at the next whole-day label step, not every minute", () => {
+    const live = [stub("a", "2026-08-03T00:00:00Z")];
+    const now = new Date("2026-08-03T00:30:00Z");
+    const boundary = nextLiveBoundary(live, now);
+    // expiry = published + 3d; the nearest step down is expiry - 3d + 1 day.
+    expect(boundary?.toISOString()).toBe("2026-08-04T00:00:00.000Z");
+    expect(boundary!.getTime() - now.getTime()).toBeGreaterThan(60_000);
+  });
+
+  it("lands exactly on the drop-off when that is soonest", () => {
+    const live = [stub("a", "2026-07-31T12:00:00Z")];
+    const now = new Date("2026-08-03T06:00:00Z");
+    expect(nextLiveBoundary(live, now)?.toISOString()).toBe(
+      liveExpiresAt(live[0]).toISOString()
+    );
+  });
+
+  it("picks the soonest boundary across the whole catalog", () => {
+    const catalog = [
+      stub("old", "2026-08-01T09:00:00Z"),
+      stub("new", "2026-08-03T00:00:00Z"),
+    ];
+    const now = new Date("2026-08-03T08:00:00Z");
+    const boundary = nextLiveBoundary(catalog, now)!;
+    expect(boundary.toISOString()).toBe("2026-08-03T09:00:00.000Z");
   });
 });

@@ -10,7 +10,7 @@ export default function RequireAuth() {
   if (loading) {
     return (
       <div className="app-shell flex min-h-screen items-center justify-center">
-        <span className="text-sm text-slate-500">Loading…</span>
+        <span className="text-sm text-muted">Loading…</span>
       </div>
     );
   }

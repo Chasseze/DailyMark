@@ -16,7 +16,7 @@ export default function ThoughtView() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[16rem] items-center justify-center">
-        <p className="text-sm text-slate-500">Loading…</p>
+        <p className="text-sm text-muted">Loading…</p>
       </div>
     );
   }
@@ -24,11 +24,11 @@ export default function ThoughtView() {
   if (!thought) {
     return (
       <div className="flex h-full min-h-[16rem] flex-col items-center justify-center px-4">
-        <p className="text-slate-400">Thought not found</p>
+        <p className="text-muted">Thought not found</p>
         <button
           type="button"
           onClick={() => navigate("/thoughts")}
-          className="mt-4 text-sm text-amber-400"
+          className="mt-4 text-sm text-accent-ink"
         >
           ← Back to thoughts
         </button>
@@ -59,7 +59,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
   const spoken = [thought.title, thought.content].filter((part) => part.trim()).join("\n\n");
 
   const iconBtn =
-    "rounded-xl p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900";
+    "rounded-xl p-2 text-muted transition-colors hover:bg-surface-2 hover:text-ink";
 
   const handleBookmark = async () => {
     if (busy) return;
@@ -147,7 +147,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           className={
             iconBtn +
             " " +
-            (saved ? "text-amber-400 hover:text-amber-300" : "") +
+            (saved ? "text-accent-ink hover:text-accent" : "") +
             " disabled:opacity-50"
           }
           aria-label={saved ? "Remove from saved" : "Save thought"}
@@ -162,7 +162,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           className={
             iconBtn +
             " " +
-            (isPinned ? "text-amber-400 hover:text-amber-300" : "") +
+            (isPinned ? "text-accent-ink hover:text-accent" : "") +
             " disabled:opacity-50"
           }
           aria-label={isPinned ? "Unpin Thought of the week" : "Pin as Thought of the week"}
@@ -174,47 +174,47 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           type="button"
           onClick={() => void handleWriteNote()}
           disabled={busy}
-          className="rounded-xl px-3 py-2 text-xs font-semibold text-amber-400 transition-colors hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-50"
+          className="rounded-xl px-3 py-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
         >
           Write a note
         </button>
       </div>
 
       {actionError && (
-        <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{actionError}</div>
+        <div className="mb-3 rounded-xl bg-danger-soft p-3 text-xs text-danger">{actionError}</div>
       )}
 
       <article className="note-view__article glass rounded-2xl p-5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {saved ? (
-            <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300 light:bg-slate-100 light:text-slate-600">
+            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
               Saved
             </span>
           ) : onLiveShelf ? (
-            <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+            <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-accent-ink">
               Live · {rotationHint}
             </span>
           ) : (
-            <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 light:bg-slate-100 light:text-slate-600">
+            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted">
               Off the live feed
             </span>
           )}
           {isPinned && (
-            <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+            <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-accent-ink">
               Thought of the week
             </span>
           )}
           {thought.collection ? (
-            <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300 light:bg-slate-100 light:text-slate-600">
+            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
               {thought.collection}
             </span>
           ) : null}
         </div>
 
-        <h1 className="note-title mb-1 break-words text-2xl text-white light:text-slate-900">
+        <h1 className="note-title mb-1 break-words text-2xl text-ink">
           {thought.title}
         </h1>
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-4 text-xs text-muted">
           {date}
           {thought.author ? ` · ${thought.author}` : ""}
         </p>
@@ -224,7 +224,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
             {thought.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-md bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-400"
+                className="rounded-md bg-surface-2 px-2.5 py-0.5 text-xs text-muted"
               >
                 {tag}
               </span>
@@ -232,11 +232,11 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           </div>
         )}
 
-        <div className="mt-2 min-w-0 text-sm leading-relaxed text-slate-300 light:text-slate-700">
+        <div className="mt-2 min-w-0 text-sm leading-relaxed text-ink-soft">
           {thought.content.trim() ? (
             <Markdown notes={[]}>{thought.content}</Markdown>
           ) : (
-            <p className="italic text-slate-500">This thought is empty.</p>
+            <p className="italic text-muted">This thought is empty.</p>
           )}
         </div>
 
@@ -293,16 +293,16 @@ function ThoughtAttribution({ thought }: { thought: Thought }) {
 
   return (
     <aside
-      className="thought-attribution mt-8 border-t border-white/10 pt-4 light:border-slate-200"
+      className="thought-attribution mt-8 border-t border-line pt-4"
       aria-label="Source attribution"
     >
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-500">
+      <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted">
         Caveat
       </p>
-      <p className="mt-2 text-xs leading-relaxed text-slate-400 light:text-slate-500">
+      <p className="mt-2 text-xs leading-relaxed text-muted">
         This is a curated reflection for DailyMark readers — not a reprint of the original
         work. Ideas and guidance belong to their authors. Credit:{" "}
-        <span className="text-slate-300 light:text-slate-700">{byline}</span>.
+        <span className="text-ink-soft">{byline}</span>.
         {thought.source_url ? " Please read and support the source." : ""}
       </p>
       {thought.source_url && (
@@ -310,7 +310,7 @@ function ThoughtAttribution({ thought }: { thought: Thought }) {
           href={thought.source_url}
           target="_blank"
           rel="noreferrer noopener"
-          className="mt-3 inline-flex text-sm font-medium text-amber-400 hover:text-amber-300"
+          className="mt-3 inline-flex text-sm font-medium text-accent-ink hover:text-accent"
         >
           View original →
         </a>

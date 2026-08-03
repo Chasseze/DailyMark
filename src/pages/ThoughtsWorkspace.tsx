@@ -24,7 +24,7 @@ export function ThoughtsEmptyPreview() {
       <div className="glass mb-4 flex h-14 w-14 items-center justify-center rounded-2xl">
         <svg
           viewBox="0 0 24 24"
-          className="h-6 w-6 text-amber-400"
+          className="h-6 w-6 text-accent-ink"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.75"
@@ -38,10 +38,10 @@ export function ThoughtsEmptyPreview() {
           <path strokeLinecap="round" d="M10 8.5h4M10.5 11h3" />
         </svg>
       </div>
-      <h2 className="text-xl font-bold tracking-tight text-white light:text-slate-900">
+      <h2 className="text-xl font-bold tracking-tight text-ink">
         Choose a thought
       </h2>
-      <p className="mt-2 max-w-sm text-sm text-slate-400 light:text-slate-500">
+      <p className="mt-2 max-w-sm text-sm text-muted">
         Fresh drops from around the web stay on Live for 2–3 days. Save a piece to
         keep it — it moves into Saved when you bookmark it.
       </p>

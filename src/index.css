@@ -6,24 +6,121 @@
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant light (&:where(.light, .light *));
 
+/* Self-hosted so first paint doesn't wait on two extra origins. Variable
+   fonts, latin + latin-ext only — the same subsets the Google CSS served. */
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/figtree-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/figtree-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+  src: url("/fonts/fraunces-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+  src: url("/fonts/fraunces-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 @theme {
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
   --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", monospace;
 
-  --color-ink: #f8fafc;
-  --color-paper: #020617;
-  --color-accent: #f59e0b;
+  /* Five steps, 12px floor. Anything smaller failed to stay legible against
+     the paper at the contrast levels below. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.35;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.3;
+
+  /* Semantic surface + text tokens. Each resolves through a --mood-* variable
+     that the theme/mood blocks below redefine, so `text-ink` is correct in
+     light and dark without a paired `light:` override at every call site. */
+  --color-ink: var(--mood-ink);
+  --color-ink-soft: var(--mood-ink-soft);
+  --color-muted: var(--mood-muted);
+  --color-faint: var(--mood-faint);
+  --color-paper: var(--mood-paper);
+  --color-surface: var(--mood-surface);
+  --color-surface-2: var(--mood-surface-2);
+  --color-surface-3: var(--mood-surface-3);
+  --color-line: var(--mood-line);
+  --color-line-strong: var(--mood-line-strong);
+  --color-accent: var(--mood-accent);
+  --color-accent-ink: var(--mood-accent-ink);
+  --color-accent-soft: var(--mood-accent-soft);
+  --color-on-accent: var(--mood-on-accent);
+  --color-danger: var(--mood-danger);
+  --color-danger-soft: var(--mood-danger-soft);
 }
 
-/* Notes workspace moods — warm amber accent + glass stay constant; paper,
-   masthead blue, and ambient glow shift so you can compare directions. */
+/* ── Palette ───────────────────────────────────────────────────────────────
+   Two themes (dark / light) define the whole semantic scale once. The three
+   moods then override *only* the atmosphere — paper, masthead blue, ambient
+   glow — so adding or retuning a mood can never leave a text colour behind.
+
+   Text tones are picked for contrast against their own paper:
+   dark   ink 17:1 · ink-soft 12:1 · muted 7.9:1 · faint 4.8:1
+   light  ink 15:1 · ink-soft 6.2:1 · muted 5.0:1
+   `faint` is decorative only (dividers, placeholders) — never body copy. */
+
 :root,
 :root[data-mood="cobalt"] {
+  /* Text */
+  --mood-ink: #f8fafc;
+  --mood-ink-soft: oklch(0.86 0.015 260);
+  --mood-muted: oklch(0.72 0.02 260);
+  --mood-faint: oklch(0.6 0.02 260);
+  /* Surfaces */
+  --mood-surface: oklch(1 0 0 / 0.06);
+  --mood-surface-2: oklch(1 0 0 / 0.1);
+  --mood-surface-3: oklch(1 0 0 / 0.15);
+  --mood-line: oklch(1 0 0 / 0.1);
+  --mood-line-strong: oklch(1 0 0 / 0.2);
+  /* Accent — one hue, three jobs: solid, tint, and text-on-paper. */
+  --mood-accent: #f59e0b;
+  --mood-accent-ink: #fbbf24;
+  --mood-accent-soft: oklch(0.75 0.15 85 / 0.16);
+  --mood-on-accent: #1a1208;
+  --mood-danger: oklch(0.72 0.16 25);
+  --mood-danger-soft: oklch(0.6 0.2 25 / 0.16);
+  /* Atmosphere */
   --mood-masthead: #1d4ed8;
   --mood-paper: #0b1220;
-  --mood-ink: #f8fafc;
-  --mood-muted: oklch(0.72 0.02 260);
   --mood-sidebar: oklch(0.22 0.03 260 / 0.55);
   --mood-row-hover: oklch(1 0 0 / 0.05);
   --mood-row-active: oklch(0.75 0.15 85 / 0.14);
@@ -31,15 +128,11 @@
   --mood-glow-b: oklch(0.4 0.08 250 / 0.28);
   --mood-glass: oklch(0.32 0.025 260 / 0.7);
   --mood-glass-border: oklch(1 0 0 / 0.09);
-  --color-paper: var(--mood-paper);
-  --color-ink: var(--mood-ink);
 }
 
 :root[data-mood="midnight"] {
   --mood-masthead: #1e3a8a;
   --mood-paper: #070a12;
-  --mood-ink: #f8fafc;
-  --mood-muted: oklch(0.7 0.02 70);
   --mood-sidebar: oklch(0.18 0.02 260 / 0.65);
   --mood-row-hover: oklch(0.75 0.1 75 / 0.08);
   --mood-row-active: oklch(0.75 0.16 75 / 0.18);
@@ -53,7 +146,7 @@
   --mood-masthead: #0f4c81;
   --mood-paper: #0c1522;
   --mood-ink: #f1f5f9;
-  --mood-muted: oklch(0.72 0.03 230);
+  --mood-muted: oklch(0.73 0.03 230);
   --mood-sidebar: oklch(0.28 0.035 230 / 0.5);
   --mood-row-hover: oklch(0.7 0.05 230 / 0.1);
   --mood-row-active: oklch(0.75 0.15 85 / 0.16);
@@ -65,10 +158,27 @@
 
 :root.light,
 :root.light[data-mood="cobalt"] {
+  /* Text */
+  --mood-ink: #0f172a;
+  --mood-ink-soft: oklch(0.4 0.02 260);
+  --mood-muted: oklch(0.45 0.02 260);
+  --mood-faint: oklch(0.56 0.02 260);
+  /* Surfaces */
+  --mood-surface: oklch(0.35 0.03 260 / 0.07);
+  --mood-surface-2: oklch(0.35 0.03 260 / 0.11);
+  --mood-surface-3: oklch(0.35 0.03 260 / 0.16);
+  --mood-line: oklch(0.35 0.03 260 / 0.16);
+  --mood-line-strong: oklch(0.35 0.03 260 / 0.28);
+  /* Accent */
+  --mood-accent: #d97706;
+  --mood-accent-ink: oklch(0.52 0.13 65);
+  --mood-accent-soft: oklch(0.75 0.15 85 / 0.2);
+  --mood-on-accent: #1a1208;
+  --mood-danger: oklch(0.51 0.2 27);
+  --mood-danger-soft: oklch(0.6 0.2 27 / 0.13);
+  /* Atmosphere */
   --mood-masthead: #1d4ed8;
   --mood-paper: #e8eef8;
-  --mood-ink: #0f172a;
-  --mood-muted: oklch(0.45 0.02 260);
   --mood-sidebar: oklch(1 0 0 / 0.78);
   --mood-row-hover: oklch(0.4 0.05 260 / 0.06);
   --mood-row-active: oklch(0.75 0.14 85 / 0.18);
@@ -82,7 +192,6 @@
   --mood-masthead: #1e3a8a;
   --mood-paper: #e9edf5;
   --mood-ink: #111827;
-  --mood-muted: oklch(0.45 0.025 260);
   --mood-sidebar: oklch(1 0 0 / 0.7);
   --mood-row-hover: oklch(0.7 0.1 75 / 0.1);
   --mood-row-active: oklch(0.75 0.14 75 / 0.2);
@@ -140,7 +249,7 @@ html {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.55 0.02 260 / 0.3);
+  background: var(--mood-line-strong);
   border-radius: 999px;
 }
 
@@ -167,6 +276,22 @@ html {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background: color-mix(in oklab, var(--mood-paper) 92%, var(--mood-ink));
+  }
+}
+
+.app-bottom-nav {
+  /* Nearly opaque so the bar still reads as a surface on the devices
+     that decline to composite the blur. */
+  background: color-mix(in oklab, var(--mood-paper) 96%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@media (prefers-reduced-transparency: reduce), (update: slow) {
+  .app-bottom-nav {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--mood-paper);
   }
 }
 
@@ -202,35 +327,36 @@ html {
   gap: 0.75rem;
 }
 
+/* Flat translucent fill, no per-row backdrop-filter. One blurred layer per
+   visible row meant a compositor layer per note and a repaint on every scroll
+   frame — for a depth cue that most devices never saw, because the
+   reduced-transparency / coarse-pointer fallback below already dropped it.
+   `content-visibility` lets the browser skip layout for off-screen rows. */
 .notes-file-card {
   display: block;
   width: 100%;
   border-radius: 1.25rem;
-  border: 1px solid var(--mood-glass-border);
-  background: var(--mood-glass);
+  border: 1px solid var(--mood-line);
+  background: var(--mood-surface);
   padding: 1rem 1.1rem;
   text-align: left;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 1px 0 oklch(1 0 0 / 0.04);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 7.5rem;
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
+    box-shadow 0.18s ease;
 }
 
 .notes-file-card:hover {
-  background: var(--mood-row-hover);
-  border-color: color-mix(in oklab, var(--color-accent) 28%, var(--mood-glass-border));
+  background: var(--mood-surface-2);
+  border-color: var(--mood-line-strong);
 }
 
 .notes-file-card[data-active="true"] {
   background: var(--mood-row-active);
-  border-color: color-mix(in oklab, var(--color-accent) 55%, var(--mood-glass-border));
-  box-shadow:
-    inset 3px 0 0 var(--color-accent),
-    0 8px 20px oklch(0 0 0 / 0.18);
+  border-color: color-mix(in oklab, var(--mood-accent) 55%, var(--mood-line));
+  box-shadow: inset 3px 0 0 var(--mood-accent);
 }
 
 .notes-file-card__preview {
@@ -339,10 +465,38 @@ html {
   background: var(--mood-row-active);
 }
 
-/* Single-column shell: list and preview take turns, matching Daily / Settings. */
-.notes-workspace[data-pane="list"] .notes-preview-pane,
-.notes-workspace[data-pane="preview"] .notes-sidebar {
-  display: none;
+/* Below lg the list and preview take turns in one column, matching Daily /
+   Settings. The grid was always here — it just never got a second column. */
+@media (width < 64rem) {
+  .notes-workspace[data-pane="list"] .notes-preview-pane,
+  .notes-workspace[data-pane="preview"] .notes-sidebar {
+    display: none;
+  }
+}
+
+/* Real master–detail from lg up: both panes live at once and scroll
+   independently, so choosing a note no longer replaces the list. */
+@media (width >= 64rem) {
+  .notes-workspace {
+    grid-template-columns: 22rem minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+    min-height: calc(100svh - 4.25rem);
+  }
+
+  .notes-sidebar,
+  .notes-preview-pane {
+    position: sticky;
+    top: 4.25rem;
+    max-height: calc(100svh - 5.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .notes-sidebar {
+    border-right: 1px solid var(--mood-line);
+    padding-right: 0.25rem;
+  }
 }
 
 @keyframes notesSidebarIn {
@@ -368,18 +522,6 @@ html {
   }
 }
 
-@media (prefers-reduced-transparency: reduce), (update: slow) {
-  .notes-file-card {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
-
-.note-card {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 96px;
-}
-
 .prose-custom {
   font-family: var(--font-sans);
   max-width: 100%;
@@ -398,45 +540,42 @@ html {
   margin: 0.85rem auto;
   border-radius: 0.75rem;
   object-fit: contain;
-  background: oklch(0.2 0.02 260 / 0.35);
-}
-:root.light .prose-custom img {
-  background: oklch(0.96 0.01 260 / 0.9);
+  background: var(--mood-surface-2);
 }
 .prose-custom h1 {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: var(--text-xl);
   font-weight: 600;
   margin: 1.5rem 0 0.75rem;
   letter-spacing: -0.02em;
 }
 .prose-custom h2 {
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   margin: 1.25rem 0 0.5rem;
   letter-spacing: -0.015em;
 }
-.prose-custom h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+.prose-custom h3 { font-size: var(--text-lg); font-weight: 600; margin: 1rem 0 0.5rem; }
 .prose-custom p { margin-bottom: 0.75rem; line-height: 1.75; }
 .prose-custom ul, .prose-custom ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
 .prose-custom li { margin-bottom: 0.25rem; }
 .prose-custom code {
-  background: oklch(0.3 0.02 260 / 0.5);
+  background: var(--mood-surface-2);
   padding: 0.15rem 0.4rem; border-radius: 0.35rem; font-size: 0.875em;
 }
-:root.light .prose-custom code { background: oklch(0.95 0.01 260 / 0.8); }
 .prose-custom pre {
-  background: oklch(0.2 0.02 260 / 0.8);
+  background: var(--mood-surface);
+  border: 1px solid var(--mood-line);
   padding: 1rem; border-radius: 0.75rem; overflow-x: auto; margin-bottom: 1rem;
 }
 .prose-custom pre code { background: none; padding: 0; }
 .prose-custom blockquote {
-  border-left: 3px solid oklch(0.75 0.15 85);
-  padding-left: 1rem; font-style: italic; margin: 1rem 0; color: oklch(0.7 0.02 260);
+  border-left: 3px solid var(--mood-line-strong);
+  padding-left: 1rem; font-style: italic; margin: 1rem 0; color: var(--mood-muted);
 }
-.prose-custom a { color: oklch(0.75 0.15 85); text-decoration: underline; }
-.prose-custom hr { border: none; border-top: 1px solid oklch(0.4 0.02 260); margin: 1.5rem 0; }
+.prose-custom a { color: var(--mood-accent-ink); text-decoration: underline; }
+.prose-custom hr { border: none; border-top: 1px solid var(--mood-line); margin: 1.5rem 0; }
 .prose-custom table {
   display: block;
   width: 100%;
@@ -446,15 +585,15 @@ html {
   overflow-x: auto;
 }
 .prose-custom th, .prose-custom td {
-  border: 1px solid oklch(0.4 0.02 260); padding: 0.5rem 0.75rem; text-align: left;
+  border: 1px solid var(--mood-line-strong); padding: 0.5rem 0.75rem; text-align: left;
 }
-.prose-custom th { background: oklch(0.3 0.02 260 / 0.5); }
+.prose-custom th { background: var(--mood-surface-2); }
 
 /* GFM task lists: a real checkbox the reader can tick, not a bullet. */
 .prose-custom .contains-task-list { list-style: none; padding-left: 0.15rem; }
 .prose-custom .task-list-item { display: flex; align-items: flex-start; gap: 0.5rem; }
 .prose-custom .task-list-item:has(input:checked) {
-  color: oklch(0.62 0.02 260);
+  color: var(--mood-faint);
   text-decoration: line-through;
 }
 .md-task-checkbox {
@@ -475,13 +614,6 @@ html {
 .prose-compact blockquote { margin: 0 0 0.2rem; padding-left: 0.6rem; }
 .prose-compact hr { margin: 0.3rem 0; }
 .prose-compact .md-task-checkbox { margin-top: 0.2rem; }
-
-.note-card-preview {
-  max-height: 3.4rem;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-}
 
 /* ── Live Markdown editor ───────────────────────────────────────────────────
    The highlighted mirror and the real <textarea> hold the same characters at
@@ -511,8 +643,7 @@ html {
   font-feature-settings: "ss01" on, "cv11" on;
 }
 
-.md-mirror { color: #f1f5f9; }
-:root.light .md-mirror { color: #0f172a; }
+.md-mirror { color: var(--mood-ink); }
 
 .md-editor-input {
   position: absolute;
@@ -554,6 +685,23 @@ html {
 :root.light .md-url { color: oklch(0.55 0.02 260); }
 :root.light .md-quote { color: oklch(0.45 0.06 150); }
 :root.light .md-marker { color: #b45309; }
+
+/* The one loud thing on a screen. Everything else that used to wear the
+   gradient (player transport, progress fills, secondary actions) now uses a
+   solid accent or an accent tint, so this reads as *the* primary action. */
+.btn-primary {
+  background-image: linear-gradient(to right, #fbbf24, #f97316);
+  color: var(--mood-on-accent);
+  font-weight: 600;
+  transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.05); }
+.btn-primary:active:not(:disabled) { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:active:not(:disabled) { transform: none; }
+}
 
 .speech-slider {
   -webkit-appearance: none;

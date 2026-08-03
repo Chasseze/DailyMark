@@ -12,6 +12,11 @@ export interface NotesContextType {
   error: string | null;
   addNote: (note: NewNote) => Promise<Note>;
   updateNote: (id: string, data: NoteUpdate) => Promise<void>;
+  /**
+   * Partial update for autosave: sends only the given fields and asks for a
+   * three-column response instead of the full row.
+   */
+  patchNote: (id: string, data: NoteUpdate) => Promise<void>;
   /** Soft-delete — moves the note into Trash. */
   deleteNote: (id: string) => Promise<void>;
   restoreNote: (id: string) => Promise<void>;

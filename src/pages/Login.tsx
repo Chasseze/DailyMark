@@ -2,7 +2,10 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/auth-context";
 import { errorMessage } from "../lib/supabase";
-import journalHero from "../assets/login-journal.jpg";
+
+const HERO_SRC = "/img/login-journal-1600.webp";
+const HERO_SRCSET =
+  "/img/login-journal-960.webp 960w, /img/login-journal-1600.webp 1600w";
 
 type Mode = "signin" | "signup" | "forgot" | "recovery";
 
@@ -56,10 +59,15 @@ export default function Login() {
     return (
       <div className="login-hero" aria-busy="true">
         <img
-          src={journalHero}
+          src={HERO_SRC}
+          srcSet={HERO_SRCSET}
+          sizes="100vw"
           alt=""
           className="login-hero__media"
+          width={1600}
+          height={1067}
           decoding="async"
+          fetchPriority="high"
         />
         <div className="login-hero__scrim" />
       </div>
@@ -164,7 +172,9 @@ export default function Login() {
   return (
     <section className="login-hero">
       <img
-        src={journalHero}
+        src={HERO_SRC}
+        srcSet={HERO_SRCSET}
+        sizes="100vw"
         alt=""
         className="login-hero__media"
         width={1600}

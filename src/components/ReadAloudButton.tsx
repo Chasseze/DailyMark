@@ -46,11 +46,11 @@ export default function ReadAloudButton({ request, compact = false, className = 
   const icon = speaking ? <PauseIcon /> : paused ? <PlayIcon /> : <SpeakerIcon />;
 
   const base = compact
-    ? "rounded-lg p-1.5 transition-colors hover:bg-white/10 disabled:opacity-40 "
-    : "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-colors hover:bg-white/10 disabled:opacity-40 ";
+    ? "rounded-lg p-1.5 transition-colors hover:bg-surface-2 disabled:opacity-40 "
+    : "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-colors hover:bg-surface-2 disabled:opacity-40 ";
   const tone = active
-    ? "text-amber-400"
-    : "text-slate-400 light:text-slate-500 light:hover:text-slate-700";
+    ? "text-accent-ink"
+    : "text-muted";
 
   return (
     <button

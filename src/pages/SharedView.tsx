@@ -31,15 +31,15 @@ export default function SharedView() {
   }, [token]);
 
   return (
-    <div className="app-shell min-h-screen px-4 py-8 text-white light:text-slate-900">
+    <div className="app-shell min-h-screen px-4 py-8 text-ink">
       <div className="mx-auto w-full max-w-2xl">
-        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-amber-400/80">
+        <p className="text-xs font-medium uppercase tracking-[0.08em] text-accent-ink">
           DailyMark · Shared
         </p>
 
-        {loading && <p className="mt-8 text-sm text-slate-500">Loading…</p>}
+        {loading && <p className="mt-8 text-sm text-muted">Loading…</p>}
         {error && (
-          <div className="glass mt-6 rounded-2xl p-5 text-sm text-red-300">{error}</div>
+          <div className="glass mt-6 rounded-2xl p-5 text-sm text-danger">{error}</div>
         )}
 
         {payload?.type === "note" && (
@@ -50,19 +50,19 @@ export default function SharedView() {
                 {payload.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-md bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-400"
+                    className="rounded-md bg-surface-2 px-2.5 py-0.5 text-xs text-muted"
                   >
                     {tag}
                   </span>
                 ))}
               </div>
             )}
-            <div className="text-sm leading-relaxed text-slate-300 light:text-slate-700">
+            <div className="text-sm leading-relaxed text-ink-soft">
               <Markdown>{payload.content}</Markdown>
             </div>
-            <p className="mt-8 text-xs text-slate-500">
+            <p className="mt-8 text-xs text-muted">
               Read-only shared note.{" "}
-              <Link to="/login" className="text-amber-400 hover:text-amber-300">
+              <Link to="/login" className="text-accent-ink hover:text-accent">
                 Sign in to DailyMark
               </Link>
             </p>
@@ -71,15 +71,15 @@ export default function SharedView() {
 
         {payload?.type === "notebook" && (
           <div className="mt-4 space-y-4">
-            <h1 className="page-title text-white light:text-slate-900">{payload.title}</h1>
-            <p className="text-sm text-slate-400">Shared notebook · read only</p>
+            <h1 className="page-title text-ink">{payload.title}</h1>
+            <p className="text-sm text-muted">Shared notebook · read only</p>
             {payload.notes.length === 0 ? (
-              <p className="text-sm text-slate-500">No notes in this notebook.</p>
+              <p className="text-sm text-muted">No notes in this notebook.</p>
             ) : (
               payload.notes.map((note, i) => (
                 <article key={i} className="note-view__article glass rounded-2xl p-5">
                   <h2 className="note-title mb-2 text-xl">{note.title || "Untitled"}</h2>
-                  <div className="text-sm leading-relaxed text-slate-300 light:text-slate-700">
+                  <div className="text-sm leading-relaxed text-ink-soft">
                     <Markdown>{note.content}</Markdown>
                   </div>
                 </article>

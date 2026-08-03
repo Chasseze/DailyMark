@@ -36,6 +36,24 @@ script only refreshes npm dependencies.
    ```
    Vite only reads env files at startup, so restart `npm run dev` after editing it.
 
+### Styling conventions
+
+- **Use the semantic tokens, not raw palette classes.** Colour lives in
+  `src/index.css`: two themes define the whole scale once, and the three moods
+  override only the atmosphere (paper, masthead, glow). In components reach for
+  `text-ink` / `text-ink-soft` / `text-muted` / `text-faint`, `bg-surface`
+  (`-2`, `-3`), `border-line` / `border-line-strong`, `bg-accent` /
+  `text-accent-ink` / `bg-accent-soft` / `text-on-accent`, and
+  `text-danger` / `bg-danger-soft`. A pair like
+  `text-slate-400 light:text-slate-500` is the old way — it has to be written
+  correctly at all ~200 call sites, and one miss is an invisible label in the
+  light theme.
+- **12px is the type floor** (`text-xs`); the scale is xs / sm / base / lg / xl.
+- **The amber→orange gradient means "primary action"** and lives in one place,
+  `.btn-primary`. One per screen. Everything else that needs the accent uses a
+  solid `bg-accent` or a tinted `bg-accent-soft`.
+- `backdrop-filter` is expensive per element. Blur the container, not each row.
+
 ### Non-obvious gotchas
 
 - **`supabase/seed.sql` is required for local dev.** Hosted Supabase auto-grants

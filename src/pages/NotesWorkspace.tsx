@@ -27,7 +27,7 @@ export function NotesEmptyPreview() {
       <div className="glass mb-4 flex h-14 w-14 items-center justify-center rounded-2xl">
         <svg
           viewBox="0 0 24 24"
-          className="h-6 w-6 text-amber-400"
+          className="h-6 w-6 text-accent-ink"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.75"
@@ -37,10 +37,10 @@ export function NotesEmptyPreview() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 3.75V8H19M9.5 12h5M9.5 15.5h5" />
         </svg>
       </div>
-      <h2 className="text-xl font-bold tracking-tight text-white light:text-slate-900">
+      <h2 className="text-xl font-bold tracking-tight text-ink">
         Choose a note
       </h2>
-      <p className="mt-2 max-w-sm text-sm text-slate-400 light:text-slate-500">
+      <p className="mt-2 max-w-sm text-sm text-muted">
         Pick a note below to open it here.
       </p>
     </div>

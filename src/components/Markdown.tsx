@@ -42,7 +42,7 @@ export default function Markdown({
       if (href === "#missing-note") {
         return (
           <span
-            className="rounded-sm bg-amber-500/15 px-1 text-amber-300/90 underline decoration-dotted decoration-amber-500/50"
+            className="rounded-sm bg-accent-soft px-1 text-accent-ink underline decoration-dotted decoration-accent/50"
             title="No note with this exact title — rename a note or fix the link"
           >
             {label}
@@ -54,7 +54,7 @@ export default function Markdown({
           <Link
             to={href}
             title={title ?? "Open linked note"}
-            className="font-medium text-amber-400 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-300"
+            className="font-medium text-accent-ink underline decoration-accent/60 underline-offset-2 hover:text-accent"
           >
             {label}
           </Link>

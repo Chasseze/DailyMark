@@ -242,7 +242,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
 
   return (
     <div>
-      <div className="mb-2 flex gap-1 rounded-xl bg-slate-800/50 p-1 light:bg-slate-100">
+      <div className="mb-2 flex gap-1 rounded-xl bg-surface-2 p-1">
         {VIEWS.map((option) => (
           <button
             key={option.id}
@@ -252,8 +252,8 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
             className={
               "flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all " +
               (view === option.id
-                ? "bg-amber-500/20 text-amber-400"
-                : "text-slate-400 hover:text-slate-200 light:hover:text-slate-700")
+                ? "bg-accent-soft text-accent-ink"
+                : "text-muted hover:text-ink-soft")
             }
           >
             {option.label}
@@ -274,14 +274,14 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
         }}
       />
       {uploadError && (
-        <p className="mb-2 text-xs text-red-400">{uploadError}</p>
+        <p className="mb-2 text-xs text-danger">{uploadError}</p>
       )}
 
       <div className={view === "live" ? "grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2" : "block min-w-0"}>
         {showSource && (
           <div className="min-w-0">
             {view === "live" && <PaneLabel>Markdown</PaneLabel>}
-            <div className="md-editor-surface rounded-2xl border border-white/5 bg-slate-900/50 focus-within:border-amber-500/30 light:border-slate-200 light:bg-slate-50">
+            <div className="md-editor-surface rounded-2xl border border-line bg-surface focus-within:border-accent/50">
               <MarkdownHighlight source={content} />
               <textarea
                 ref={areaRef}
@@ -292,7 +292,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
                 placeholder="Start writing — # headings, **bold**, - lists and `code` format as you type…"
                 aria-label="Note content in Markdown"
                 spellCheck
-                className="md-editor-input placeholder-slate-500 light:placeholder-slate-400"
+                className="md-editor-input placeholder-faint"
               />
             </div>
           </div>
@@ -301,23 +301,23 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
         {showRich && (
           <div className="min-w-0">
             {view === "live" && <PaneLabel>Rich text</PaneLabel>}
-            <div className="min-h-[14rem] min-w-0 overflow-x-clip rounded-2xl border border-white/5 bg-slate-900/30 p-4 text-sm text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-700">
+            <div className="min-h-[14rem] min-w-0 overflow-x-clip rounded-2xl border border-line bg-surface p-4 text-sm text-ink-soft">
               {richContent.trim() ? (
                 <Markdown notes={notes} onToggleTask={handleToggleTask}>
                   {richContent}
                 </Markdown>
               ) : (
-                <p className="italic text-slate-500">Rich text appears here as you type…</p>
+                <p className="italic text-muted">Rich text appears here as you type…</p>
               )}
             </div>
           </div>
         )}
       </div>
 
-      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+      <p className="mt-2 text-xs leading-relaxed text-muted">
         Markdown is always on: syntax is styled as you type, pasted rich text is converted, and
         Enter carries lists forward. Link another note with{" "}
-        <span className="font-mono text-slate-400">[[Exact title]]</span> (toolbar: Note link) —
+        <span className="font-mono text-muted">[[Exact title]]</span> (toolbar: Note link) —
         matching titles become clickable in preview and when you open the note.
       </p>
     </div>
@@ -326,7 +326,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
 
 function PaneLabel({ children }: { children: string }) {
   return (
-    <p className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+    <p className="mb-1 px-1 text-xs font-medium uppercase tracking-wider text-muted">
       {children}
     </p>
   );

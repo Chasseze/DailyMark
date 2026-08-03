@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useFocus } from "../context/focus-context";
 import { useNotes } from "../context/notes-context";
 import { errorMessage } from "../lib/supabase";
-import type { Note } from "../lib/types";
+import type { Note, NoteUpdate } from "../lib/types";
 import MarkdownEditor from "../components/MarkdownEditor";
 
 export default function NoteEdit() {
@@ -34,7 +34,7 @@ export default function NoteEdit() {
   if (loading || awaitingBody) {
     return (
       <div className="flex h-full min-h-[16rem] items-center justify-center">
-        <p className="text-sm text-slate-500">Loading…</p>
+        <p className="text-sm text-muted">Loading…</p>
       </div>
     );
   }
@@ -42,7 +42,7 @@ export default function NoteEdit() {
   if (!note || hydrateError) {
     return (
       <div className="flex h-full min-h-[16rem] items-center justify-center">
-        <p className="text-slate-400">{hydrateError ?? "Note not found"}</p>
+        <p className="text-muted">{hydrateError ?? "Note not found"}</p>
       </div>
     );
   }
@@ -58,11 +58,11 @@ function TrashedNoteNotice({ id }: { id: string }) {
   const navigate = useNavigate();
   return (
     <div className="flex h-full min-h-[16rem] flex-col items-center justify-center px-4">
-      <p className="text-slate-400">This note is in Trash. Restore it before editing.</p>
+      <p className="text-muted">This note is in Trash. Restore it before editing.</p>
       <button
         type="button"
         onClick={() => navigate("/notes/" + id)}
-        className="mt-4 text-sm text-amber-400"
+        className="mt-4 text-sm text-accent-ink"
       >
         ← Back
       </button>
@@ -89,7 +89,7 @@ function fromDateInput(value: string): string | null {
 
 function NoteEditor({ note }: { note: Note }) {
   const navigate = useNavigate();
-  const { notebooks, notes, updateNote } = useNotes();
+  const { notebooks, notes, patchNote } = useNotes();
   const { focus, toggleFocus } = useFocus();
 
   const [title, setTitle] = useState(note.title);
@@ -110,12 +110,19 @@ function NoteEditor({ note }: { note: Note }) {
     revisitAt: toDateInput(note.revisit_at),
   });
 
-  const dirty =
-    title !== saved.title ||
-    content !== saved.content ||
-    notebookId !== saved.notebookId ||
-    revisitAt !== saved.revisitAt ||
-    !sameTags(tags, saved.tags);
+  // Only the fields that actually moved go over the wire. Retyping a title
+  // used to re-upload the entire Markdown body along with it.
+  const changed = useMemo(() => {
+    const patch: NoteUpdate = {};
+    if (title !== saved.title) patch.title = title;
+    if (content !== saved.content) patch.content = content;
+    if (notebookId !== saved.notebookId) patch.notebook_id = notebookId;
+    if (revisitAt !== saved.revisitAt) patch.revisit_at = fromDateInput(revisitAt);
+    if (!sameTags(tags, saved.tags)) patch.tags = tags;
+    return patch;
+  }, [title, content, tags, notebookId, revisitAt, saved]);
+
+  const dirty = Object.keys(changed).length > 0;
 
   useEffect(() => {
     if (!dirty) return;
@@ -127,55 +134,32 @@ function NoteEditor({ note }: { note: Note }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
 
+  const persist = useCallback(async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await patchNote(note.id, changed);
+      setSaved({ title, content, tags, notebookId, revisitAt });
+      setLastSavedAt(new Date());
+      return true;
+    } catch (err) {
+      setSaveError(errorMessage(err));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [patchNote, note.id, changed, title, content, tags, notebookId, revisitAt]);
+
   // Autosave after a short pause in typing.
   useEffect(() => {
     if (!dirty) return;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        setSaving(true);
-        setSaveError(null);
-        try {
-          await updateNote(note.id, {
-            title,
-            content,
-            tags,
-            notebook_id: notebookId,
-            revisit_at: fromDateInput(revisitAt),
-          });
-          setSaved({ title, content, tags, notebookId, revisitAt });
-          setLastSavedAt(new Date());
-        } catch (err) {
-          setSaveError(errorMessage(err));
-        } finally {
-          setSaving(false);
-        }
-      })();
-    }, 1200);
+    const timer = window.setTimeout(() => void persist(), 1200);
     return () => window.clearTimeout(timer);
-  }, [title, content, tags, notebookId, revisitAt, dirty, note.id, updateNote]);
+  }, [dirty, persist]);
 
   const handleSave = async () => {
     if (saving) return;
-    if (dirty) {
-      setSaving(true);
-      setSaveError(null);
-      try {
-        await updateNote(note.id, {
-          title,
-          content,
-          tags,
-          notebook_id: notebookId,
-          revisit_at: fromDateInput(revisitAt),
-        });
-        setSaved({ title, content, tags, notebookId, revisitAt });
-        setLastSavedAt(new Date());
-      } catch (err) {
-        setSaveError(errorMessage(err));
-        setSaving(false);
-        return;
-      }
-      setSaving(false);
-    }
+    if (dirty && !(await persist())) return;
     navigate("/notes/" + note.id);
   };
 
@@ -213,7 +197,7 @@ function NoteEditor({ note }: { note: Note }) {
           type="button"
           onClick={handleGoBack}
           aria-label="Back"
-          className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"
+          className="rounded-xl p-2 text-muted hover:bg-surface-2 hover:text-ink"
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.5 9 12l6.5 6.5" />
@@ -221,7 +205,7 @@ function NoteEditor({ note }: { note: Note }) {
         </button>
         <div className="flex-1" />
         {statusLabel && (
-          <span className="mr-1 text-[11px] font-medium uppercase tracking-wider text-amber-400/80">
+          <span className="mr-1 text-xs font-medium uppercase tracking-wider text-accent-ink">
             {statusLabel}
           </span>
         )}
@@ -231,10 +215,10 @@ function NoteEditor({ note }: { note: Note }) {
           aria-label={focus ? "Exit focus mode" : "Enter focus mode"}
           title={focus ? "Exit focus" : "Focus"}
           className={
-            "rounded-xl p-2 transition-colors hover:bg-white/5 light:hover:bg-slate-100 " +
+            "rounded-xl p-2 transition-colors hover:bg-surface-2 " +
             (focus
-              ? "text-amber-400 hover:text-amber-300"
-              : "text-slate-400 hover:text-white light:hover:text-slate-900")
+              ? "text-accent-ink hover:text-accent"
+              : "text-muted hover:text-ink")
           }
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
@@ -246,15 +230,15 @@ function NoteEditor({ note }: { note: Note }) {
           type="button"
           onClick={() => void handleSave()}
           disabled={saving}
-          className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2 text-sm font-semibold text-black transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+          className="btn-primary rounded-xl px-4 py-2 text-sm"
         >
           {dirty ? (saving ? "Saving…" : "Save") : "Done"}
         </button>
       </div>
 
       {leavePrompt && (
-        <div className="mb-3 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
-          <p className="text-sm text-amber-200 light:text-amber-800">
+        <div className="mb-3 rounded-xl border border-accent/40 bg-accent-soft p-3">
+          <p className="text-sm text-accent-ink">
             You have unsaved changes.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -262,21 +246,21 @@ function NoteEditor({ note }: { note: Note }) {
               type="button"
               onClick={() => void handleSave()}
               disabled={saving}
-              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-on-accent disabled:opacity-50"
             >
               Save
             </button>
             <button
               type="button"
               onClick={discardAndLeave}
-              className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 light:bg-slate-200 light:text-slate-800"
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-soft"
             >
               Discard
             </button>
             <button
               type="button"
               onClick={() => setLeavePrompt(false)}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted"
             >
               Keep editing
             </button>
@@ -285,7 +269,7 @@ function NoteEditor({ note }: { note: Note }) {
       )}
 
       {saveError && (
-        <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">
+        <div className="mb-3 rounded-xl bg-danger-soft p-3 text-xs text-danger">
           {saveError}
         </div>
       )}
@@ -295,16 +279,16 @@ function NoteEditor({ note }: { note: Note }) {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Note title..."
-        className="note-title mb-3 w-full bg-transparent text-2xl text-white placeholder-slate-600 focus:outline-none light:text-slate-900 light:placeholder-slate-300"
+        className="note-title mb-3 w-full bg-transparent text-2xl text-ink placeholder-faint focus:outline-none"
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">Notebook:</span>
+          <span className="text-xs text-muted">Notebook:</span>
           <select
             value={notebookId ?? ""}
             onChange={(e) => setNotebookId(e.target.value || null)}
-            className="rounded-lg border border-white/5 bg-slate-800/50 px-2 py-1 text-xs text-slate-300 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+            className="rounded-lg border border-line bg-surface-2 px-2 py-1 text-xs text-ink-soft focus:outline-none"
           >
             <option value="">None</option>
             {notebooks.map((nb) => (
@@ -313,7 +297,7 @@ function NoteEditor({ note }: { note: Note }) {
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="revisit-at" className="text-xs text-slate-500">
+          <label htmlFor="revisit-at" className="text-xs text-muted">
             Revisit by:
           </label>
           <input
@@ -321,13 +305,13 @@ function NoteEditor({ note }: { note: Note }) {
             type="date"
             value={revisitAt}
             onChange={(e) => setRevisitAt(e.target.value)}
-            className="rounded-lg border border-white/5 bg-slate-800/50 px-2 py-1 text-xs text-slate-300 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+            className="rounded-lg border border-line bg-surface-2 px-2 py-1 text-xs text-ink-soft focus:outline-none"
           />
           {revisitAt && (
             <button
               type="button"
               onClick={() => setRevisitAt("")}
-              className="text-[11px] text-slate-500 hover:text-slate-300"
+              className="text-xs text-muted hover:text-ink-soft"
             >
               Clear
             </button>
@@ -338,13 +322,13 @@ function NoteEditor({ note }: { note: Note }) {
       <div className="mb-4">
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-400">
+            <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2.5 py-0.5 text-xs text-ink-soft">
               {tag}
               <button
                 type="button"
                 onClick={() => setTags(tags.filter((t) => t !== tag))}
                 aria-label={`Remove ${tag}`}
-                className="ml-0.5 text-amber-500 hover:text-red-400"
+                className="ml-0.5 text-muted hover:text-danger"
               >
                 ×
               </button>
@@ -358,12 +342,12 @@ function NoteEditor({ note }: { note: Note }) {
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
             placeholder="Add tag..."
-            className="flex-1 rounded-lg border border-white/5 bg-slate-800/50 px-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-900"
+            className="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-1 text-xs text-ink placeholder-faint focus:outline-none"
           />
           <button
             type="button"
             onClick={addTag}
-            className="rounded-lg bg-slate-800/50 px-3 py-1 text-xs text-slate-400 hover:text-white light:bg-slate-100 light:hover:text-slate-900"
+            className="rounded-lg bg-surface-2 px-3 py-1 text-xs text-muted hover:text-ink"
           >
             Add
           </button>

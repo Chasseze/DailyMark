@@ -11,18 +11,25 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DailyMark" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Figtree for UI; Fraunces for page titles (my notes, daily spark, …).
-         Only the weights we use, with display=swap so text stays visible. -->
+         Both are self-hosted (see the @font-face block in index.css): the
+         Google Fonts stylesheet was render-blocking from a third origin, so
+         first paint waited on two extra DNS + TLS handshakes before any text
+         could appear. Preloading the latin subsets starts them with the HTML
+         instead of after the CSS has been parsed. -->
     <link
       rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap"
+      as="font"
+      type="font/woff2"
+      href="/fonts/figtree-latin.woff2"
+      crossorigin
     />
     <link
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/fonts/fraunces-latin.woff2"
+      crossorigin
     />
     <title>DailyMark</title>
     <script>
@@ -43,6 +50,34 @@
           mood = "cobalt";
         }
         root.dataset.mood = mood;
+
+        // The login hero is the LCP element, and it lives inside the lazily
+        // loaded Login chunk — the browser could not discover it until
+        // HTML → entry JS → route chunk had all resolved. Preload it here
+        // instead, but only when there is no stored Supabase session: a
+        // signed-in visitor lands on /notes and would never show the image.
+        try {
+          var signedIn = false;
+          for (var i = 0; i < localStorage.length; i++) {
+            if (/^sb-.*-auth-token$/.test(localStorage.key(i))) {
+              signedIn = true;
+              break;
+            }
+          }
+          if (!signedIn) {
+            var hero = document.createElement("link");
+            hero.rel = "preload";
+            hero.as = "image";
+            hero.href = "/img/login-journal-1600.webp";
+            hero.imageSrcset =
+              "/img/login-journal-960.webp 960w, /img/login-journal-1600.webp 1600w";
+            hero.imageSizes = "100vw";
+            hero.fetchPriority = "high";
+            document.head.appendChild(hero);
+          }
+        } catch (err) {
+          // Private mode / storage disabled — skip the hint, not the app.
+        }
       })();
     </script>
   </head>

@@ -5,7 +5,6 @@ import RequireAuth from "./components/RequireAuth";
 import SetupNotice from "./components/SetupNotice";
 import { FocusProvider } from "./context/FocusContext";
 import { NotesProvider } from "./context/NotesContext";
-import { ThoughtsProvider } from "./context/ThoughtsContext";
 import { isSupabaseConfigured } from "./lib/supabase";
 
 // Route-level code splitting keeps the login shell small; markdown editor and
@@ -15,6 +14,7 @@ const NotesWorkspace = lazy(() => import("./pages/NotesWorkspace"));
 const NotesEmptyPreview = lazy(() => import("./pages/NotesEmptyPreview"));
 const NoteView = lazy(() => import("./pages/NoteView"));
 const NoteEdit = lazy(() => import("./pages/NoteEdit"));
+const ThoughtsRoutes = lazy(() => import("./pages/ThoughtsRoutes"));
 const ThoughtsWorkspace = lazy(() => import("./pages/ThoughtsWorkspace"));
 const ThoughtsEmptyPreview = lazy(() => import("./pages/ThoughtsEmptyPreview"));
 const ThoughtView = lazy(() => import("./pages/ThoughtView"));
@@ -25,7 +25,7 @@ const SharedView = lazy(() => import("./pages/SharedView"));
 function RouteFallback() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-transparent">
-      <span className="text-sm text-slate-500">Loading…</span>
+      <span className="text-sm text-muted">Loading…</span>
     </div>
   );
 }
@@ -45,11 +45,9 @@ export default function App() {
           <Route
             element={
               <NotesProvider>
-                <ThoughtsProvider>
-                  <FocusProvider>
-                    <Layout />
-                  </FocusProvider>
-                </ThoughtsProvider>
+                <FocusProvider>
+                  <Layout />
+                </FocusProvider>
               </NotesProvider>
             }
           >
@@ -59,11 +57,15 @@ export default function App() {
               <Route path=":id" element={<NoteView />} />
               <Route path=":id/edit" element={<NoteEdit />} />
             </Route>
-            <Route path="/thoughts" element={<ThoughtsWorkspace />}>
-              <Route index element={<ThoughtsEmptyPreview />} />
-              <Route path=":id" element={<ThoughtView />} />
+            {/* The thoughts catalog only loads for the two routes that read
+                it, instead of on every sign-in. */}
+            <Route element={<ThoughtsRoutes />}>
+              <Route path="/thoughts" element={<ThoughtsWorkspace />}>
+                <Route index element={<ThoughtsEmptyPreview />} />
+                <Route path=":id" element={<ThoughtView />} />
+              </Route>
+              <Route path="/daily" element={<Daily />} />
             </Route>
-            <Route path="/daily" element={<Daily />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>

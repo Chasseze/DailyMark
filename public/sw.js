@@ -1,5 +1,5 @@
 /* DailyMark service worker — caches the app shell; never caches Supabase API. */
-const CACHE = "dailymark-shell-v1";
+const CACHE = "dailymark-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -53,7 +53,13 @@ self.addEventListener("fetch", (event) => {
         (cached) =>
           cached ||
           fetch(request).then((response) => {
-            if (response.ok && (url.pathname.startsWith("/assets/") || url.pathname.endsWith(".svg"))) {
+            if (
+              response.ok &&
+              (url.pathname.startsWith("/assets/") ||
+                url.pathname.startsWith("/fonts/") ||
+                url.pathname.startsWith("/img/") ||
+                url.pathname.endsWith(".svg"))
+            ) {
               const copy = response.clone();
               void caches.open(CACHE).then((cache) => cache.put(request, copy));
             }

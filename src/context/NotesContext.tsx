@@ -179,6 +179,36 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     [userId]
   );
 
+  /**
+   * Autosave path. Sends only the fields that actually changed and asks for
+   * three columns back instead of the whole row — a full `select()` echoed the
+   * entire Markdown body on every pause in typing, then replaced the note
+   * object and re-rendered the list with it. `preview` and `updated_at` are
+   * both computed server-side (see 0002_notes_preview), so they still have to
+   * come back; `content` does not, because we already have it.
+   */
+  const patchNote = useCallback(async (id: string, data: NoteUpdate) => {
+    if (Object.keys(data).length === 0) return;
+
+    const db = requireSupabase();
+    const { data: row, error: err } = await db
+      .from("notes")
+      .update(data)
+      .eq("id", id)
+      .select("id,updated_at,preview")
+      .single();
+    if (err) throw err;
+
+    const patch = { ...data, updated_at: row.updated_at, preview: row.preview ?? "" };
+    setNotes((prev) => {
+      const idx = prev.findIndex((n) => n.id === id);
+      if (idx === -1) return prev;
+      const next = prev.slice();
+      next[idx] = { ...next[idx], ...patch };
+      return next;
+    });
+  }, []);
+
   const updateNote = useCallback(async (id: string, data: NoteUpdate) => {
     const db = requireSupabase();
     const { data: row, error: err } = await db
@@ -342,6 +372,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       error,
       addNote,
       updateNote,
+      patchNote,
       deleteNote,
       restoreNote,
       purgeNote,
@@ -366,6 +397,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       error,
       addNote,
       updateNote,
+      patchNote,
       deleteNote,
       restoreNote,
       purgeNote,

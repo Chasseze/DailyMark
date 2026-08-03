@@ -40,7 +40,7 @@ export default function MoodPicker() {
         onClick={() => setOpen((value) => !value)}
       >
         <span
-          className="h-2 w-2 shrink-0 rounded-full ring-1 ring-white/40"
+          className="h-2 w-2 shrink-0 rounded-full ring-1 ring-line-strong"
           style={{ backgroundColor: active.swatch }}
           aria-hidden="true"
         />
@@ -75,13 +75,13 @@ export default function MoodPicker() {
                   }}
                 >
                   <span
-                    className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/30"
+                    className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-line-strong"
                     style={{ backgroundColor: option.swatch }}
                     aria-hidden="true"
                   />
                   <span className="min-w-0 text-left">
-                    <span className="block text-[12px] font-semibold">{option.label}</span>
-                    <span className="mt-0.5 block text-[10px] leading-snug opacity-70">
+                    <span className="block text-xs font-semibold">{option.label}</span>
+                    <span className="mt-0.5 block text-xs leading-snug opacity-70">
                       {option.blurb}
                     </span>
                   </span>

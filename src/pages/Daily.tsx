@@ -283,8 +283,8 @@ export default function Daily() {
     <div className="animate-in px-4 pt-6">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="page-title text-white light:text-slate-900">Daily spark</h1>
-          <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
+          <h1 className="page-title text-ink">Daily spark</h1>
+          <p className="mt-2 text-sm text-muted">
             {new Date().toLocaleDateString(undefined, {
               weekday: "long",
               month: "long",
@@ -292,16 +292,16 @@ export default function Daily() {
             })}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-amber-500/80">
+        <div className="flex items-center gap-1.5 rounded-lg bg-accent-soft px-3 py-1.5">
+          <span className="text-xs font-medium uppercase tracking-wider text-accent-ink">
             Streak
           </span>
-          <span className="text-sm font-semibold text-amber-400">{streak ?? "–"}</span>
+          <span className="text-sm font-semibold text-accent-ink">{streak ?? "–"}</span>
         </div>
       </div>
 
       <section className="mb-4">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted">
           How are you feeling?
         </p>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -316,8 +316,8 @@ export default function Daily() {
                 className={
                   "rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50 " +
                   (active
-                    ? "bg-amber-500/15 font-medium text-amber-400"
-                    : "bg-white/5 text-slate-400 hover:bg-white/8 hover:text-slate-200 light:bg-slate-100 light:text-slate-600 light:hover:bg-slate-200/80 light:hover:text-slate-800")
+                    ? "bg-accent-soft font-medium text-accent-ink"
+                    : "bg-surface text-muted hover:bg-surface-2 hover:text-ink-soft")
                 }
               >
                 {mood}
@@ -330,26 +330,26 @@ export default function Daily() {
       {pinned && (
         <Link
           to={"/thoughts/" + pinned.id}
-          className="glass mb-4 block rounded-2xl p-4 transition-colors hover:bg-white/[0.04] light:hover:bg-slate-50"
+          className="glass mb-4 block rounded-2xl p-4 transition-colors hover:bg-surface"
         >
-          <span className="text-[11px] font-medium uppercase tracking-wider text-amber-400/90">
+          <span className="text-xs font-medium uppercase tracking-wider text-accent-ink">
             Thought of the week
           </span>
-          <p className="note-title mt-2 text-base leading-snug text-white light:text-slate-900">
+          <p className="note-title mt-2 text-base leading-snug text-ink">
             {pinned.title}
           </p>
-          <span className="mt-2 inline-block text-sm font-medium text-amber-400">Open →</span>
+          <span className="mt-2 inline-block text-sm font-medium text-accent-ink">Open →</span>
         </Link>
       )}
 
       {revisitPreview.length > 0 && (
-        <section className="mb-4 rounded-2xl border border-white/5 bg-slate-900/30 px-4 py-3 light:border-slate-200 light:bg-slate-50/80">
+        <section className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted">
               Revisit
             </span>
             {dueNotes.length > 3 && (
-              <span className="text-[11px] text-slate-500">+{dueNotes.length - 3} more</span>
+              <span className="text-xs text-muted">+{dueNotes.length - 3} more</span>
             )}
           </div>
           <ul className="mt-2 space-y-1.5">
@@ -357,7 +357,7 @@ export default function Daily() {
               <li key={note.id}>
                 <Link
                   to={"/notes/" + note.id}
-                  className="block truncate text-sm text-slate-300 transition-colors hover:text-amber-400 light:text-slate-700 light:hover:text-amber-600"
+                  className="block truncate text-sm text-ink-soft transition-colors hover:text-accent"
                 >
                   {note.title.trim() || "Untitled"}
                 </Link>
@@ -369,7 +369,7 @@ export default function Daily() {
 
       <section className="glass mb-4 rounded-3xl p-6">
         <div className="flex items-start justify-between gap-2">
-          <span className="inline-block rounded-lg bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
+          <span className="inline-block rounded-lg bg-accent-soft px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-ink">
             Quote of the day
           </span>
           <ReadAloudButton
@@ -382,51 +382,51 @@ export default function Daily() {
             }}
           />
         </div>
-        <p className="note-title mt-4 text-xl leading-snug text-white light:text-slate-900">
+        <p className="note-title mt-4 text-xl leading-snug text-ink">
           {quote.text}
         </p>
-        <p className="mt-3 text-sm text-slate-400">— {quote.source}</p>
+        <p className="mt-3 text-sm text-muted">— {quote.source}</p>
         <button
           type="button"
           onClick={() => void jotReflection()}
           disabled={jotBusy}
-          className="mt-4 inline-block text-sm font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50"
+          className="mt-4 inline-block text-sm font-medium text-accent-ink hover:text-accent disabled:opacity-50"
         >
           {jotBusy ? "Opening note…" : "Jot a reflection →"}
         </button>
-        {jotError && <p className="mt-2 text-xs text-red-400">{jotError}</p>}
-        <div className="mt-4 border-t border-white/5 pt-4 light:border-slate-200">
+        {jotError && <p className="mt-2 text-xs text-danger">{jotError}</p>}
+        <div className="mt-4 border-t border-line pt-4">
           <button
             type="button"
             onClick={() => void startWeeklyReview()}
             disabled={reviewBusy}
-            className="text-sm font-medium text-slate-300 transition-colors hover:text-amber-400 disabled:opacity-50 light:text-slate-600 light:hover:text-amber-600"
+            className="text-sm font-medium text-ink-soft transition-colors hover:text-accent disabled:opacity-50"
           >
             {reviewBusy ? "Opening weekly review…" : "Start weekly review →"}
           </button>
-          {reviewError && <p className="mt-2 text-xs text-red-400">{reviewError}</p>}
+          {reviewError && <p className="mt-2 text-xs text-danger">{reviewError}</p>}
         </div>
       </section>
 
       <section className="glass rounded-3xl p-6">
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-block rounded-lg bg-amber-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-400">
+          <span className="inline-block rounded-lg bg-accent-soft px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-ink">
             Daily quiz
           </span>
           {progress.phase !== "ready" && progress.phase !== "results" && (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-muted">
               {progress.index + 1} / {total}
             </span>
           )}
           {progress.attempt > 0 && progress.phase === "ready" && (
-            <span className="text-[11px] text-slate-500">Round {progress.attempt + 1}</span>
+            <span className="text-xs text-muted">Round {progress.attempt + 1}</span>
           )}
         </div>
 
         {progress.phase !== "ready" && progress.phase !== "results" && (
-          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-800/60 light:bg-slate-200">
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-surface-2">
             <div
-              className="quiz-progress-fill h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+              className="quiz-progress-fill h-full rounded-full bg-accent"
               style={{
                 width: `${((progress.index + (progress.phase === "feedback" ? 1 : 0)) / total) * 100}%`,
               }}
@@ -436,10 +436,10 @@ export default function Daily() {
 
         {progress.phase === "ready" && (
           <div className="quiz-panel mt-4">
-            <p className="note-title text-xl text-white light:text-slate-900">
+            <p className="note-title text-xl text-ink">
               {total} questions · mixed categories
             </p>
-            <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
+            <p className="mt-2 text-sm text-muted">
               Medicine, science, current affairs, general knowledge and more. Finish for a score —
               play again and the set rotates.
             </p>
@@ -449,7 +449,7 @@ export default function Daily() {
                 return (
                   <span
                     key={category}
-                    className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-medium ${chip.tone}`}
+                    className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-medium ${chip.tone}`}
                   >
                     {chip.label}
                   </span>
@@ -459,7 +459,7 @@ export default function Daily() {
             <button
               type="button"
               onClick={startQuiz}
-              className="mt-5 w-full rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-3 text-sm font-semibold text-black transition-all hover:scale-[1.01] active:scale-[0.99]"
+              className="btn-primary mt-5 w-full rounded-xl px-4 py-3 text-sm"
             >
               Start today's quiz
             </button>
@@ -469,11 +469,11 @@ export default function Daily() {
         {(progress.phase === "question" || progress.phase === "feedback") && current && meta && (
           <div key={questionKey} className="quiz-panel mt-4">
             <div
-              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-medium ${meta.tone}`}
+              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-medium ${meta.tone}`}
             >
               {meta.label}
             </div>
-            <p className="note-title mt-3 text-lg leading-snug text-white light:text-slate-900">
+            <p className="note-title mt-3 text-lg leading-snug text-ink">
               {current.text}
             </p>
 
@@ -483,14 +483,14 @@ export default function Daily() {
                   "quiz-option w-full rounded-xl border px-4 py-3 text-left text-sm transition-all ";
                 if (progress.phase === "question") {
                   cls +=
-                    "border-white/5 bg-slate-800/30 text-slate-300 hover:border-amber-500/30 hover:bg-slate-800/50 light:border-slate-200 light:bg-slate-50 light:text-slate-700";
+                    "border-line bg-surface text-ink-soft hover:border-accent/50 hover:bg-surface-2";
                 } else if (opt === current.answer) {
-                  cls += "quiz-option-correct border-green-500/30 bg-green-500/10 text-green-400";
+                  cls += "quiz-option-correct border-green-500/30 bg-green-500/10 text-emerald-400";
                 } else if (opt === progress.selected) {
-                  cls += "quiz-option-wrong border-red-500/30 bg-red-500/10 text-red-400";
+                  cls += "quiz-option-wrong border-danger/40 bg-danger-soft text-danger";
                 } else {
                   cls +=
-                    "border-white/5 bg-slate-800/20 text-slate-600 light:border-slate-200 light:bg-slate-50";
+                    "border-line bg-surface text-muted";
                 }
                 return (
                   <button
@@ -501,7 +501,7 @@ export default function Daily() {
                     style={{ animationDelay: `${optionIndex * 40}ms` }}
                     className={cls}
                   >
-                    <span className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white/5 text-[10px] font-semibold text-slate-500 light:bg-slate-200/80">
+                    <span className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface text-xs font-semibold text-muted/80">
                       {String.fromCharCode(65 + optionIndex)}
                     </span>
                     {opt}
@@ -516,8 +516,8 @@ export default function Daily() {
                   className={
                     "rounded-xl p-3 text-sm " +
                     (isCorrect
-                      ? "bg-green-500/10 text-green-400"
-                      : "bg-red-500/10 text-red-400")
+                      ? "bg-green-500/10 text-emerald-400"
+                      : "bg-danger-soft text-danger")
                   }
                 >
                   <p className="font-medium">
@@ -536,7 +536,7 @@ export default function Daily() {
                 <button
                   type="button"
                   onClick={goNext}
-                  className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-3 text-sm font-semibold text-black transition-all hover:scale-[1.01] active:scale-[0.99]"
+                  className="btn-primary w-full rounded-xl px-4 py-3 text-sm"
                 >
                   {progress.index + 1 >= total ? "See results" : "Next question"}
                 </button>
@@ -547,28 +547,28 @@ export default function Daily() {
 
         {progress.phase === "results" && (
           <div className="quiz-results mt-4 text-center">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted">
               {flourish.label}
               {progress.attempt > 0 ? ` · round ${progress.attempt + 1}` : ""}
             </p>
-            <p className="note-title mt-2 text-3xl text-white light:text-slate-900">
+            <p className="note-title mt-2 text-3xl text-ink">
               <span className="quiz-score-pop">{progress.score}</span>
-              <span className="text-slate-500"> / {total}</span>
+              <span className="text-muted"> / {total}</span>
             </p>
-            <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
+            <p className="mt-2 text-sm text-muted">
               {resultMessage(progress.score, total)}
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
                 onClick={playAgain}
-                className="flex-1 rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800/60 light:border-slate-200 light:bg-white light:text-slate-700"
+                className="flex-1 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
               >
                 Play again · new questions
               </button>
               <Link
                 to="/notes"
-                className="flex flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-3 text-sm font-semibold text-black"
+                className="flex flex-1 items-center justify-center rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-on-accent"
               >
                 Back to notes
               </Link>

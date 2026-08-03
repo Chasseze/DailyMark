@@ -4,43 +4,43 @@
  */
 export default function SetupNotice() {
   return (
-    <div className="app-shell mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 px-6 text-white light:text-slate-900">
-      <h1 className="page-title text-white light:text-slate-900">Almost there</h1>
+    <div className="app-shell mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 px-6 text-ink">
+      <h1 className="page-title text-ink">Almost there</h1>
 
-      <p className="text-sm text-slate-400 light:text-slate-600">
+      <p className="text-sm text-muted">
         DailyMark needs a Supabase project before it can store anything. Three steps:
       </p>
 
-      <ol className="space-y-3 text-sm text-slate-400 light:text-slate-600">
+      <ol className="space-y-3 text-sm text-muted">
         <li>
-          <span className="font-semibold text-slate-200 light:text-slate-900">1.</span>{" "}
+          <span className="font-semibold text-ink-soft">1.</span>{" "}
           Create a free project at{" "}
           <a
             href="https://supabase.com/dashboard"
             target="_blank"
             rel="noreferrer"
-            className="text-amber-400 underline"
+            className="text-accent-ink underline"
           >
             supabase.com/dashboard
           </a>
           .
         </li>
         <li>
-          <span className="font-semibold text-slate-200 light:text-slate-900">2.</span>{" "}
+          <span className="font-semibold text-ink-soft">2.</span>{" "}
           In the SQL Editor, run{" "}
-          <code className="rounded bg-slate-800/60 px-1.5 py-0.5 text-xs light:bg-slate-100">
+          <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">
             supabase/migrations/0001_init.sql
           </code>
           .
         </li>
         <li>
-          <span className="font-semibold text-slate-200 light:text-slate-900">3.</span>{" "}
+          <span className="font-semibold text-ink-soft">3.</span>{" "}
           Copy{" "}
-          <code className="rounded bg-slate-800/60 px-1.5 py-0.5 text-xs light:bg-slate-100">
+          <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">
             .env.example
           </code>{" "}
           to{" "}
-          <code className="rounded bg-slate-800/60 px-1.5 py-0.5 text-xs light:bg-slate-100">
+          <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">
             .env.local
           </code>
           , paste in your Project URL and anon key from Settings → API, then
@@ -48,7 +48,7 @@ export default function SetupNotice() {
         </li>
       </ol>
 
-      <p className="text-xs text-slate-600">
+      <p className="text-xs text-muted">
         Vite only reads env files at startup, so the restart matters.
       </p>
     </div>

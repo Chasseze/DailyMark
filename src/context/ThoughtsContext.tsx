@@ -3,6 +3,7 @@ import type { Thought } from "../lib/types";
 import { THOUGHTS_BANK } from "../lib/thoughts-bank";
 import {
   liveFeedLabel,
+  nextLiveBoundary,
   pickLiveThoughts,
   withDropCadenceDates,
 } from "../lib/thoughts-rotation";
@@ -12,8 +13,6 @@ import { ThoughtsContext } from "./thoughts-context";
 
 const BOOKMARK_CACHE = "dailymark.thought_bookmarks";
 const PIN_CACHE = "dailymark.pinned_thought";
-/** Re-evaluate live expiry without requiring a full page reload. */
-const NOW_TICK_MS = 60_000;
 
 function readBookmarkCache(userId: string): string[] {
   try {
@@ -81,10 +80,19 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
 
+  // Live expiry used to be re-evaluated once a minute. Nothing derived from
+  // the clock actually changes between two boundaries, so every one of those
+  // ticks handed out a fresh context value and re-rendered each consumer for
+  // an identical feed — including while the user was typing in a note. Sleep
+  // until the next moment the feed could genuinely differ instead.
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), NOW_TICK_MS);
-    return () => window.clearInterval(id);
-  }, []);
+    const boundary = nextLiveBoundary(catalog, now);
+    if (!boundary) return;
+    // setTimeout saturates past ~24.8 days; re-arm rather than fire instantly.
+    const delay = Math.min(Math.max(boundary.getTime() - Date.now(), 1_000), 2_147_483_000);
+    const id = window.setTimeout(() => setNow(new Date()), delay);
+    return () => window.clearTimeout(id);
+  }, [catalog, now]);
 
   const fetchAll = useCallback(async () => {
     const asOf = new Date();

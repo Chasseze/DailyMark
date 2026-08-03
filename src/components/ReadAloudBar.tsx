@@ -26,8 +26,8 @@ const ControlButton = ({
     aria-label={label}
     className={
       primary
-        ? "flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-black transition-transform hover:scale-105 active:scale-95"
-        : "flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/10 hover:text-white light:text-slate-500 light:hover:text-slate-900"
+        ? "flex h-9 w-9 items-center justify-center rounded-full bg-accent text-on-accent transition-transform hover:scale-105 active:scale-95"
+        : "flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-ink"
     }
   >
     {children}
@@ -57,13 +57,13 @@ export default function ReadAloudBar() {
 
   if (status === "idle" && error) {
     return (
-      <div className="glass border-t border-white/5 px-4 py-3 light:border-slate-200/80">
+      <div className="glass border-t border-line px-4 py-3">
         <div className="mx-auto flex max-w-lg items-center gap-3">
-          <p className="flex-1 text-xs text-red-400">{error}</p>
+          <p className="flex-1 text-xs text-danger">{error}</p>
           <button
             type="button"
             onClick={dismissError}
-            className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:text-white light:hover:text-slate-900"
+            className="rounded-lg px-2 py-1 text-xs text-muted hover:text-ink"
           >
             Dismiss
           </button>
@@ -78,30 +78,30 @@ export default function ReadAloudBar() {
   const nextRate = RATES.find((rate) => rate > prefs.rate + 0.001) ?? RATES[0];
 
   return (
-    <div className="glass border-t border-white/5 light:border-slate-200/80">
-      <div className="h-0.5 w-full bg-slate-700/40 light:bg-slate-200">
+    <div className="glass border-t border-line/80">
+      <div className="h-0.5 w-full bg-surface-2">
         <div
-          className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-300"
+          className="h-full bg-accent transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
 
       <div className="mx-auto max-w-lg px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-amber-500/80">
+          <span className="text-xs font-medium uppercase tracking-wider text-accent-ink">
             {status === "paused" ? "Paused" : "Reading"}
           </span>
-          <p className="min-w-0 flex-1 truncate text-xs text-slate-400 light:text-slate-500">{label}</p>
-          <span className="shrink-0 text-[10px] text-slate-500">
+          <p className="min-w-0 flex-1 truncate text-xs text-muted">{label}</p>
+          <span className="shrink-0 text-xs text-muted">
             {chunkIndex + 1}/{chunks.length}
           </span>
         </div>
 
-        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-300 light:text-slate-600">
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-soft">
           {wordRange ? (
             <>
               {sentence.slice(0, wordStart)}
-              <mark className="rounded bg-amber-500/25 text-amber-200 light:text-amber-700">
+              <mark className="rounded bg-accent-soft text-accent-ink">
                 {sentence.slice(wordStart, wordEnd)}
               </mark>
               {sentence.slice(wordEnd)}
@@ -145,7 +145,7 @@ export default function ReadAloudBar() {
             type="button"
             onClick={() => setRate(nextRate)}
             title="Reading speed"
-            className="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-white/10 hover:text-amber-300 light:text-slate-500"
+            className="rounded-lg px-2 py-1 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-accent"
           >
             {formatRate(prefs.rate)}×
           </button>
@@ -155,7 +155,7 @@ export default function ReadAloudBar() {
             onClick={stop}
             title="Stop reading"
             aria-label="Stop reading"
-            className="rounded-lg px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+            className="rounded-lg px-2 py-1 text-xs text-muted transition-colors hover:bg-danger-soft hover:text-danger"
           >
             Stop
           </button>

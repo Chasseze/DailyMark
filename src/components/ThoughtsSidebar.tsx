@@ -62,8 +62,8 @@ export default function ThoughtsSidebar() {
     <aside className="notes-sidebar">
       <div className="px-4 pt-6">
         <div className="mb-5">
-          <h1 className="page-title text-white light:text-slate-900">Thoughts</h1>
-          <p className="mt-2 text-sm text-slate-400 light:text-slate-500">
+          <h1 className="page-title text-ink">Thoughts</h1>
+          <p className="mt-2 text-sm text-muted">
             {loading
               ? "Loading…"
               : shelf === "live"
@@ -82,8 +82,8 @@ export default function ThoughtsSidebar() {
             className={
               "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors " +
               (shelf === "live"
-                ? "bg-amber-500/20 text-amber-400"
-                : "bg-white/5 text-slate-400 hover:text-slate-200 light:bg-slate-100 light:text-slate-600")
+                ? "bg-accent-soft text-accent-ink"
+                : "bg-surface text-muted hover:text-ink-soft")
             }
           >
             Live
@@ -97,8 +97,8 @@ export default function ThoughtsSidebar() {
             className={
               "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors " +
               (shelf === "saved"
-                ? "bg-amber-500/20 text-amber-400"
-                : "bg-white/5 text-slate-400 hover:text-slate-200 light:bg-slate-100 light:text-slate-600")
+                ? "bg-accent-soft text-accent-ink"
+                : "bg-surface text-muted hover:text-ink-soft")
             }
           >
             Saved{bookmarkIds.size > 0 ? ` · ${bookmarkIds.size}` : ""}
@@ -108,7 +108,7 @@ export default function ThoughtsSidebar() {
         <div className="relative mb-3">
           <svg
             viewBox="0 0 24 24"
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
@@ -122,7 +122,7 @@ export default function ThoughtsSidebar() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={shelf === "live" ? "Search live feed…" : "Search saved…"}
-            className="w-full rounded-xl border border-white/5 bg-white/5 py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:border-amber-500/35 focus:outline-none light:border-slate-200 light:bg-white/70 light:text-slate-900"
+            className="w-full rounded-xl border border-line bg-surface py-2.5 pl-10 pr-4 text-sm text-ink placeholder-faint focus:border-accent/50 focus:outline-none"
           />
         </div>
 
@@ -132,10 +132,10 @@ export default function ThoughtsSidebar() {
               type="button"
               onClick={() => setActiveCollection(null)}
               className={
-                "shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors " +
+                "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
                 (!activeCollection
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200 light:hover:bg-slate-100")
+                  ? "bg-accent-soft text-accent-ink"
+                  : "text-muted hover:bg-surface-2 hover:text-ink-soft")
               }
             >
               All
@@ -148,10 +148,10 @@ export default function ThoughtsSidebar() {
                   setActiveCollection(activeCollection === collection ? null : collection)
                 }
                 className={
-                  "shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors " +
+                  "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
                   (activeCollection === collection
-                    ? "bg-amber-500/20 text-amber-400"
-                    : "text-slate-400 hover:bg-white/5 hover:text-slate-200 light:hover:bg-slate-100")
+                    ? "bg-accent-soft text-accent-ink"
+                    : "text-muted hover:bg-surface-2 hover:text-ink-soft")
                 }
               >
                 {collection}
@@ -163,7 +163,7 @@ export default function ThoughtsSidebar() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {error && featured.length === 0 && (
-          <div className="mb-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">
+          <div className="mb-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
             {error}
           </div>
         )}
@@ -171,12 +171,12 @@ export default function ThoughtsSidebar() {
         {loading ? (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-28 animate-pulse rounded-2xl bg-white/5 light:bg-slate-200/70" />
+              <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface" />
             ))}
           </div>
         ) : !hasContent ? (
           <div className="glass mt-6 rounded-3xl px-4 py-10 text-center">
-            <p className="text-sm font-semibold text-slate-400">
+            <p className="text-sm font-semibold text-muted">
               {search || activeCollection
                 ? "Nothing matched"
                 : shelf === "saved"
@@ -184,12 +184,12 @@ export default function ThoughtsSidebar() {
                   : "No live drops right now"}
             </p>
             {shelf === "saved" && !search && !activeCollection && (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-muted">
                 Open a live piece and tap Save — it leaves Live and stays here.
               </p>
             )}
             {shelf === "live" && !search && !activeCollection && (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-muted">
                 Fresh pieces stay for 2–3 days, then drop off unless you save them.
               </p>
             )}
@@ -234,25 +234,25 @@ function PinnedThoughtCard({
       data-active={active ? "true" : "false"}
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+        <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-accent-ink">
           Thought of the week
         </span>
         {bookmarked && (
-          <span className="shrink-0 text-amber-400" aria-label="Saved" title="Saved">
+          <span className="shrink-0 text-accent-ink" aria-label="Saved" title="Saved">
             <BookmarkGlyph filled />
           </span>
         )}
       </div>
-      <h3 className="truncate text-[0.95rem] font-semibold tracking-tight text-white light:text-slate-900">
+      <h3 className="truncate text-sm font-semibold tracking-tight text-ink">
         {thought.title}
       </h3>
       {thought.collection ? (
-        <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
+        <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-muted">
           {thought.collection}
         </p>
       ) : null}
       {preview ? (
-        <p className="notes-file-card__preview mt-2 text-[11px] leading-relaxed text-slate-400 light:text-slate-500">
+        <p className="notes-file-card__preview mt-2 text-xs leading-relaxed text-muted">
           {preview}
         </p>
       ) : null}
@@ -284,17 +284,17 @@ function ThoughtCard({
       data-active={active ? "true" : "false"}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-[0.95rem] font-semibold tracking-tight text-white light:text-slate-900">
+        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-ink">
           {thought.title}
         </h3>
         {bookmarked && (
-          <span className="mt-0.5 shrink-0 text-amber-400" aria-label="Saved" title="Saved">
+          <span className="mt-0.5 shrink-0 text-accent-ink" aria-label="Saved" title="Saved">
             <BookmarkGlyph filled />
           </span>
         )}
       </div>
 
-      <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-slate-500">
+      <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-muted">
         {date}
         {thought.author ? ` · ${thought.author}` : ""}
         {thought.collection ? ` · ${thought.collection}` : ""}
@@ -305,7 +305,7 @@ function ThoughtCard({
           {thought.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-md bg-amber-500/12 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+              className="rounded-md bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-muted"
             >
               {tag}
             </span>
@@ -314,11 +314,11 @@ function ThoughtCard({
       )}
 
       {preview ? (
-        <p className="notes-file-card__preview mt-2 text-[11px] leading-relaxed text-slate-400 light:text-slate-500">
+        <p className="notes-file-card__preview mt-2 text-xs leading-relaxed text-muted">
           {preview}
         </p>
       ) : (
-        <p className="mt-2 text-[11px] italic text-slate-500">No preview</p>
+        <p className="mt-2 text-xs italic text-muted">No preview</p>
       )}
     </NavLink>
   );

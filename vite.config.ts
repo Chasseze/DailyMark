@@ -12,23 +12,11 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
   },
-  build: {
-    // Keep the markdown stack out of the initial login chunk so first paint
-    // stays lean; authenticated note routes pull it in on demand.
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules/react-markdown") || id.includes("node_modules/remark-")) {
-            return "markdown";
-          }
-          if (id.includes("node_modules/@supabase")) {
-            return "supabase";
-          }
-          if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) {
-            return "react-vendor";
-          }
-        },
-      },
-    },
-  },
+  // No manualChunks. The hand-rolled split used to group react-markdown and
+  // remark-* into one "markdown" chunk, but their transitive deps (unified,
+  // micromark, mdast-util…) stayed in the default bucket, which left the entry
+  // chunk statically importing the group. The result was the exact opposite of
+  // what it was written for: index.html modulepreloaded 161 kB of Markdown
+  // machinery on the login screen. Rolldown's own splitting keeps that code in
+  // a chunk only the note routes pull in — ~47 kB less gzip before first paint.
 });

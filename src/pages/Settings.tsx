@@ -157,52 +157,52 @@ export default function Settings() {
 
   return (
     <div className="animate-in px-4 pt-6">
-      <h1 className="page-title mb-6 text-white light:text-slate-900">Settings</h1>
+      <h1 className="page-title mb-6 text-ink">Settings</h1>
 
       <div className="glass mb-4 rounded-2xl p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-300 light:text-slate-700">Account</h2>
-        <p className="truncate text-sm text-white light:text-slate-900">{user?.email}</p>
-        <p className="mt-0.5 text-xs text-slate-500">
+        <h2 className="mb-3 text-sm font-semibold text-ink-soft">Account</h2>
+        <p className="truncate text-sm text-ink">{user?.email}</p>
+        <p className="mt-0.5 text-xs text-muted">
           Notes sync to Supabase and follow you across devices.
         </p>
         <button
           onClick={handleSignOut}
           disabled={signingOut}
-          className="mt-3 w-full rounded-xl bg-slate-800/30 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 light:bg-slate-100 light:text-slate-600"
+          className="mt-3 w-full rounded-xl bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-50"
         >
           {signingOut ? "Signing out…" : "Sign out"}
         </button>
       </div>
 
       <div className="glass mb-4 rounded-2xl p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-300 light:text-slate-700">Appearance</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink-soft">Appearance</h2>
         <div className="flex gap-2">
           {(["dark", "light", "system"] as Theme[]).map((t) => (
             <button key={t} onClick={() => setTheme(t)}
               className={
                 "flex-1 rounded-xl px-4 py-3 text-sm font-medium capitalize transition-all " +
                 (theme === t
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "bg-slate-800/30 text-slate-400 hover:text-slate-200 light:bg-slate-100 light:text-slate-500 light:hover:text-slate-700")
+                  ? "bg-accent-soft text-accent-ink"
+                  : "bg-surface text-muted hover:text-ink-soft")
               }>
               {t}
             </button>
           ))}
         </div>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-xs text-slate-500">Quick toggle</span>
-          <button onClick={toggle} className="relative h-7 w-12 rounded-full bg-slate-700 transition-colors light:bg-slate-300">
+          <span className="text-xs text-muted">Quick toggle</span>
+          <button onClick={toggle} className="relative h-7 w-12 rounded-full bg-surface-3 transition-colors">
             <div className={
-              "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all " +
+              "absolute top-0.5 h-6 w-6 rounded-full bg-ink shadow transition-all " +
               (resolved === "dark" ? "left-0.5" : "left-[calc(100%-1.625rem)]")
             } />
           </button>
         </div>
 
-        <h3 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <h3 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-muted">
           Notes mood
         </h3>
-        <p className="mb-2 text-[11px] leading-relaxed text-slate-500">
+        <p className="mb-2 text-xs leading-relaxed text-muted">
           Compare three palette directions — amber accent and glass stay in all of them.
         </p>
         <div className="space-y-2">
@@ -214,20 +214,20 @@ export default function Settings() {
               className={
                 "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors " +
                 (mood === option.id
-                  ? "bg-amber-500/15 text-amber-400"
-                  : "bg-slate-800/30 text-slate-400 hover:text-slate-200 light:bg-slate-100 light:text-slate-600")
+                  ? "bg-accent-soft text-accent-ink"
+                  : "bg-surface text-muted hover:text-ink-soft")
               }
             >
               <span
-                className="h-8 w-8 shrink-0 rounded-lg shadow-inner ring-1 ring-white/15"
+                className="h-8 w-8 shrink-0 rounded-lg shadow-inner ring-1 ring-line-strong"
                 style={{ backgroundColor: option.swatch }}
                 aria-hidden="true"
               />
               <span className="min-w-0">
-                <span className="block text-sm font-medium text-white light:text-slate-900">
+                <span className="block text-sm font-medium text-ink">
                   {option.label}
                 </span>
-                <span className="block text-[11px] text-slate-500">{option.blurb}</span>
+                <span className="block text-xs text-muted">{option.blurb}</span>
               </span>
             </button>
           ))}
@@ -235,33 +235,33 @@ export default function Settings() {
       </div>
 
       <div className="glass mb-4 rounded-2xl p-4">
-        <h2 className="mb-1 text-sm font-semibold text-slate-300 light:text-slate-700">Read aloud</h2>
+        <h2 className="mb-1 text-sm font-semibold text-ink-soft">Read aloud</h2>
         {!speech.supported ? (
-          <p className="text-xs leading-relaxed text-slate-500">
+          <p className="text-xs leading-relaxed text-muted">
             This browser has no speech synthesis, so the listen buttons are hidden. Chrome, Edge and
             Safari can read notes aloud.
           </p>
         ) : (
           <>
-            <p className="mb-3 text-xs text-slate-500">
+            <p className="mb-3 text-xs text-muted">
               Notes are spoken by your device — no audio leaves the browser.
             </p>
 
             {speech.voices.length === 0 ? (
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-muted">
                 No voices are installed on this device yet — the system default is used.
               </p>
             ) : (
               <div className="flex gap-2">
                 <div className="min-w-0 flex-1">
-                  <label className="block text-xs text-slate-500" htmlFor="speech-language">
+                  <label className="block text-xs text-muted" htmlFor="speech-language">
                     Language
                   </label>
                   <select
                     id="speech-language"
                     value={language}
                     onChange={(e) => selectLanguage(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-white/5 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+                    className="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink-soft focus:border-accent/50 focus:outline-none"
                   >
                     {languages.map((tag) => (
                       <option key={tag} value={tag}>
@@ -271,14 +271,14 @@ export default function Settings() {
                   </select>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <label className="block text-xs text-slate-500" htmlFor="speech-voice">
+                  <label className="block text-xs text-muted" htmlFor="speech-voice">
                     Voice
                   </label>
                   <select
                     id="speech-voice"
                     value={speech.prefs.voiceURI ?? ""}
                     onChange={(e) => speech.setVoiceURI(e.target.value || null)}
-                    className="mt-1 w-full rounded-xl border border-white/5 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 focus:border-amber-500/30 focus:outline-none light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+                    className="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink-soft focus:border-accent/50 focus:outline-none"
                   >
                     <option value="">System default</option>
                     {langVoices.map((voice) => (
@@ -291,9 +291,9 @@ export default function Settings() {
               </div>
             )}
 
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+            <div className="mt-3 flex items-center justify-between text-xs text-muted">
               <label htmlFor="rate">Speed</label>
-              <span className="text-amber-400">{speech.prefs.rate.toFixed(2)}×</span>
+              <span className="text-accent-ink">{speech.prefs.rate.toFixed(2)}×</span>
             </div>
             <input
               id="rate"
@@ -306,9 +306,9 @@ export default function Settings() {
               className="speech-slider mt-1 w-full"
             />
 
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+            <div className="mt-3 flex items-center justify-between text-xs text-muted">
               <label htmlFor="pitch">Pitch</label>
-              <span className="text-amber-400">{speech.prefs.pitch.toFixed(2)}</span>
+              <span className="text-accent-ink">{speech.prefs.pitch.toFixed(2)}</span>
             </div>
             <input
               id="pitch"
@@ -331,7 +331,7 @@ export default function Settings() {
                   markdown: false,
                 })
               }
-              className="mt-4 w-full rounded-xl bg-slate-800/30 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-amber-500/10 hover:text-amber-300 light:bg-slate-100 light:text-slate-600"
+              className="mt-4 w-full rounded-xl bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-accent-soft hover:text-accent"
             >
               Hear a sample
             </button>
@@ -340,26 +340,26 @@ export default function Settings() {
       </div>
 
       <div className="glass mb-4 rounded-2xl p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-300 light:text-slate-700">Stats</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink-soft">Stats</h2>
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-xl bg-slate-800/30 p-3 light:bg-slate-100">
-            <p className="note-title text-3xl text-white light:text-slate-900">{notes.length}</p>
-            <p className="mt-1 text-xs text-slate-500">Notes</p>
+          <div className="rounded-xl bg-surface p-3">
+            <p className="note-title text-3xl text-ink">{notes.length}</p>
+            <p className="mt-1 text-xs text-muted">Notes</p>
           </div>
-          <div className="rounded-xl bg-slate-800/30 p-3 light:bg-slate-100">
-            <p className="note-title text-3xl text-white light:text-slate-900">{notebooks.length}</p>
-            <p className="mt-1 text-xs text-slate-500">Notebooks</p>
+          <div className="rounded-xl bg-surface p-3">
+            <p className="note-title text-3xl text-ink">{notebooks.length}</p>
+            <p className="mt-1 text-xs text-muted">Notebooks</p>
           </div>
-          <div className="rounded-xl bg-slate-800/30 p-3 light:bg-slate-100">
-            <p className="note-title text-3xl text-white light:text-slate-900">{streak ?? "–"}</p>
-            <p className="mt-1 text-xs text-slate-500">Day streak</p>
+          <div className="rounded-xl bg-surface p-3">
+            <p className="note-title text-3xl text-ink">{streak ?? "–"}</p>
+            <p className="mt-1 text-xs text-muted">Day streak</p>
           </div>
         </div>
         {trash.length > 0 && (
-          <p className="mt-3 text-xs text-slate-500">{trash.length} note{trash.length === 1 ? "" : "s"} in Trash</p>
+          <p className="mt-3 text-xs text-muted">{trash.length} note{trash.length === 1 ? "" : "s"} in Trash</p>
         )}
         {dueNotes.length > 0 && (
-          <p className="mt-2 text-xs text-amber-500/80">
+          <p className="mt-2 text-xs text-accent-ink">
             {dueNotes.length} note{dueNotes.length === 1 ? "" : "s"} waiting for a revisit
           </p>
         )}
@@ -387,17 +387,17 @@ export default function Settings() {
               }
             })();
           }}
-          className="mt-4 w-full rounded-xl bg-slate-800/30 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-50 light:bg-slate-100 light:text-slate-600"
+          className="mt-4 w-full rounded-xl bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
         >
           {reviewBusy ? "Opening review…" : "Start weekly review"}
         </button>
       </div>
 
       <div className="glass mb-4 rounded-2xl p-4">
-        <h2 className="mb-1 text-sm font-semibold text-slate-300 light:text-slate-700">
+        <h2 className="mb-1 text-sm font-semibold text-ink-soft">
           Export &amp; import
         </h2>
-        <p className="mb-3 text-xs text-slate-500">
+        <p className="mb-3 text-xs text-muted">
           Download your notes as Markdown, or import `.md` files into DailyMark.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -405,7 +405,7 @@ export default function Settings() {
             type="button"
             onClick={() => void exportAll()}
             disabled={ioBusy || notes.length === 0}
-            className="flex-1 rounded-xl bg-slate-800/30 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-50 light:bg-slate-100 light:text-slate-600"
+            className="flex-1 rounded-xl bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
           >
             Export all Markdown
           </button>
@@ -413,7 +413,7 @@ export default function Settings() {
             type="button"
             onClick={() => importRef.current?.click()}
             disabled={ioBusy}
-            className="flex-1 rounded-xl bg-slate-800/30 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-50 light:bg-slate-100 light:text-slate-600"
+            className="flex-1 rounded-xl bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
           >
             Import Markdown
           </button>
@@ -438,24 +438,24 @@ export default function Settings() {
               if (!full) return;
               downloadText(safeFilename(full.title), noteToMarkdown(full));
             }}
-            className="mt-2 text-xs text-slate-500 hover:text-amber-400"
+            className="mt-2 text-xs text-muted hover:text-accent"
           >
             Or export the newest note only
           </button>
         )}
-        {ioMessage && <p className="mt-2 text-xs text-amber-400">{ioMessage}</p>}
-        {ioError && <p className="mt-2 text-xs text-red-400">{ioError}</p>}
+        {ioMessage && <p className="mt-2 text-xs text-accent-ink">{ioMessage}</p>}
+        {ioError && <p className="mt-2 text-xs text-danger">{ioError}</p>}
       </div>
 
       <div className="glass mb-4 rounded-2xl p-4">
-        <h2 className="mb-1 text-sm font-semibold text-slate-300 light:text-slate-700">
+        <h2 className="mb-1 text-sm font-semibold text-ink-soft">
           Local reminder
         </h2>
-        <p className="mb-3 text-xs text-slate-500">
+        <p className="mb-3 text-xs text-muted">
           A once-a-day nudge on this device — nothing leaves the browser.
         </p>
         <div className="flex items-center justify-between gap-3">
-          <label htmlFor="reminder-enabled" className="text-sm text-slate-300 light:text-slate-700">
+          <label htmlFor="reminder-enabled" className="text-sm text-ink-soft">
             Daily reminder
           </label>
           <button
@@ -466,18 +466,18 @@ export default function Settings() {
             onClick={() => void toggleReminder(!reminder.enabled)}
             className={
               "relative h-7 w-12 rounded-full transition-colors " +
-              (reminder.enabled ? "bg-amber-500" : "bg-slate-700 light:bg-slate-300")
+              (reminder.enabled ? "bg-accent" : "bg-surface-3")
             }
           >
             <div
               className={
-                "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all " +
+                "absolute top-0.5 h-6 w-6 rounded-full bg-ink shadow transition-all " +
                 (reminder.enabled ? "left-[calc(100%-1.625rem)]" : "left-0.5")
               }
             />
           </button>
         </div>
-        <label htmlFor="reminder-time" className="mt-3 block text-xs text-slate-500">
+        <label htmlFor="reminder-time" className="mt-3 block text-xs text-muted">
           Time
         </label>
         <input
@@ -486,16 +486,16 @@ export default function Settings() {
           value={reminder.time}
           onChange={(e) => setReminder((prev) => ({ ...prev, time: e.target.value || "20:00" }))}
           disabled={!reminder.enabled}
-          className="mt-1 rounded-xl border border-white/5 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 focus:border-amber-500/30 focus:outline-none disabled:opacity-40 light:border-slate-200 light:bg-slate-100 light:text-slate-700"
+          className="mt-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink-soft focus:border-accent/50 focus:outline-none disabled:opacity-40"
         />
       </div>
 
       <div className="glass rounded-2xl p-4">
-        <h2 className="mb-2 text-sm font-semibold text-slate-300 light:text-slate-700">About</h2>
-        <p className="text-xs leading-relaxed text-slate-500">
+        <h2 className="mb-2 text-sm font-semibold text-ink-soft">About</h2>
+        <p className="text-xs leading-relaxed text-muted">
           DailyMark — A minimal note-taking app with daily prompts. Built with React, TailwindCSS, and Supabase.
         </p>
-        <p className="mt-2 text-xs text-slate-600">v1.0.0</p>
+        <p className="mt-2 text-xs text-muted">v1.0.0</p>
       </div>
     </div>
   );

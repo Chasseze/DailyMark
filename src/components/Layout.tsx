@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import BottomNav from "./BottomNav";
+import SideNav from "./SideNav";
 import ReadAloudBar from "./ReadAloudBar";
 import MoodPicker from "./MoodPicker";
 import { useSpeechControls } from "../context/speech-context";
@@ -31,27 +32,34 @@ export default function Layout() {
           ? "Settings"
           : "";
 
+  // From lg up the rail carries the brand and the navigation, so the masthead
+  // only has to hold the section label and the mood picker.
+  const railOffset = focus ? "" : " lg:pl-60";
+
   return (
     <div
       className={
-        "app-shell min-h-screen w-full text-white light:text-slate-900 " +
+        "app-shell min-h-screen w-full text-ink " +
         (focus ? "focus-mode" : "")
       }
     >
+      {!focus && <SideNav />}
+
+      <div className={"min-h-screen" + railOffset}>
       {!focus && (
         <header className="notes-masthead sticky top-0 z-40">
-          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5">
+          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5 lg:max-w-6xl lg:px-8">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 lg:hidden">
                   <div className="h-2.5 w-2.5 rounded-[3px] bg-white" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-[1.15rem] font-bold tracking-tight text-white">
+                  <p className="truncate text-lg font-bold tracking-tight text-white lg:hidden">
                     DailyMark
                   </p>
                   {sectionLabel && (
-                    <p className="truncate text-[11px] text-white/70">
+                    <p className="truncate text-xs text-white/70 lg:text-sm lg:font-medium">
                       {sectionLabel}
                       <span className="hidden sm:inline"> · {moodMeta.blurb}</span>
                     </p>
@@ -69,7 +77,7 @@ export default function Layout() {
           <button
             type="button"
             onClick={() => setFocus(false)}
-            className="rounded-xl bg-black/30 px-3 py-1.5 text-xs font-medium text-slate-300 backdrop-blur light:bg-white/80 light:text-slate-700"
+            className="rounded-xl bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-soft backdrop-blur"
           >
             Exit focus
           </button>
@@ -78,21 +86,24 @@ export default function Layout() {
 
       <main
         className={
-          "mx-auto w-full max-w-2xl " +
+          "mx-auto w-full max-w-2xl lg:max-w-6xl lg:px-4 " +
+          // The tab bar is gone from lg up, so the column stops reserving
+          // room for it there.
           (hideChrome
             ? playerVisible
               ? "pb-28"
               : "pb-6"
             : playerVisible
-              ? "pb-48"
-              : "pb-28")
+              ? "pb-48 lg:pb-24"
+              : "pb-28 lg:pb-8")
         }
       >
         <Outlet />
       </main>
+      </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-50">
-        <div className="mx-auto max-w-2xl">
+      <div className={"fixed bottom-0 left-0 right-0 z-50" + railOffset}>
+        <div className="mx-auto max-w-2xl lg:max-w-6xl lg:px-4">
           <ReadAloudBar />
           {!hideChrome && <BottomNav />}
         </div>

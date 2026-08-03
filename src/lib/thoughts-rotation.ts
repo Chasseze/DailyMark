@@ -71,6 +71,36 @@ export function rotationLabel(date = new Date()): string {
 }
 
 /**
+ * The next instant at which the live feed would actually look different — a
+ * piece ageing out, or `liveFeedLabel` ticking down a whole day. Between two
+ * boundaries nothing derived from the clock changes, so the provider can sleep
+ * until then instead of re-deriving the feed every minute.
+ *
+ * Returns null when no future boundary exists (an empty or fully-expired
+ * catalog), which means: no timer needed at all.
+ */
+export function nextLiveBoundary(
+  catalog: readonly Thought[],
+  date = new Date()
+): Date | null {
+  const now = date.getTime();
+  let soonest = Infinity;
+
+  for (const thought of catalog) {
+    const expiry = liveExpiresAt(thought).getTime();
+    if (Number.isNaN(expiry)) continue;
+    // The label counts whole days left, so it changes on each day step down
+    // to the expiry itself — wake for those too, not just the drop-off.
+    for (let k = LIVE_MAX_AGE_DAYS; k >= 0; k--) {
+      const boundary = expiry - k * MS_PER_DAY;
+      if (boundary > now && boundary < soonest) soonest = boundary;
+    }
+  }
+
+  return Number.isFinite(soonest) ? new Date(soonest) : null;
+}
+
+/**
  * Restage a fixed catalog onto a 2-day drop cadence ending at `date` so local
  * demo / bundled fallback always has a real live window.
  */

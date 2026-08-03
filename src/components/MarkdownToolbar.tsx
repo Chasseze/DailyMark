@@ -63,7 +63,7 @@ export default function MarkdownToolbar({ onCommand, disabled = false }: Props) 
           disabled={disabled}
           title={tool.shortcut ? `${tool.name} (${MOD}${tool.shortcut})` : tool.name}
           aria-label={tool.name}
-          className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs text-slate-400 transition-colors hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-40 light:text-slate-500 light:hover:text-amber-600"
+          className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs text-muted transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-40"
         >
           <span className={tool.glyphClass}>{tool.glyph}</span>
         </button>

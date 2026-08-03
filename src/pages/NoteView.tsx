@@ -39,7 +39,7 @@ export default function NoteView() {
   if (loading || awaitingBody) {
     return (
       <div className="flex h-full min-h-[16rem] items-center justify-center">
-        <p className="text-sm text-slate-500">Loading…</p>
+        <p className="text-sm text-muted">Loading…</p>
       </div>
     );
   }
@@ -47,8 +47,8 @@ export default function NoteView() {
   if (!note || hydrateError) {
     return (
       <div className="flex h-full min-h-[16rem] flex-col items-center justify-center px-4">
-        <p className="text-slate-400">{hydrateError ?? "Note not found"}</p>
-        <button onClick={() => navigate("/notes")} className="mt-4 text-sm text-amber-400">
+        <p className="text-muted">{hydrateError ?? "Note not found"}</p>
+        <button onClick={() => navigate("/notes")} className="mt-4 text-sm text-accent-ink">
           ← Back to notes
         </button>
       </div>
@@ -117,7 +117,7 @@ function NoteArticle({ note }: { note: Note }) {
   };
 
   const iconBtn =
-    "rounded-xl p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900";
+    "rounded-xl p-2 text-muted transition-colors hover:bg-surface-2 hover:text-ink";
 
   return (
     <div className="note-view animate-in px-4 pt-6">
@@ -132,12 +132,12 @@ function NoteArticle({ note }: { note: Note }) {
         </button>
         <div className="min-w-0 flex-1" />
         {shareStatus && (
-          <span className="mr-1 text-[11px] font-medium text-amber-400/90">{shareStatus}</span>
+          <span className="mr-1 text-xs font-medium text-accent-ink">{shareStatus}</span>
         )}
         <button
           type="button"
           onClick={() => toggleFocus()}
-          className={iconBtn + " " + (focus ? "text-amber-400 hover:text-amber-300" : "")}
+          className={iconBtn + " " + (focus ? "text-accent-ink hover:text-accent" : "")}
           aria-label={focus ? "Exit focus mode" : "Enter focus mode"}
           title={focus ? "Exit focus" : "Focus"}
         >
@@ -170,7 +170,7 @@ function NoteArticle({ note }: { note: Note }) {
               type="button"
               onClick={() => void togglePin(note.id)}
               className={
-                iconBtn + " " + (note.is_pinned ? "text-amber-400 hover:text-amber-300" : "")
+                iconBtn + " " + (note.is_pinned ? "text-accent-ink hover:text-accent" : "")
               }
               aria-label={note.is_pinned ? "Unpin note" : "Pin note"}
               title={note.is_pinned ? "Unpin" : "Pin"}
@@ -193,7 +193,7 @@ function NoteArticle({ note }: { note: Note }) {
                 await deleteNote(note.id);
                 navigate("/notes");
               }}
-              className={iconBtn + " hover:bg-red-500/10 hover:text-red-400"}
+              className={iconBtn + " hover:bg-danger-soft hover:text-danger"}
               aria-label="Move to trash"
               title="Move to trash"
             >
@@ -208,7 +208,7 @@ function NoteArticle({ note }: { note: Note }) {
               onClick={async () => {
                 await restoreNote(note.id);
               }}
-              className="rounded-xl bg-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-400"
+              className="rounded-xl bg-accent-soft px-3 py-2 text-xs font-semibold text-accent-ink"
             >
               Restore
             </button>
@@ -219,7 +219,7 @@ function NoteArticle({ note }: { note: Note }) {
                 await purgeNote(note.id);
                 navigate("/notes");
               }}
-              className={iconBtn + " hover:bg-red-500/10 hover:text-red-400"}
+              className={iconBtn + " hover:bg-danger-soft hover:text-danger"}
               aria-label="Delete forever"
               title="Delete forever"
             >
@@ -230,35 +230,35 @@ function NoteArticle({ note }: { note: Note }) {
       </div>
 
       {trashed && (
-        <div className="mb-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">
+        <div className="mb-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
           This note is in Trash.
         </div>
       )}
 
       {taskError && (
-        <div className="mb-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-400">{taskError}</div>
+        <div className="mb-3 rounded-xl bg-danger-soft p-3 text-xs text-danger">{taskError}</div>
       )}
 
       <article className="note-view__article glass rounded-2xl p-5">
-        <h1 className="note-title mb-1 break-words text-2xl text-white light:text-slate-900">
+        <h1 className="note-title mb-1 break-words text-2xl text-ink">
           {note.title || "Untitled"}
         </h1>
-        <p className={"text-xs text-slate-500 " + (revisitLabel ? "mb-1" : "mb-4")}>{date}</p>
+        <p className={"text-xs text-muted " + (revisitLabel ? "mb-1" : "mb-4")}>{date}</p>
         {revisitLabel && (
-          <p className="mb-4 text-xs text-amber-500/70">Revisit by {revisitLabel}</p>
+          <p className="mb-4 text-xs text-accent-ink">Revisit by {revisitLabel}</p>
         )}
 
         {note.tags.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-1.5">
             {note.tags.map((tag) => (
-              <span key={tag} className="rounded-md bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-400">
+              <span key={tag} className="rounded-md bg-surface-2 px-2.5 py-0.5 text-xs text-muted">
                 {tag}
               </span>
             ))}
           </div>
         )}
 
-        <div className="mt-2 min-w-0 text-sm leading-relaxed text-slate-300 light:text-slate-700">
+        <div className="mt-2 min-w-0 text-sm leading-relaxed text-ink-soft">
           {note.content.trim() ? (
             <Markdown
               notes={notes}
@@ -267,7 +267,7 @@ function NoteArticle({ note }: { note: Note }) {
               {note.content}
             </Markdown>
           ) : (
-            <p className="italic text-slate-500">This note is empty. Tap edit to add content.</p>
+            <p className="italic text-muted">This note is empty. Tap edit to add content.</p>
           )}
         </div>
       </article>
