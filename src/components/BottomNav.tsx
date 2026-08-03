@@ -54,16 +54,16 @@ export default function BottomNav() {
       style={{ paddingBottom: "max(0.55rem, env(safe-area-inset-bottom))" }}
       aria-label="Primary"
     >
-      <div className="mx-auto flex items-stretch gap-1.5 px-2.5 pt-2.5">
+      <div className="mx-auto flex items-stretch gap-2 px-2.5 pt-2.5">
         {tabs.map(({ to, icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1.5 py-2 text-[11px] font-medium tracking-wide transition-colors duration-200 " +
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md border px-1.5 py-2 text-[11px] font-medium tracking-wide transition-colors duration-200 " +
               (isActive
-                ? "bg-amber-500/20 text-amber-400 ring-1 ring-inset ring-amber-500/35"
-                : "bg-white/[0.04] text-slate-500 ring-1 ring-inset ring-white/10 hover:bg-white/[0.08] hover:text-slate-300 hover:ring-white/20 light:bg-slate-100/90 light:text-slate-500 light:ring-slate-200/90 light:hover:bg-slate-200/90 light:hover:text-slate-700 light:hover:ring-slate-300")
+                ? "border-amber-500/45 bg-amber-500/20 text-amber-400"
+                : "border-white/12 bg-white/[0.06] text-slate-500 hover:border-white/28 hover:bg-white/[0.12] hover:text-slate-300 light:border-slate-300 light:bg-white light:text-slate-500 light:hover:border-slate-400 light:hover:bg-slate-50 light:hover:text-slate-800")
             }
           >
             {icon}
