@@ -11,26 +11,32 @@ import {
   valenceVar,
   type MoodValence,
 } from "../lib/mood-scale";
+import { QUESTIONS_PER_DAY } from "../lib/quiz";
 import type { Note } from "../lib/types";
 import {
   buildCalendar,
   buildMonth,
   historySpan,
   longestStreak,
-  notesPerWeekday,
-  notesPerWeek,
-  quizStats,
+  quizWindow,
   tallyMoods,
   topNotebooks,
   topTags,
+  writingCadence,
+  type Cadence,
   type MoodRow,
   type QuizRow,
+  type QuizWindow,
   type RhythmDay,
+  type WeekdayCount,
 } from "../lib/rhythm";
 import { errorMessage } from "../lib/supabase";
 import { buildWeeklyReviewMarkdown } from "../lib/weekly-review";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+
+/** Longest quiz strip that still leaves each day a legible slot on a phone. */
+const QUIZ_WINDOW = 28;
 
 export default function Rhythm() {
   const { streak } = useStreak();
@@ -57,16 +63,15 @@ export default function Rhythm() {
   const activeKeys = useMemo(() => days.filter((d) => d.active).map((d) => d.key), [days]);
 
   const { total: moodTotal, tallies } = useMemo(() => tallyMoods(moods), [moods]);
-  const quiz = useMemo(() => quizStats(quizzes), [quizzes]);
+  const quizDays = Math.min(span, QUIZ_WINDOW);
+  const quiz = useMemo(() => quizWindow(quizzes, quizDays), [quizzes, quizDays]);
   const cadenceWeeks = Math.max(2, Math.ceil(span / 7));
-  const cadence = useMemo(() => notesPerWeek(notes, cadenceWeeks), [notes, cadenceWeeks]);
-  const weekdays = useMemo(() => notesPerWeekday(notes), [notes]);
+  const cadence = useMemo(() => writingCadence(notes, cadenceWeeks), [notes, cadenceWeeks]);
   const tags = useMemo(() => topTags(notes), [notes]);
   const books = useMemo(() => topNotebooks(notes, notebooks), [notes, notebooks]);
   const longest = useMemo(() => longestStreak(activeKeys), [activeKeys]);
 
-  const notesInWindow = cadence.reduce((a, b) => a + b.count, 0);
-  const nothingYet = !loading && moodTotal === 0 && quiz.played === 0 && notes.length === 0;
+  const nothingYet = !loading && moodTotal === 0 && quizzes.length === 0 && notes.length === 0;
 
   const startWeeklyReview = async () => {
     if (reviewBusy) return;
@@ -125,7 +130,7 @@ export default function Rhythm() {
             <Stat label="Check-ins" value={moodTotal} unit="moods" />
             <Stat
               label="Notes written"
-              value={notesInWindow}
+              value={cadence.total}
               unit={cadenceWeeks === 1 ? "this week" : `${cadenceWeeks} weeks`}
             />
             <Stat label="Thoughts saved" value={savedThoughts} unit="all time" />
@@ -149,14 +154,9 @@ export default function Rhythm() {
             />
           )}
 
-          <QuizPanel stats={quiz} />
+          <QuizPanel data={quiz} rounds={quizzes.length} />
 
-          <CadencePanel
-            bars={cadence}
-            weekdays={weekdays}
-            total={notesInWindow}
-            weeks={cadenceWeeks}
-          />
+          <CadencePanel data={cadence} weeks={cadenceWeeks} />
 
           {(tags.length > 0 || books.length > 0) && <RankedPanel tags={tags} books={books} />}
 
@@ -445,122 +445,285 @@ function MoodMix({
   );
 }
 
-function QuizPanel({ stats }: { stats: ReturnType<typeof quizStats> }) {
-  const max = 10;
-  // Label the peak once — by index, since several days can tie it.
-  const peak = Math.max(...stats.series.map((s) => s.score), 0);
-  const peakAt = stats.series.findIndex((s) => s.score === peak);
+/** A rule and the tick that names it, both placed from the same percentage. */
+function PlotRule({ at, kind = "grid" }: { at: number; kind?: "grid" | "mean" }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={"rhythm-plot__rule" + (kind === "mean" ? " rhythm-plot__rule--mean" : "")}
+      style={{ bottom: `${at}%` }}
+    />
+  );
+}
+
+function PlotTick({ at, children }: { at: number; children: React.ReactNode }) {
+  return (
+    <span className="rhythm-plot__tick" style={{ bottom: `${at}%` }}>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * One slot per calendar day, played or not.
+ *
+ * The old chart plotted only the days that had a round, which quietly closed
+ * its own gaps: two rounds a fortnight apart sat side by side reading as
+ * consecutive. Days are slots on a real axis now, and each slot's track runs
+ * the full height of the scale — the empty part of a column is the headroom
+ * left to a perfect round, and a day with no round is that track on its own.
+ */
+function QuizPanel({ data, rounds }: { data: QuizWindow; rounds: number }) {
+  const [showTable, setShowTable] = useState(false);
+  const max = QUESTIONS_PER_DAY;
+  const first = data.days[0];
+  const today = data.days[data.days.length - 1];
+
+  if (rounds === 0 || data.played === 0) {
+    return (
+      <section className="rhythm-panel">
+        <PanelTitle>Daily quiz</PanelTitle>
+        <p className="mt-1 text-xs text-muted">
+          {rounds === 0 ? "No rounds played yet." : `No rounds in the last ${data.span} days.`}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="rhythm-panel">
       <PanelTitle>Daily quiz</PanelTitle>
-      {stats.played === 0 ? (
-        <p className="mt-1 text-xs text-muted">No rounds played yet.</p>
-      ) : (
-        <>
-          <p className="mt-1 text-xs text-muted">
-            Best score per day · best {stats.best}/{max} · average {stats.average}
-          </p>
-          <div className="mt-3 flex h-24 items-stretch gap-1">
-            {stats.series.map((point, i) => (
-              <div key={point.key} className="rhythm-col" title={`${point.label}: ${point.score}/${max}`}>
-                <span
-                  className={"rhythm-col__fill" + (point.score === 0 ? " rhythm-col__fill--empty" : "")}
-                  style={{ height: `${Math.max((point.score / max) * 100, 3)}%` }}
-                >
-                  {i === peakAt && <span className="rhythm-col__value">{point.score}</span>}
-                </span>
-              </div>
+      <p className="mt-1 text-xs text-muted">
+        Best score each day · played {data.played} of {data.span} · best {data.best}/{max}
+      </p>
+
+      <figure className="rhythm-plot mt-3">
+        <div className="rhythm-plot__scale" aria-hidden="true">
+          <PlotTick at={100}>{max}</PlotTick>
+          <PlotTick at={50}>{max / 2}</PlotTick>
+        </div>
+
+        <div className="rhythm-plot__area">
+          <PlotRule at={100} />
+          <PlotRule at={50} />
+          <PlotRule at={(data.average / max) * 100} kind="mean" />
+          <div
+            className="rhythm-days"
+            role="img"
+            aria-label={`Best quiz score for each of the last ${data.span} days: played on ${data.played} of them, best ${data.best} out of ${max}, average ${data.average}.`}
+          >
+            {data.days.map((day) => (
+              <span
+                key={day.key}
+                className="rhythm-days__slot"
+                data-today={day.key === today?.key}
+                title={`${day.label} — ${day.score === null ? "no round" : `${day.score}/${max}`}`}
+              >
+                {day.score !== null && (
+                  <span
+                    className="rhythm-days__bar"
+                    style={{ height: `${Math.max((day.score / max) * 100, 2)}%` }}
+                  />
+                )}
+              </span>
             ))}
           </div>
-          <div className="rhythm-baseline mt-1" />
-          <div className="mt-1 flex justify-between text-[0.65rem] text-faint">
-            <span>{stats.series[0]?.label}</span>
-            <span>{stats.series[stats.series.length - 1]?.label}</span>
-          </div>
-        </>
+        </div>
+
+        <figcaption className="rhythm-plot__foot">
+          <span>{first?.label}</span>
+          <span>{today?.label}</span>
+        </figcaption>
+      </figure>
+
+      <div className="rhythm-legend">
+        <span>
+          <span className="rhythm-legend__mean" aria-hidden="true" />
+          average {data.average}
+        </span>
+        <span>
+          <span className="rhythm-legend__track" aria-hidden="true" />
+          no round
+        </span>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowTable((open) => !open)}
+        aria-expanded={showTable}
+        className="mt-3 text-xs font-medium text-accent-ink"
+      >
+        {showTable ? "Hide numbers" : "Show numbers"}
+      </button>
+
+      {showTable && (
+        <table className="rhythm-table mt-2">
+          <thead>
+            <tr>
+              <th scope="col">Day</th>
+              <th scope="col">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...data.days]
+              .reverse()
+              .filter((day) => day.score !== null)
+              .map((day) => (
+                <tr key={day.key}>
+                  <td>{day.label}</td>
+                  <td>
+                    {day.score}/{max}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
       )}
     </section>
   );
 }
 
-/**
- * Twelve skinny columns said very little. A single series over time is a line
- * with a wash under it (the form for a trend), and the more useful question —
- * *when* do you write — gets its own small breakdown underneath.
- */
-function CadencePanel({
-  bars,
-  weekdays,
-  total,
-  weeks,
-}: {
-  bars: ReturnType<typeof notesPerWeek>;
-  weekdays: ReturnType<typeof notesPerWeekday>;
-  total: number;
-  weeks: number;
-}) {
-  const max = Math.max(...bars.map((b) => b.count), 1);
-  const peakAt = bars.findIndex((b) => b.count === max);
-  const perWeek = weeks ? Math.round((total / weeks) * 10) / 10 : 0;
-  const busiestDay = weekdays.reduce((a, b) => (b.count > a.count ? b : a), weekdays[0]);
-  const weekdayMax = Math.max(...weekdays.map((d) => d.count), 1);
+/** "Thu and Fri", or null when there is no winner worth naming. */
+function joinLabels(days: WeekdayCount[]): string | null {
+  if (days.length === 0 || days.length > 3) return null;
+  return new Intl.ListFormat(undefined, { style: "short", type: "conjunction" }).format(
+    days.map((d) => d.label)
+  );
+}
 
-  // Viewport is unitless; the SVG scales to whatever width the panel gives it.
-  const W = 100;
-  const H = 40;
-  const step = bars.length > 1 ? W / (bars.length - 1) : 0;
-  const x = (i: number) => (bars.length > 1 ? i * step : W / 2);
-  const y = (count: number) => H - (count / max) * (H - 4) - 2;
-  const line = bars.map((b, i) => `${x(i)},${y(b.count)}`).join(" ");
-  const area = `0,${H} ${line} ${W},${H}`;
+/**
+ * A trend line for the weekly totals, and the weekday breakdown answering the
+ * more useful question of *when* the writing happens.
+ *
+ * Both halves come from one `writingCadence()` call, because they used to
+ * disagree — the bars counted every note the account had while the headline
+ * above them counted only the window. Every number now sits where its data is:
+ * the peak and the latest week label their own dots instead of being narrated
+ * in a line of text under the middle of the chart.
+ */
+function CadencePanel({ data, weeks }: { data: Cadence; weeks: number }) {
+  const bars = data.weeks;
+  const max = Math.max(...bars.map((b) => b.count), 1);
+  // The top 16% of the plot is left clear for the dot labels to sit in.
+  const pct = (count: number) => (count / max) * 84;
+  const x = (i: number) => (bars.length > 1 ? (i / (bars.length - 1)) * 100 : 50);
+  const line = bars.map((b, i) => `${x(i)},${100 - pct(b.count)}`).join(" ");
+  const peaks = new Set(data.peak.map((p) => p.key));
+  const busiest = new Set(data.busiest.map((d) => d.weekday));
+  const weekdayMax = Math.max(...data.weekdays.map((d) => d.count), 1);
+  const first = bars[0];
   const last = bars[bars.length - 1];
+  const mostOn = joinLabels(data.busiest);
+
+  if (data.total === 0) {
+    return (
+      <section className="rhythm-panel">
+        <PanelTitle>Writing cadence</PanelTitle>
+        <p className="mt-1 text-xs text-muted">
+          No notes in the last {weeks} weeks. Write one and the trend starts here.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="rhythm-panel">
       <PanelTitle>Writing cadence</PanelTitle>
       <p className="mt-1 text-xs text-muted">
-        {total} note{total === 1 ? "" : "s"} over {weeks} week{weeks === 1 ? "" : "s"} · {perWeek} a
-        week on average
+        {data.total} note{data.total === 1 ? "" : "s"} over {weeks} week
+        {weeks === 1 ? "" : "s"} · {data.perWeek} a week on average
       </p>
 
-      <figure className="mt-3">
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          className="rhythm-spark"
-          role="img"
-          aria-label={`Notes per week, peaking at ${max}`}
-        >
-          <polyline points={area} className="rhythm-spark__area" />
-          <polyline points={line} className="rhythm-spark__line" />
-        </svg>
-        {/* The dot and the peak label sit outside the SVG so they keep their
-            true circular shape and type size under a non-uniform scale. */}
-        <div className="rhythm-spark__axis">
-          <span>{bars[0]?.label}</span>
-          <span className="text-ink-soft">
-            peak {max} · week of {bars[peakAt]?.label}
-          </span>
-          <span>{last?.count ?? 0} this week</span>
+      <figure className="rhythm-plot mt-3">
+        <div className="rhythm-plot__scale" aria-hidden="true">
+          <PlotTick at={pct(max)}>{max}</PlotTick>
+          <PlotTick at={0}>0</PlotTick>
         </div>
+
+        <div className="rhythm-plot__area">
+          <PlotRule at={pct(max)} />
+          <PlotRule at={pct(data.perWeek)} kind="mean" />
+          <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            className="rhythm-trend"
+            role="img"
+            aria-label={`Notes written each week, ${data.total} in total, peaking at ${max} and finishing at ${last?.count ?? 0}.`}
+          >
+            <polygon points={`0,100 ${line} 100,100`} className="rhythm-trend__area" />
+            <polyline points={line} className="rhythm-trend__line" />
+          </svg>
+          {/* The dots are HTML over the SVG, not <circle>s in it: the plot
+              stretches to whatever width the panel has, and a circle under a
+              non-uniform scale comes out an ellipse. */}
+          {bars.map((bar, i) => {
+            const isPeak = peaks.has(bar.key);
+            const label = isPeak
+              ? bar.key === data.peak[0]?.key
+              : bar.key === last?.key;
+            return (
+              <span
+                key={bar.key}
+                className={"rhythm-dot" + (isPeak ? " rhythm-dot--peak" : "")}
+                style={{ left: `${x(i)}%`, bottom: `${pct(bar.count)}%` }}
+                title={`Week of ${bar.label} — ${bar.count} note${bar.count === 1 ? "" : "s"}`}
+              >
+                {label && (
+                  <span
+                    className={
+                      "rhythm-dot__value" + (isPeak ? "" : " rhythm-dot__value--quiet")
+                    }
+                  >
+                    {bar.count}
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+
+        <figcaption className="rhythm-plot__foot">
+          <span>Week of {first?.label}</span>
+          <span>This week</span>
+        </figcaption>
       </figure>
+
+      <div className="rhythm-legend">
+        <span>
+          <span className="rhythm-legend__mean" aria-hidden="true" />
+          average {data.perWeek} a week
+        </span>
+        <span>
+          <span className="rhythm-legend__dot" aria-hidden="true" />
+          busiest week
+        </span>
+      </div>
 
       <div className="mt-4 border-t border-line pt-3">
         <p className="text-xs font-medium uppercase tracking-wider text-muted">
-          When you write · most on {busiestDay?.label}
+          When you write{mostOn ? ` · most on ${mostOn}` : ""}
         </p>
-        <div className="mt-2 flex items-end gap-1.5">
-          {weekdays.map((day) => (
-            <div key={day.weekday} className="flex flex-1 flex-col items-center gap-1">
-              <span className="text-[0.65rem] text-faint">{day.count}</span>
+        {/* Every bar grows inside a track of the same height, so the counts sit
+            on one straight row. Hung above bars of different heights they
+            zig-zagged, and a weekday with none of them had its 0 stranded at
+            the bottom of the panel. */}
+        <div className="rhythm-weekdays mt-2">
+          {data.weekdays.map((day) => (
+            <div key={day.weekday} className="rhythm-weekdays__col">
               <span
-                className={
-                  "rhythm-weekday" + (day.count === 0 ? " rhythm-weekday--empty" : "")
-                }
-                style={{ height: `${Math.max((day.count / weekdayMax) * 2.5, 0.15)}rem` }}
-                title={`${day.label}: ${day.count}`}
-              />
-              <span className="text-[0.65rem] text-muted">{day.label[0]}</span>
+                className="rhythm-weekdays__track"
+                title={`${day.label} — ${day.count} note${day.count === 1 ? "" : "s"}`}
+              >
+                <span
+                  className={
+                    "rhythm-weekdays__bar" +
+                    (busiest.has(day.weekday) ? " rhythm-weekdays__bar--top" : "")
+                  }
+                  style={{ height: `${(day.count / weekdayMax) * 100}%` }}
+                />
+              </span>
+              <span className="text-xs text-muted">{day.label[0]}</span>
+              <span className="text-xs font-medium text-ink-soft">{day.count}</span>
             </div>
           ))}
         </div>

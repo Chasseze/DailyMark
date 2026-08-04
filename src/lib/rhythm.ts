@@ -238,43 +238,64 @@ export function topNotebooks(
     .slice(0, limit);
 }
 
-export interface QuizStats {
+export interface QuizDay {
+  key: string;
+  date: Date;
+  label: string;
+  /** `null` when no round was played that day — an absence, not a nil score. */
+  score: number | null;
+}
+
+export interface QuizWindow {
+  /** One entry per calendar day, oldest → newest, gaps included. */
+  days: QuizDay[];
+  /** Length of the window in days, so `played` has a denominator. */
+  span: number;
+  /** Days in the window with a round on them. */
   played: number;
   best: number;
+  /** Mean over the days actually played, one decimal. */
   average: number;
-  series: { key: string; label: string; score: number }[];
 }
 
 /**
- * Only finished rounds count. A row still sitting in `ready`/`question` would
- * otherwise drag the average down with a score the user has not earned yet —
- * `phase` is not selected here, so completeness is inferred from a non-zero
- * attempt having reached a score, which is what the finished rows carry.
+ * Best score per calendar day across the last `span` days.
+ *
+ * The days with no round are kept as `null` rather than dropped. A series of
+ * played days only closes its own gaps, so two rounds a fortnight apart end up
+ * side by side reading as consecutive — the x axis has to be real time for the
+ * shape to mean anything. Every summary number is scoped to the same window as
+ * the days, so nothing in the panel can quote a figure the chart cannot show.
  */
-export function quizStats(rows: QuizRow[], limit = 14): QuizStats {
+export function quizWindow(rows: QuizRow[], span = 28, today = new Date()): QuizWindow {
   const byDay = new Map<string, number>();
   for (const row of rows) {
     const best = byDay.get(row.date_key);
     if (best === undefined || row.score > best) byDay.set(row.date_key, row.score);
   }
 
-  const ordered = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
-  const scores = ordered.map(([, score]) => score);
+  const end = startOfDay(today);
+  const days: QuizDay[] = [];
+  for (let i = span - 1; i >= 0; i--) {
+    const date = addDays(end, -i);
+    const key = dayKey(date);
+    days.push({
+      key,
+      date,
+      label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      score: byDay.get(key) ?? null,
+    });
+  }
 
+  const scores = days.map((d) => d.score).filter((s): s is number => s !== null);
   return {
-    played: ordered.length,
+    days,
+    span,
+    played: scores.length,
     best: scores.length ? Math.max(...scores) : 0,
     average: scores.length
       ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
       : 0,
-    series: ordered.slice(-limit).map(([key, score]) => ({
-      key,
-      label: new Date(`${key}T12:00:00`).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      }),
-      score,
-    })),
   };
 }
 
@@ -380,10 +401,15 @@ export function buildMonth(
   };
 }
 
+export interface WeekdayCount {
+  /** Sunday is 0, matching `Date.getDay()`. */
+  weekday: number;
+  label: string;
+  count: number;
+}
+
 /** Which weekdays the writing actually happens on. Sunday index 0. */
-export function notesPerWeekday(
-  notes: ReadonlyArray<Pick<Note, "created_at">>
-): { weekday: number; label: string; count: number }[] {
+export function notesPerWeekday(notes: ReadonlyArray<Pick<Note, "created_at">>): WeekdayCount[] {
   const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const counts = Array(7).fill(0) as number[];
   for (const note of notes) {
@@ -391,4 +417,62 @@ export function notesPerWeekday(
     counts[new Date(note.created_at).getDay()] += 1;
   }
   return counts.map((count, weekday) => ({ weekday, label: labels[weekday], count }));
+}
+
+export interface Cadence {
+  /** Notes per week over the window, oldest → newest, empty weeks included. */
+  weeks: WeekBar[];
+  /** The same notes broken down by weekday — never a wider set than `weeks`. */
+  weekdays: WeekdayCount[];
+  total: number;
+  /** Notes a week over the whole window, one decimal. */
+  perWeek: number;
+  /** Every week tied at the busiest count; empty when nothing was written. */
+  peak: WeekBar[];
+  /** Every weekday tied at the busiest count; empty when nothing was written. */
+  busiest: WeekdayCount[];
+}
+
+/**
+ * The whole writing-cadence panel in one shape.
+ *
+ * Both halves of that panel are derived here so they cannot disagree: the
+ * weekday bars used to count *every* note the account had while the headline
+ * above them counted only the window, so the bars summed past their own total.
+ *
+ * `peak` and `busiest` are empty rather than defaulted, and hold every tie
+ * rather than the first winner — an account with nothing written should not be
+ * told its peak week was 1 and that it writes most on Sundays, and a genuine
+ * tie should not have one of its days singled out.
+ */
+export function writingCadence(
+  notes: ReadonlyArray<Pick<Note, "created_at">>,
+  weeks: number,
+  today = new Date()
+): Cadence {
+  const buckets = notesPerWeek(notes, weeks, today);
+  const keys = new Set(buckets.map((b) => b.key));
+  // Membership is decided by the same week key `notesPerWeek` buckets on, so
+  // the weekday breakdown covers exactly the notes the trend line drew.
+  const inWindow = notes.filter((note) => {
+    if (!note.created_at) return false;
+    const created = startOfDay(new Date(note.created_at));
+    return keys.has(dayKey(addDays(created, -created.getDay())));
+  });
+
+  const weekdays = notesPerWeekday(inWindow);
+  const total = buckets.reduce((a, b) => a + b.count, 0);
+  const topOf = <T extends { count: number }>(rows: T[]): T[] => {
+    const max = Math.max(...rows.map((r) => r.count), 0);
+    return max > 0 ? rows.filter((r) => r.count === max) : [];
+  };
+
+  return {
+    weeks: buckets,
+    weekdays,
+    total,
+    perWeek: weeks > 0 ? Math.round((total / weeks) * 10) / 10 : 0,
+    peak: topOf(buckets),
+    busiest: topOf(weekdays),
+  };
 }

@@ -8,10 +8,11 @@ import {
   notesPerWeekday,
   longestStreak,
   notesPerWeek,
-  quizStats,
+  quizWindow,
   tallyMoods,
   topNotebooks,
   topTags,
+  writingCadence,
 } from "./rhythm";
 import type { Note, Notebook } from "./types";
 
@@ -192,33 +193,56 @@ describe("topTags / topNotebooks", () => {
   });
 });
 
-describe("quizStats", () => {
-  it("keeps the best attempt per day and summarises", () => {
-    const stats = quizStats([
-      { date_key: "2026-08-01", score: 4, attempt: 0 },
-      { date_key: "2026-08-01", score: 8, attempt: 1 },
-      { date_key: "2026-08-02", score: 6, attempt: 0 },
-    ]);
+describe("quizWindow", () => {
+  const today = new Date(2026, 7, 3); // Monday 3 Aug 2026
+
+  it("keeps the best attempt of a day and summarises the window", () => {
+    const stats = quizWindow(
+      [
+        { date_key: "2026-08-01", score: 4, attempt: 0 },
+        { date_key: "2026-08-01", score: 8, attempt: 1 },
+        { date_key: "2026-08-02", score: 6, attempt: 0 },
+      ],
+      7,
+      today
+    );
     expect(stats.played).toBe(2);
     expect(stats.best).toBe(8);
     expect(stats.average).toBe(7);
-    expect(stats.series.map((s) => s.score)).toEqual([8, 6]);
   });
 
-  it("returns zeros rather than NaN with no rounds", () => {
-    expect(quizStats([])).toMatchObject({ played: 0, best: 0, average: 0, series: [] });
+  it("covers every calendar day in the window, ending today", () => {
+    const stats = quizWindow([], 14, today);
+    expect(stats.days).toHaveLength(14);
+    expect(stats.span).toBe(14);
+    expect(stats.days[0].key).toBe(dayKey(addDays(today, -13)));
+    expect(stats.days[13].key).toBe("2026-08-03");
   });
 
-  it("limits the series to the most recent days", () => {
-    const rows = Array.from({ length: 20 }, (_, i) => ({
-      date_key: `2026-07-${`${i + 1}`.padStart(2, "0")}`,
-      score: i,
-      attempt: 0,
-    }));
-    const stats = quizStats(rows, 5);
-    expect(stats.series).toHaveLength(5);
-    expect(stats.series[4].score).toBe(19);
-    expect(stats.played).toBe(20);
+  it("holds a day with no round as null, not as a zero", () => {
+    const stats = quizWindow(
+      [
+        { date_key: "2026-08-01", score: 7, attempt: 0 },
+        { date_key: "2026-08-03", score: 0, attempt: 0 },
+      ],
+      4,
+      today
+    );
+    expect(stats.days.map((d) => d.score)).toEqual([null, 7, null, 0]);
+    // The nil round counts as played and drags the average; the gaps do not.
+    expect(stats.played).toBe(2);
+    expect(stats.average).toBe(3.5);
+  });
+
+  it("ignores rounds older than the window rather than folding them in", () => {
+    const stats = quizWindow([{ date_key: "2026-06-01", score: 9, attempt: 0 }], 7, today);
+    expect(stats.played).toBe(0);
+    expect(stats.best).toBe(0);
+    expect(stats.days.every((d) => d.score === null)).toBe(true);
+  });
+
+  it("returns zeros rather than NaN with no rounds at all", () => {
+    expect(quizWindow([], 7, today)).toMatchObject({ played: 0, best: 0, average: 0 });
   });
 });
 
@@ -310,5 +334,68 @@ describe("notesPerWeekday", () => {
     ]);
     expect(rows[1].count).toBe(2);
     expect(rows[2].count).toBe(1);
+  });
+});
+
+describe("writingCadence", () => {
+  const today = new Date(2026, 7, 3); // Monday 3 Aug 2026
+
+  it("gives the weekday bars the same window as the weekly totals", () => {
+    // Two notes inside a two-week window, one long before it. The weekday bars
+    // used to count all three while the headline counted two, so the bars added
+    // up to more than the total printed above them.
+    const cadence = writingCadence(
+      [
+        note({ created_at: new Date(2026, 7, 3, 9).toISOString() }), // this Mon
+        note({ created_at: new Date(2026, 6, 28, 9).toISOString() }), // last Tue
+        note({ created_at: new Date(2026, 4, 4, 9).toISOString() }), // May, outside
+      ],
+      2,
+      today
+    );
+    expect(cadence.total).toBe(2);
+    expect(cadence.weekdays.reduce((a, d) => a + d.count, 0)).toBe(cadence.total);
+    expect(cadence.weekdays[1].count).toBe(1); // Monday
+    expect(cadence.weekdays[2].count).toBe(1); // Tuesday
+  });
+
+  it("reports the peak week and busiest weekday", () => {
+    const cadence = writingCadence(
+      [
+        note({ created_at: new Date(2026, 7, 3, 9).toISOString() }),
+        note({ created_at: new Date(2026, 6, 28, 9).toISOString() }),
+        note({ created_at: new Date(2026, 6, 28, 14).toISOString() }),
+      ],
+      2,
+      today
+    );
+    expect(cadence.peak).toHaveLength(1);
+    expect(cadence.peak[0].count).toBe(2);
+    expect(cadence.peak[0].key).toBe("2026-07-26"); // the Sunday of that week
+    expect(cadence.busiest.map((d) => d.label)).toEqual(["Tue"]);
+    expect(cadence.perWeek).toBe(1.5);
+  });
+
+  it("keeps every tie rather than singling one out", () => {
+    const cadence = writingCadence(
+      [
+        note({ created_at: new Date(2026, 7, 3, 9).toISOString() }), // Monday
+        note({ created_at: new Date(2026, 6, 28, 9).toISOString() }), // Tuesday
+      ],
+      2,
+      today
+    );
+    expect(cadence.peak).toHaveLength(2);
+    expect(cadence.busiest.map((d) => d.label)).toEqual(["Mon", "Tue"]);
+  });
+
+  it("claims no peak and no busiest day when nothing was written", () => {
+    const cadence = writingCadence([], 4, today);
+    expect(cadence.total).toBe(0);
+    expect(cadence.perWeek).toBe(0);
+    expect(cadence.peak).toEqual([]);
+    expect(cadence.busiest).toEqual([]);
+    expect(cadence.weeks).toHaveLength(4);
+    expect(cadence.weekdays).toHaveLength(7);
   });
 });

@@ -809,94 +809,6 @@ html {
   padding: 1rem 1.1rem;
 }
 
-/* Calendar heatmap. The 3px grid gap is the surface doing the separating —
-   cells never carry a stroke, which would add ink that is not data. */
-.rhythm-cal {
-  display: flex;
-  gap: 3px;
-  overflow-x: auto;
-  padding-bottom: 0.25rem;
-  scrollbar-width: none;
-}
-.rhythm-cal::-webkit-scrollbar { display: none; }
-
-.rhythm-cal__week {
-  display: grid;
-  grid-template-rows: repeat(7, 1fr);
-  gap: 3px;
-}
-
-.rhythm-cell {
-  width: 0.85rem;
-  height: 0.85rem;
-  border-radius: 0.2rem;
-  background: var(--mood-surface-2);
-  padding: 0;
-  transition: outline-color 0.12s ease;
-  outline: 2px solid transparent;
-  outline-offset: 1px;
-}
-
-/* Showed up, logged no mood: present but unfilled, so an empty square always
-   means "nothing happened" and never "forgot to tap a mood". */
-.rhythm-cell[data-active="true"] {
-  background: var(--mood-surface-3);
-  box-shadow: inset 0 0 0 1px var(--mood-line-strong);
-}
-
-.rhythm-cell[data-mood="true"] {
-  box-shadow: none;
-}
-
-.rhythm-cell:hover,
-.rhythm-cell[data-selected="true"] {
-  outline-color: var(--mood-accent);
-}
-
-.rhythm-cell--pad {
-  visibility: hidden;
-}
-
-/* Columns: 4px rounded cap, square at the baseline, capped thickness. */
-.rhythm-col {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  min-width: 0;
-  flex: 1 1 0;
-  /* The fill is sized in %, which needs a definite height to resolve against —
-     without this the columns collapse to their 2px minimum. */
-  height: 100%;
-}
-
-.rhythm-col__fill {
-  width: 100%;
-  max-width: 1.5rem;
-  border-radius: 0.25rem 0.25rem 0 0;
-  background: var(--mood-accent);
-  min-height: 2px;
-}
-
-/* The peak's value, sat on the cap. Text keeps a text token — never the
-   series colour — so it stays legible on either paper. */
-.rhythm-col__value {
-  display: block;
-  margin-top: -1.15rem;
-  text-align: center;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--mood-ink-soft);
-}
-
-.rhythm-col__fill--empty {
-  background: var(--mood-surface-3);
-}
-
-.rhythm-baseline {
-  height: 1px;
-  background: var(--mood-line);
-}
-
 /* Horizontal ranked bars. */
 .rhythm-bar {
   height: 0.5rem;
@@ -984,14 +896,139 @@ html {
   visibility: hidden;
 }
 
-/* Cadence trend: 2px line over a 10% wash, the spec for a single series. */
-.rhythm-spark {
+/* ── Plots ─────────────────────────────────────────────────────────────────
+   A plot is a fixed-height area with its scale in a left gutter, so a height is
+   read against a labelled axis instead of guessed. A tick and the rule it names
+   are both placed from the same percentage — that is what keeps them on one
+   line whatever height the area ends up. */
+
+.rhythm-plot {
+  display: grid;
+  grid-template-columns: 1.35rem 1fr;
+  column-gap: 0.5rem;
+}
+
+.rhythm-plot__scale {
+  position: relative;
+}
+
+.rhythm-plot__tick {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--mood-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.rhythm-plot__area {
+  position: relative;
+  height: 5.5rem;
+  border-bottom: 1px solid var(--mood-line-strong);
+}
+
+.rhythm-plot__rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--mood-line);
+}
+
+/* The average. Dashed and tinted, so it never reads as one of the marks. */
+.rhythm-plot__rule--mean {
+  border-top: 1px dashed color-mix(in oklab, var(--mood-accent) 60%, transparent);
+}
+
+.rhythm-plot__foot {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  font-size: var(--text-xs);
+  color: var(--mood-faint);
+}
+
+/* Naming the two encodings a reader cannot infer: the dashed average, and an
+   empty track meaning "no round" rather than a round scored nil. */
+.rhythm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  margin-top: 0.6rem;
+  font-size: var(--text-xs);
+  color: var(--mood-muted);
+}
+
+.rhythm-legend > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rhythm-legend__mean {
+  width: 1.1rem;
+  border-top: 1px dashed color-mix(in oklab, var(--mood-accent) 60%, transparent);
+}
+
+.rhythm-legend__track {
+  width: 0.4rem;
+  height: 0.85rem;
+  border-radius: 0.15rem;
+  background: var(--mood-surface-2);
+}
+
+.rhythm-legend__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--mood-accent);
+}
+
+/* Daily quiz: one slot per calendar day. The track is the full height of the
+   scale, so the clear part of a column is the headroom left to a perfect round
+   and a day with no round is that track on its own. */
+.rhythm-days {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.rhythm-days__slot {
+  display: flex;
+  align-items: flex-end;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  border-radius: 0.2rem;
+  background: var(--mood-surface-2);
+}
+
+.rhythm-days__slot[data-today="true"] {
+  outline: 1px solid var(--mood-line-strong);
+  outline-offset: 1px;
+}
+
+.rhythm-days__bar {
   width: 100%;
-  height: 4.5rem;
+  min-height: 2px;
+  border-radius: 0.2rem;
+  background: var(--mood-accent);
+}
+
+/* Cadence trend: 2px line over a 10% wash, the spec for a single series. */
+.rhythm-trend {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: visible;
 }
 
-.rhythm-spark__line {
+.rhythm-trend__line {
   fill: none;
   stroke: var(--mood-accent);
   stroke-width: 2;
@@ -1000,29 +1037,80 @@ html {
   vector-effect: non-scaling-stroke;
 }
 
-.rhythm-spark__area {
+.rhythm-trend__area {
   fill: color-mix(in oklab, var(--mood-accent) 10%, transparent);
   stroke: none;
 }
 
-.rhythm-spark__axis {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-  font-size: 0.65rem;
+.rhythm-dot {
+  position: absolute;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--mood-accent);
+  transform: translate(-50%, 50%);
+}
+
+.rhythm-dot--peak {
+  width: 0.6rem;
+  height: 0.6rem;
+  box-shadow: 0 0 0 2px var(--mood-surface-3);
+}
+
+/* Values sit above the dot they belong to, on a text token — never the series
+   colour — so they stay legible on either paper. */
+.rhythm-dot__value {
+  position: absolute;
+  bottom: 0.7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--text-xs);
+  line-height: 1;
+  font-weight: 600;
+  color: var(--mood-ink-soft);
+  white-space: nowrap;
+}
+
+.rhythm-dot__value--quiet {
+  font-weight: 500;
   color: var(--mood-muted);
 }
 
-.rhythm-weekday {
-  display: block;
-  width: 100%;
-  border-radius: 0.2rem 0.2rem 0 0;
-  background: var(--mood-accent);
+/* Weekday breakdown. Each bar grows inside a track of the same height, so the
+   day letters and counts underneath sit on two straight rows. */
+.rhythm-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
 }
 
-.rhythm-weekday--empty {
-  background: var(--mood-surface-3);
+.rhythm-weekdays__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.rhythm-weekdays__track {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 2.75rem;
+  border-radius: 0.25rem;
+  background: var(--mood-surface-2);
+  overflow: hidden;
+}
+
+.rhythm-weekdays__bar {
+  width: 100%;
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--mood-accent) 45%, transparent);
+}
+
+/* The busiest day, or every day tied for it. */
+.rhythm-weekdays__bar--top {
+  background: var(--mood-accent);
 }
 
 .rhythm-table {
