@@ -399,37 +399,31 @@ html {
   color: var(--mood-ink-soft);
 }
 
-/* Notebook chips wear their own colour as a rectangular band — the same shape
-   language as the bottom nav tabs, but one hue per notebook so they read
-   apart at a glance. `--nb-color` comes from the notebook row. */
+/* Notebook chips wear their own colour as a permanent rectangular band — the
+   same shape language as the bottom nav tabs, but one hue per notebook so they
+   read apart at a glance without being touched. `--nb-color` comes from the
+   notebook row, so it tracks whatever colour the user picked; the fallback
+   only matters if a row somehow arrives without one.
+
+   Three steps of the same hue: resting, hovered, selected. */
 .notes-chip--nb {
-  color: var(--mood-muted);
+  --nb: var(--nb-color, var(--mood-accent));
+  background: color-mix(in oklab, var(--nb) 14%, transparent);
+  border-color: color-mix(in oklab, var(--nb) 38%, transparent);
+  color: var(--mood-ink-soft);
 }
 
 .notes-chip--nb:hover {
-  background: color-mix(in oklab, var(--nb-color) 20%, transparent);
-  border-color: color-mix(in oklab, var(--nb-color) 50%, transparent);
+  background: color-mix(in oklab, var(--nb) 24%, transparent);
+  border-color: color-mix(in oklab, var(--nb) 58%, transparent);
   color: var(--mood-ink);
 }
 
 .notes-chip--nb.is-active {
-  background: color-mix(in oklab, var(--nb-color) 30%, transparent);
-  border-color: color-mix(in oklab, var(--nb-color) 75%, transparent);
+  background: color-mix(in oklab, var(--nb) 34%, transparent);
+  border-color: color-mix(in oklab, var(--nb) 82%, transparent);
   color: var(--mood-ink);
-}
-
-.notes-chip__dot {
-  flex: none;
-  width: 0.375rem;
-  height: 0.375rem;
-  margin-right: 0.3rem;
-  border-radius: 999px;
-}
-
-/* Once the band carries the colour, the dot is redundant noise. */
-.notes-chip--nb:hover .notes-chip__dot,
-.notes-chip--nb.is-active .notes-chip__dot {
-  opacity: 0;
+  font-weight: 600;
 }
 
 .notes-scope__pinned {

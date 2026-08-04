@@ -530,7 +530,6 @@ export default function NotesSidebar() {
                 style={{ "--nb-color": nb.color } as CSSProperties}
                 title="Double-click to rename"
               >
-                <span className="notes-chip__dot" style={{ backgroundColor: nb.color }} />
                 {nb.name}
               </button>
             ))}
