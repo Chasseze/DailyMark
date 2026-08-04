@@ -348,12 +348,21 @@ html {
    variables so the mobile row can breathe a little more than the 24rem desktop
    list pane allows. */
 .notes-scope {
-  /* Phone values: the gap is 60% wider than the desktop pane can afford,
-     which is what stops the row reading as one solid block. Any looser and
-     the last notebook name scrolls out of view on a 390px screen. */
+  /* Three tiers, each the loosest that still keeps every notebook name in
+     view at that width. Small phones (< 384px) have no slack to give; from
+     390px up the gap opens to 7.2px, which is what stops a row of filled
+     colour bands reading as one solid block; the 24rem desktop list pane is
+     the tightest of the three because it is the narrowest container. */
   --chip-px: 0.5rem;
   --chip-gap: 0.3rem;
   gap: var(--chip-gap);
+}
+
+@media (width >= 24rem) {
+  .notes-scope {
+    --chip-px: 0.55rem;
+    --chip-gap: 0.45rem;
+  }
 }
 
 @media (width >= 64rem) {

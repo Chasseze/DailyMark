@@ -533,20 +533,6 @@ export default function NotesSidebar() {
                 {nb.name}
               </button>
             ))}
-            {/* "+" creates a notebook, so it belongs with them and scrolls
-                with them — which also leaves Trash alone in the pinned slot. */}
-            <button
-              type="button"
-              onClick={() => {
-                setShowNewNotebook(!showNewNotebook);
-                setEditingNb(null);
-              }}
-              aria-label="New notebook"
-              title="New notebook"
-              className="notes-chip notes-chip--off"
-            >
-              +
-            </button>
           </div>
 
           <div className="notes-scope__pinned flex shrink-0 items-center border-l border-line">
@@ -581,23 +567,25 @@ export default function NotesSidebar() {
           </div>
         )}
 
-        {!showTrash && allTags.length > 0 && (
+        {!showTrash && (
           <div className="mb-3">
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setTagsOpen((open) => !open)}
-                aria-expanded={tagsOpen}
-                aria-controls="notes-tag-filter"
-                className={
-                  "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-                  (tagsOpen
-                    ? "bg-surface-2 text-ink-soft"
-                    : "text-muted hover:bg-surface-2 hover:text-ink-soft")
-                }
-              >
-                Tags{activeTag ? " (1)" : ""}
-              </button>
+              {allTags.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setTagsOpen((open) => !open)}
+                  aria-expanded={tagsOpen}
+                  aria-controls="notes-tag-filter"
+                  className={
+                    "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
+                    (tagsOpen
+                      ? "bg-surface-2 text-ink-soft"
+                      : "text-muted hover:bg-surface-2 hover:text-ink-soft")
+                  }
+                >
+                  Tags{activeTag ? " (1)" : ""}
+                </button>
+              )}
               {activeTag && (
                 <button
                   type="button"
@@ -609,6 +597,25 @@ export default function NotesSidebar() {
                   <span className="sr-only">Clear tag filter</span>
                 </button>
               )}
+              <div className="flex-1" />
+              {/* Creating a notebook is an action, not a filter, so it sits
+                  here rather than eating width in the scope row above. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewNotebook(!showNewNotebook);
+                  setEditingNb(null);
+                }}
+                aria-expanded={showNewNotebook}
+                className={
+                  "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
+                  (showNewNotebook
+                    ? "bg-surface-2 text-ink-soft"
+                    : "text-muted hover:bg-surface-2 hover:text-ink-soft")
+                }
+              >
+                + Notebook
+              </button>
             </div>
             {tagsOpen && (
               <div
