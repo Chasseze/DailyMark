@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import { useStreak } from "../hooks/useStreak";
@@ -475,8 +475,8 @@ export default function NotesSidebar() {
             long notebook list can never push anything onto a second row, and
             "+" / Trash are pinned outside that track so they stay in view no
             matter how many notebooks there are. */}
-        <div className="notes-scope mb-3 flex items-center gap-[3px]">
-          <div className="notes-scope__track flex min-w-0 flex-1 items-center gap-[3px] overflow-x-auto">
+        <div className="notes-scope mb-3 flex items-center">
+          <div className="notes-scope__track flex min-w-0 flex-1 items-center overflow-x-auto">
             <button
               type="button"
               onClick={() => {
@@ -524,23 +524,18 @@ export default function NotesSidebar() {
                   setShowNewNotebook(false);
                 }}
                 className={
-                  "notes-chip " +
-                  (!showTrash && !showDue && activeNotebook === nb.id
-                    ? "notes-chip--on"
-                    : "notes-chip--off")
+                  "notes-chip notes-chip--nb " +
+                  (!showTrash && !showDue && activeNotebook === nb.id ? "is-active" : "")
                 }
+                style={{ "--nb-color": nb.color } as CSSProperties}
                 title="Double-click to rename"
               >
-                <span
-                  className="notes-chip__dot"
-                  style={{ backgroundColor: nb.color }}
-                />
+                <span className="notes-chip__dot" style={{ backgroundColor: nb.color }} />
                 {nb.name}
               </button>
             ))}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-[3px] border-l border-line pl-[3px]">
+            {/* "+" creates a notebook, so it belongs with them and scrolls
+                with them — which also leaves Trash alone in the pinned slot. */}
             <button
               type="button"
               onClick={() => {
@@ -553,6 +548,9 @@ export default function NotesSidebar() {
             >
               +
             </button>
+          </div>
+
+          <div className="notes-scope__pinned flex shrink-0 items-center border-l border-line">
             <button
               type="button"
               onClick={() => {

@@ -344,29 +344,48 @@ html {
   animation: notesSidebarIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Scope row chips. Tighter than the old inline classes so the starter set —
-   All, Due, three notebooks, +, Trash — fits one line on a 390px phone, and
-   set here rather than repeated at seven call sites. */
+/* Scope row chips. Metrics live here rather than at seven call sites, and in
+   variables so the mobile row can breathe a little more than the 24rem desktop
+   list pane allows. */
+.notes-scope {
+  /* Phone values: the gap is 60% wider than the desktop pane can afford,
+     which is what stops the row reading as one solid block. Any looser and
+     the last notebook name scrolls out of view on a 390px screen. */
+  --chip-px: 0.5rem;
+  --chip-gap: 0.3rem;
+  gap: var(--chip-gap);
+}
+
+@media (width >= 64rem) {
+  .notes-scope {
+    --chip-px: 0.45rem;
+    --chip-gap: 0.2rem;
+  }
+}
+
 .notes-chip {
   flex: none;
   display: inline-flex;
   align-items: center;
-  border-radius: 0.5rem;
-  padding: 0.35rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  padding: 0.3rem var(--chip-px);
   font-size: var(--text-xs);
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1.25;
   white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .notes-chip--on {
   background: var(--mood-accent-soft);
+  border-color: color-mix(in oklab, var(--mood-accent) 45%, transparent);
   color: var(--mood-accent-ink);
 }
 
 .notes-chip--trash {
   background: var(--mood-danger-soft);
+  border-color: color-mix(in oklab, var(--mood-danger) 45%, transparent);
   color: var(--mood-danger);
 }
 
@@ -376,20 +395,52 @@ html {
 
 .notes-chip--off:hover {
   background: var(--mood-surface-2);
+  border-color: var(--mood-line);
   color: var(--mood-ink-soft);
+}
+
+/* Notebook chips wear their own colour as a rectangular band — the same shape
+   language as the bottom nav tabs, but one hue per notebook so they read
+   apart at a glance. `--nb-color` comes from the notebook row. */
+.notes-chip--nb {
+  color: var(--mood-muted);
+}
+
+.notes-chip--nb:hover {
+  background: color-mix(in oklab, var(--nb-color) 20%, transparent);
+  border-color: color-mix(in oklab, var(--nb-color) 50%, transparent);
+  color: var(--mood-ink);
+}
+
+.notes-chip--nb.is-active {
+  background: color-mix(in oklab, var(--nb-color) 30%, transparent);
+  border-color: color-mix(in oklab, var(--nb-color) 75%, transparent);
+  color: var(--mood-ink);
 }
 
 .notes-chip__dot {
   flex: none;
   width: 0.375rem;
   height: 0.375rem;
-  margin-right: 0.25rem;
+  margin-right: 0.3rem;
   border-radius: 999px;
+}
+
+/* Once the band carries the colour, the dot is redundant noise. */
+.notes-chip--nb:hover .notes-chip__dot,
+.notes-chip--nb.is-active .notes-chip__dot {
+  opacity: 0;
+}
+
+.notes-scope__pinned {
+  padding-left: var(--chip-gap);
+  margin-left: calc(var(--chip-gap) / 2);
 }
 
 /* The notebook track scrolls when it has to; hide the bar so the row keeps
    looking like a single tidy line. */
 .notes-scope__track {
+  gap: var(--chip-gap);
   scrollbar-width: none;
   overscroll-behavior-x: contain;
 }
