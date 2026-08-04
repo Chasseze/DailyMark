@@ -935,9 +935,13 @@ html {
   border-top: 1px solid var(--mood-line);
 }
 
-/* The average. Dashed and tinted, so it never reads as one of the marks. */
+/* The average is what the marks are read against, so it sits over them rather
+   than behind — buried under the columns it was invisible for exactly the days
+   worth comparing. Dashed and on a text token, never the series colour: an
+   accent-tinted line vanishes the moment it crosses an accent-filled mark. */
 .rhythm-plot__rule--mean {
-  border-top: 1px dashed color-mix(in oklab, var(--mood-accent) 60%, transparent);
+  z-index: 1;
+  border-top: 1px dashed color-mix(in oklab, var(--mood-ink) 45%, transparent);
 }
 
 .rhythm-plot__foot {
@@ -969,7 +973,7 @@ html {
 
 .rhythm-legend__mean {
   width: 1.1rem;
-  border-top: 1px dashed color-mix(in oklab, var(--mood-accent) 60%, transparent);
+  border-top: 1px dashed color-mix(in oklab, var(--mood-ink) 45%, transparent);
 }
 
 .rhythm-legend__track {
@@ -1076,6 +1080,19 @@ html {
   color: var(--mood-muted);
 }
 
+/* The first and last dots sit on the edges of the plot, where a centred label
+   would hang out over the panel's padding. They hug the dot instead. */
+.rhythm-dot__value--start {
+  left: 0;
+  transform: none;
+}
+
+.rhythm-dot__value--end {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
 /* Weekday breakdown. Each bar grows inside a track of the same height, so the
    day letters and counts underneath sit on two straight rows. */
 .rhythm-weekdays {
@@ -1092,10 +1109,12 @@ html {
   min-width: 0;
 }
 
+/* Capped so a wide panel gives seven bars rather than seven squat blocks. */
 .rhythm-weekdays__track {
   display: flex;
   align-items: flex-end;
   width: 100%;
+  max-width: 2.5rem;
   height: 2.75rem;
   border-radius: 0.25rem;
   background: var(--mood-surface-2);

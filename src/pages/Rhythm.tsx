@@ -501,6 +501,7 @@ function QuizPanel({ data, rounds }: { data: QuizWindow; rounds: number }) {
         <div className="rhythm-plot__scale" aria-hidden="true">
           <PlotTick at={100}>{max}</PlotTick>
           <PlotTick at={50}>{max / 2}</PlotTick>
+          <PlotTick at={0}>0</PlotTick>
         </div>
 
         <div className="rhythm-plot__area">
@@ -522,7 +523,9 @@ function QuizPanel({ data, rounds }: { data: QuizWindow; rounds: number }) {
                 {day.score !== null && (
                   <span
                     className="rhythm-days__bar"
-                    style={{ height: `${Math.max((day.score / max) * 100, 2)}%` }}
+                    // A round genuinely scored nil still gets a mark, or it
+                    // would be indistinguishable from a day never played.
+                    style={{ height: `${Math.max((day.score / max) * 100, 4)}%` }}
                   />
                 )}
               </span>
@@ -570,7 +573,13 @@ function QuizPanel({ data, rounds }: { data: QuizWindow; rounds: number }) {
               .filter((day) => day.score !== null)
               .map((day) => (
                 <tr key={day.key}>
-                  <td>{day.label}</td>
+                  <td>
+                    {day.date.toLocaleDateString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </td>
                   <td>
                     {day.score}/{max}
                   </td>
@@ -658,21 +667,28 @@ function CadencePanel({ data, weeks }: { data: Cadence; weeks: number }) {
               non-uniform scale comes out an ellipse. */}
           {bars.map((bar, i) => {
             const isPeak = peaks.has(bar.key);
-            const label = isPeak
-              ? bar.key === data.peak[0]?.key
-              : bar.key === last?.key;
+            // The peak carries its value, and so does the latest week — the two
+            // a reader looks for. On a tie only the leftmost peak is labelled;
+            // the others are at the same height, so the number covers them.
+            const labelled = isPeak ? bar.key === data.peak[0]?.key : bar.key === last?.key;
+            const at = x(i);
             return (
               <span
                 key={bar.key}
                 className={"rhythm-dot" + (isPeak ? " rhythm-dot--peak" : "")}
-                style={{ left: `${x(i)}%`, bottom: `${pct(bar.count)}%` }}
+                style={{ left: `${at}%`, bottom: `${pct(bar.count)}%` }}
                 title={`Week of ${bar.label} — ${bar.count} note${bar.count === 1 ? "" : "s"}`}
               >
-                {label && (
+                {labelled && (
                   <span
-                    className={
-                      "rhythm-dot__value" + (isPeak ? "" : " rhythm-dot__value--quiet")
-                    }
+                    className={[
+                      "rhythm-dot__value",
+                      isPeak ? "" : "rhythm-dot__value--quiet",
+                      at > 85 ? "rhythm-dot__value--end" : "",
+                      at < 15 ? "rhythm-dot__value--start" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                   >
                     {bar.count}
                   </span>
