@@ -277,3 +277,118 @@ export function quizStats(rows: QuizRow[], limit = 14): QuizStats {
     })),
   };
 }
+
+/**
+ * How much history there actually is, in days, counting from the earliest
+ * thing the user did. A brand-new account should not be told it has an
+ * 84-day record with 80 empty squares in it.
+ */
+export function historySpan(
+  opts: {
+    today?: Date;
+    moods?: MoodRow[];
+    quizzes?: QuizRow[];
+    notes?: ReadonlyArray<Pick<Note, "created_at">>;
+  },
+  { min = 28, max = 84 }: { min?: number; max?: number } = {}
+): number {
+  const today = startOfDay(opts.today ?? new Date());
+  let earliest: number | null = null;
+
+  const consider = (time: number) => {
+    if (Number.isNaN(time)) return;
+    if (earliest === null || time < earliest) earliest = time;
+  };
+
+  // Day keys are parsed at noon to dodge DST, then floored — comparing a noon
+  // timestamp against a midnight `today` loses half a day and the span comes
+  // out one short.
+  const fromKey = (key: string) => startOfDay(new Date(`${key}T12:00:00`)).getTime();
+  for (const row of opts.moods ?? []) consider(fromKey(row.date_key));
+  for (const row of opts.quizzes ?? []) consider(fromKey(row.date_key));
+  for (const note of opts.notes ?? []) {
+    if (note.created_at) consider(startOfDay(new Date(note.created_at)).getTime());
+  }
+
+  if (earliest === null) return min;
+  const span = Math.floor((today.getTime() - earliest) / MS_PER_DAY) + 1;
+  return Math.min(Math.max(span, min), max);
+}
+
+export interface MonthGrid {
+  year: number;
+  month: number;
+  label: string;
+  /** Six rows at most, Sunday-first; null pads the days outside the month. */
+  weeks: (RhythmDay | null)[][];
+}
+
+/** Calendar-page view of one month, for the heatmap. */
+export function buildMonth(
+  year: number,
+  month: number,
+  opts: {
+    today?: Date;
+    moods?: MoodRow[];
+    quizzes?: QuizRow[];
+    notes?: ReadonlyArray<Pick<Note, "created_at" | "updated_at">>;
+  } = {}
+): MonthGrid {
+  const today = startOfDay(opts.today ?? new Date());
+  const first = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const moodByDay = new Map<string, MoodRow>();
+  for (const row of opts.moods ?? []) moodByDay.set(row.date_key, row);
+
+  const activeDays = new Set<string>();
+  for (const row of opts.moods ?? []) activeDays.add(row.date_key);
+  for (const row of opts.quizzes ?? []) activeDays.add(row.date_key);
+  for (const note of opts.notes ?? []) {
+    for (const stamp of [note.created_at, note.updated_at]) {
+      if (stamp) activeDays.add(dayKey(new Date(stamp)));
+    }
+  }
+
+  const cells: (RhythmDay | null)[] = Array(first.getDay()).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    if (date > today) {
+      cells.push(null);
+      continue;
+    }
+    const key = dayKey(date);
+    const row = moodByDay.get(key);
+    cells.push({
+      key,
+      date,
+      mood: row && isDailyMood(row.mood) ? row.mood : null,
+      moodNote: row?.note ?? "",
+      active: activeDays.has(key),
+    });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const weeks: (RhythmDay | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  return {
+    year,
+    month,
+    label: first.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+    weeks,
+  };
+}
+
+/** Which weekdays the writing actually happens on. Sunday index 0. */
+export function notesPerWeekday(
+  notes: ReadonlyArray<Pick<Note, "created_at">>
+): { weekday: number; label: string; count: number }[] {
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const counts = Array(7).fill(0) as number[];
+  for (const note of notes) {
+    if (!note.created_at) continue;
+    counts[new Date(note.created_at).getDay()] += 1;
+  }
+  return counts.map((count, weekday) => ({ weekday, label: labels[weekday], count }));
+}

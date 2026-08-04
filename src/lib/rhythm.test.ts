@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   buildCalendar,
+  buildMonth,
   dayKey,
+  historySpan,
+  notesPerWeekday,
   longestStreak,
   notesPerWeek,
   quizStats,
@@ -216,5 +219,96 @@ describe("quizStats", () => {
     expect(stats.series).toHaveLength(5);
     expect(stats.series[4].score).toBe(19);
     expect(stats.played).toBe(20);
+  });
+});
+
+describe("historySpan", () => {
+  const today = new Date(2026, 7, 3);
+
+  it("falls back to the minimum for a brand-new account", () => {
+    expect(historySpan({ today })).toBe(28);
+  });
+
+  it("clamps up: a week-old account still gets a month of grid", () => {
+    const span = historySpan({ today, moods: [{ date_key: "2026-07-30", mood: "Calm" }] });
+    expect(span).toBe(28);
+  });
+
+  it("reports the real span once there is more than the minimum", () => {
+    const span = historySpan({ today, moods: [{ date_key: "2026-06-04", mood: "Calm" }] });
+    expect(span).toBe(61); // 4 Jun → 3 Aug inclusive
+  });
+
+  it("clamps down at the maximum", () => {
+    const span = historySpan({ today, moods: [{ date_key: "2024-01-01", mood: "Calm" }] });
+    expect(span).toBe(84);
+  });
+
+  it("takes the earliest across all three sources", () => {
+    const span = historySpan({
+      today,
+      moods: [{ date_key: "2026-07-30", mood: "Calm" }],
+      quizzes: [{ date_key: "2026-07-01", score: 5, attempt: 0 }],
+      notes: [note({ created_at: new Date(2026, 5, 10).toISOString() })],
+    });
+    expect(span).toBe(55); // 10 Jun is earliest
+  });
+});
+
+describe("buildMonth", () => {
+  const today = new Date(2026, 7, 3); // Mon 3 Aug 2026
+
+  it("lays August 2026 out as calendar weeks", () => {
+    const grid = buildMonth(2026, 7, { today });
+    expect(grid.label).toContain("August");
+    // 1 Aug 2026 is a Saturday, so the first row is six nulls then the 1st.
+    expect(grid.weeks[0].slice(0, 6).every((d) => d === null)).toBe(true);
+    expect(grid.weeks[0][6]?.date.getDate()).toBe(1);
+    for (const week of grid.weeks) expect(week).toHaveLength(7);
+  });
+
+  it("does not render days in the future", () => {
+    const grid = buildMonth(2026, 7, { today });
+    const real = grid.weeks.flat().filter(Boolean);
+    expect(real).toHaveLength(3); // 1, 2, 3 August
+    expect(real[real.length - 1]!.key).toBe("2026-08-03");
+  });
+
+  it("renders a fully past month end to end", () => {
+    const grid = buildMonth(2026, 6, { today }); // July
+    expect(grid.weeks.flat().filter(Boolean)).toHaveLength(31);
+  });
+
+  it("carries mood, note and activity onto the right day", () => {
+    const grid = buildMonth(2026, 6, {
+      today,
+      moods: [{ date_key: "2026-07-15", mood: "Bright", note: "shipped it" }],
+      quizzes: [{ date_key: "2026-07-16", score: 7, attempt: 0 }],
+    });
+    const days = grid.weeks.flat().filter(Boolean);
+    const fifteenth = days.find((d) => d!.key === "2026-07-15")!;
+    expect(fifteenth.mood).toBe("Bright");
+    expect(fifteenth.moodNote).toBe("shipped it");
+    expect(days.find((d) => d!.key === "2026-07-16")!.active).toBe(true);
+    expect(days.find((d) => d!.key === "2026-07-17")!.active).toBe(false);
+  });
+});
+
+describe("notesPerWeekday", () => {
+  it("always returns seven buckets, Sunday first", () => {
+    const rows = notesPerWeekday([]);
+    expect(rows).toHaveLength(7);
+    expect(rows[0].label).toBe("Sun");
+    expect(rows.every((r) => r.count === 0)).toBe(true);
+  });
+
+  it("counts notes onto their local weekday", () => {
+    const rows = notesPerWeekday([
+      note({ created_at: new Date(2026, 7, 3, 9).toISOString() }), // Monday
+      note({ created_at: new Date(2026, 7, 10, 9).toISOString() }), // Monday
+      note({ created_at: new Date(2026, 7, 4, 9).toISOString() }), // Tuesday
+    ]);
+    expect(rows[1].count).toBe(2);
+    expect(rows[2].count).toBe(1);
   });
 });

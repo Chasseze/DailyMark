@@ -127,6 +127,12 @@
   --mood-v0: #7c86a8;
   --mood-vpos1: #b07d18;
   --mood-vpos2: #fbbf24;
+  /* Ink for a date sitting on each fill; every pair clears 4.5:1. */
+  --mood-vneg2-ink: #ffffff;
+  --mood-vneg1-ink: #0b1220;
+  --mood-v0-ink: #0b1220;
+  --mood-vpos1-ink: #0b1220;
+  --mood-vpos2-ink: #0b1220;
   /* Atmosphere */
   --mood-masthead: #1d4ed8;
   --mood-paper: #0b1220;
@@ -192,6 +198,11 @@
   --mood-v0: #7b839c;
   --mood-vpos1: #c88a10;
   --mood-vpos2: #92600a;
+  --mood-vneg2-ink: #ffffff;
+  --mood-vneg1-ink: #0b1220;
+  --mood-v0-ink: #0b1220;
+  --mood-vpos1-ink: #0b1220;
+  --mood-vpos2-ink: #ffffff;
   /* Atmosphere */
   --mood-masthead: #1d4ed8;
   --mood-paper: #e8eef8;
@@ -331,6 +342,10 @@ html {
    and snapping keeps tabs from coming to rest half cut off. */
 .app-bottom-nav__track {
   overflow-x: auto;
+  /* `safe` centring: the row is centred while it fits, and falls back to
+     start-aligned once it overflows — plain `center` would push the first tab
+     off the left edge with no way to scroll back to it. */
+  justify-content: safe center;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
   overscroll-behavior-x: contain;
@@ -914,6 +929,100 @@ html {
   height: 0.6rem;
   border-radius: 0.15rem;
   flex: none;
+}
+
+/* Month calendar: real dates, tappable at 40px. */
+.rhythm-month__head,
+.rhythm-month__week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.rhythm-month__head {
+  margin-bottom: 4px;
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--mood-faint);
+}
+
+.rhythm-month__week + .rhythm-month__week {
+  margin-top: 4px;
+}
+
+.rhythm-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 0.45rem;
+  background: var(--mood-surface-2);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--mood-muted);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  transition: outline-color 0.12s ease;
+}
+
+.rhythm-day[data-active="true"] {
+  background: var(--mood-surface-3);
+  color: var(--mood-ink-soft);
+}
+
+/* A filled cell sets its own ink inline — see valenceInkVar(). */
+.rhythm-day[data-mood="true"] {
+  font-weight: 600;
+}
+
+.rhythm-day:hover,
+.rhythm-day[data-selected="true"] {
+  outline-color: var(--mood-accent);
+}
+
+.rhythm-day--pad {
+  visibility: hidden;
+}
+
+/* Cadence trend: 2px line over a 10% wash, the spec for a single series. */
+.rhythm-spark {
+  width: 100%;
+  height: 4.5rem;
+  overflow: visible;
+}
+
+.rhythm-spark__line {
+  fill: none;
+  stroke: var(--mood-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.rhythm-spark__area {
+  fill: color-mix(in oklab, var(--mood-accent) 10%, transparent);
+  stroke: none;
+}
+
+.rhythm-spark__axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  font-size: 0.65rem;
+  color: var(--mood-muted);
+}
+
+.rhythm-weekday {
+  display: block;
+  width: 100%;
+  border-radius: 0.2rem 0.2rem 0 0;
+  background: var(--mood-accent);
+}
+
+.rhythm-weekday--empty {
+  background: var(--mood-surface-3);
 }
 
 .rhythm-table {

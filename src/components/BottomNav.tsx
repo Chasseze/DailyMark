@@ -32,7 +32,7 @@ export default function BottomNav() {
             to={to}
             data-active={pathname === to || pathname.startsWith(to + "/")}
             className={({ isActive }) =>
-              "flex shrink-0 basis-[4.5rem] flex-col items-center justify-center gap-1 rounded-md border px-1.5 py-2 text-xs font-medium tracking-wide transition-colors duration-200 " +
+              "flex min-w-[4rem] max-w-[6rem] flex-1 shrink-0 flex-col items-center justify-center gap-1 rounded-md border px-1.5 py-2 text-xs font-medium tracking-wide transition-colors duration-200 " +
               (isActive
                 ? "border-accent/60 bg-accent-soft text-accent-ink"
                 : "border-line bg-surface text-muted hover:border-line-strong hover:bg-surface-2 hover:text-ink-soft")

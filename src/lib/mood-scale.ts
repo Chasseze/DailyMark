@@ -52,6 +52,22 @@ export function moodColor(mood: DailyMood): string {
   return valenceVar(MOOD_VALENCE[mood]);
 }
 
+/**
+ * Ink for text set *on* a fill of that step — the one place the rule "text
+ * never wears the data colour" is inverted, because the date sits inside the
+ * cell. No single ink clears 4.5:1 against all five steps (the ramp spans from
+ * deep indigo to bright amber), so each step names its own, measured against
+ * the fill it will actually sit on.
+ */
+export function valenceInkVar(valence: MoodValence): string {
+  const slot = valence < 0 ? `neg${Math.abs(valence)}` : valence === 0 ? "0" : `pos${valence}`;
+  return `var(--mood-v${slot}-ink)`;
+}
+
+export function moodInk(mood: DailyMood): string {
+  return valenceInkVar(MOOD_VALENCE[mood]);
+}
+
 /** Plain-language gloss for the scale's ends, used in the legend. */
 export const VALENCE_LABEL: Record<MoodValence, string> = {
   [-2]: "Heavy",
