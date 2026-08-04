@@ -471,101 +471,103 @@ export default function NotesSidebar() {
         {/* Notebooks and Trash are structure — where a note lives — so they
             stay on their own row, in view. Only the free-form article tags
             (which grow without bound) sit behind a disclosure. */}
-        {/* Wraps rather than scrolls: Trash and the last notebook used to
-            sit off the right edge, which is exactly what has to stay in view. */}
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              setShowTrash(false);
-              setShowDue(false);
-              setActiveNotebook(null);
-            }}
-            className={
-              "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-              (!showTrash && !showDue && !activeNotebook
-                ? "bg-accent-soft text-accent-ink"
-                : "text-muted hover:bg-surface-2 hover:text-ink-soft")
-            }
-          >
-            All
-          </button>
-          {dueNotes.length > 0 && (
+        {/* One line, always. Scope + notebooks share a scrolling track so a
+            long notebook list can never push anything onto a second row, and
+            "+" / Trash are pinned outside that track so they stay in view no
+            matter how many notebooks there are. */}
+        <div className="notes-scope mb-3 flex items-center gap-[3px]">
+          <div className="notes-scope__track flex min-w-0 flex-1 items-center gap-[3px] overflow-x-auto">
             <button
-              type="button"
-              onClick={() => {
-                setShowTrash(false);
-                setShowDue(true);
-                setActiveNotebook(null);
-              }}
-              className={
-                "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-                (!showTrash && showDue
-                  ? "bg-accent-soft text-accent-ink"
-                  : "text-muted hover:bg-surface-2 hover:text-ink-soft")
-              }
-            >
-              Due ({dueNotes.length})
-            </button>
-          )}
-          {notebooks.map((nb) => (
-            <button
-              key={nb.id}
               type="button"
               onClick={() => {
                 setShowTrash(false);
                 setShowDue(false);
-                setActiveNotebook(nb.id);
-              }}
-              onDoubleClick={() => {
-                setEditingNb(nb.id);
-                setEditNbName(nb.name);
-                setEditNbColor(nb.color);
-                setShowNewNotebook(false);
+                setActiveNotebook(null);
               }}
               className={
-                "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-                (!showTrash && !showDue && activeNotebook === nb.id
-                  ? "bg-accent-soft text-accent-ink"
-                  : "text-muted hover:bg-surface-2 hover:text-ink-soft")
+                "notes-chip " +
+                (!showTrash && !showDue && !activeNotebook
+                  ? "notes-chip--on"
+                  : "notes-chip--off")
               }
-              title="Double-click to rename"
             >
-              <span
-                className="mr-1 inline-block h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: nb.color }}
-              />
-              {nb.name}
+              All
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setShowNewNotebook(!showNewNotebook);
-              setEditingNb(null);
-            }}
-            aria-label="New notebook"
-            className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-ink-soft"
-          >
-            +
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowTrash(true);
-              setShowDue(false);
-              setActiveNotebook(null);
-              setActiveTag(null);
-            }}
-            className={
-              "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-              (showTrash
-                ? "bg-danger-soft text-danger"
-                : "text-muted hover:bg-surface-2 hover:text-ink-soft")
-            }
-          >
-            Trash{trash.length > 0 ? ` (${trash.length})` : ""}
-          </button>
+            {dueNotes.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTrash(false);
+                  setShowDue(true);
+                  setActiveNotebook(null);
+                }}
+                className={
+                  "notes-chip " + (!showTrash && showDue ? "notes-chip--on" : "notes-chip--off")
+                }
+              >
+                Due ({dueNotes.length})
+              </button>
+            )}
+            {notebooks.map((nb) => (
+              <button
+                key={nb.id}
+                type="button"
+                onClick={() => {
+                  setShowTrash(false);
+                  setShowDue(false);
+                  setActiveNotebook(nb.id);
+                }}
+                onDoubleClick={() => {
+                  setEditingNb(nb.id);
+                  setEditNbName(nb.name);
+                  setEditNbColor(nb.color);
+                  setShowNewNotebook(false);
+                }}
+                className={
+                  "notes-chip " +
+                  (!showTrash && !showDue && activeNotebook === nb.id
+                    ? "notes-chip--on"
+                    : "notes-chip--off")
+                }
+                title="Double-click to rename"
+              >
+                <span
+                  className="notes-chip__dot"
+                  style={{ backgroundColor: nb.color }}
+                />
+                {nb.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-[3px] border-l border-line pl-[3px]">
+            <button
+              type="button"
+              onClick={() => {
+                setShowNewNotebook(!showNewNotebook);
+                setEditingNb(null);
+              }}
+              aria-label="New notebook"
+              title="New notebook"
+              className="notes-chip notes-chip--off"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowTrash(true);
+                setShowDue(false);
+                setActiveNotebook(null);
+                setActiveTag(null);
+              }}
+              className={
+                "notes-chip " + (showTrash ? "notes-chip--trash" : "notes-chip--off")
+              }
+            >
+              Trash{trash.length > 0 ? ` (${trash.length})` : ""}
+            </button>
+          </div>
         </div>
 
         {activeNotebook && !showTrash && !showDue && (

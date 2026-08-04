@@ -344,6 +344,59 @@ html {
   animation: notesSidebarIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Scope row chips. Tighter than the old inline classes so the starter set —
+   All, Due, three notebooks, +, Trash — fits one line on a 390px phone, and
+   set here rather than repeated at seven call sites. */
+.notes-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.45rem;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.notes-chip--on {
+  background: var(--mood-accent-soft);
+  color: var(--mood-accent-ink);
+}
+
+.notes-chip--trash {
+  background: var(--mood-danger-soft);
+  color: var(--mood-danger);
+}
+
+.notes-chip--off {
+  color: var(--mood-muted);
+}
+
+.notes-chip--off:hover {
+  background: var(--mood-surface-2);
+  color: var(--mood-ink-soft);
+}
+
+.notes-chip__dot {
+  flex: none;
+  width: 0.375rem;
+  height: 0.375rem;
+  margin-right: 0.25rem;
+  border-radius: 999px;
+}
+
+/* The notebook track scrolls when it has to; hide the bar so the row keeps
+   looking like a single tidy line. */
+.notes-scope__track {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.notes-scope__track::-webkit-scrollbar {
+  display: none;
+}
+
 .notes-file-list {
   display: flex;
   flex-direction: column;
@@ -501,7 +554,7 @@ html {
    independently, so choosing a note no longer replaces the list. */
 @media (width >= 64rem) {
   .notes-workspace {
-    grid-template-columns: 20rem minmax(0, 1fr);
+    grid-template-columns: 24rem minmax(0, 1fr);
     gap: 1.5rem;
     align-items: start;
     min-height: calc(100svh - 4.25rem);
