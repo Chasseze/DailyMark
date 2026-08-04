@@ -3,13 +3,14 @@ import { NAV_ITEMS } from "./nav-items";
 
 /**
  * Desktop primary navigation. From lg up the bottom tab bar — a phone
- * convention that reads oddly on a laptop — gives way to a fixed left rail,
- * which also frees the full column height for the notes master–detail view.
+ * convention that reads oddly on a laptop — gives way to a left rail. The rail
+ * is a sticky column *inside* the centred app container, not pinned to the
+ * viewport, so the app keeps its side margins.
  */
 export default function SideNav() {
   return (
     <nav
-      className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-paper/60 px-3 py-5 lg:flex"
+      className="sticky top-[4.25rem] hidden max-h-[calc(100svh-5.5rem)] w-56 shrink-0 flex-col self-start overflow-y-auto border-r border-line py-5 pr-3 lg:flex"
       aria-label="Primary"
     >
       <div className="mb-6 flex items-center gap-2.5 px-2">

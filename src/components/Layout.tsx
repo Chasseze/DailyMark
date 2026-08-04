@@ -32,10 +32,6 @@ export default function Layout() {
           ? "Settings"
           : "";
 
-  // From lg up the rail carries the brand and the navigation, so the masthead
-  // only has to hold the section label and the mood picker.
-  const railOffset = focus ? "" : " lg:pl-60";
-
   return (
     <div
       className={
@@ -43,31 +39,33 @@ export default function Layout() {
         (focus ? "focus-mode" : "")
       }
     >
-      {!focus && <SideNav />}
-
-      <div className={"min-h-screen" + railOffset}>
       {!focus && (
-        <header className="notes-masthead sticky top-0 z-40">
-          <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3.5 lg:max-w-6xl lg:px-8">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 lg:hidden">
-                  <div className="h-2.5 w-2.5 rounded-[3px] bg-white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-lg font-bold tracking-tight text-white lg:hidden">
-                    DailyMark
-                  </p>
-                  {sectionLabel && (
-                    <p className="truncate text-xs text-white/70 lg:text-sm lg:font-medium">
-                      {sectionLabel}
-                      <span className="hidden sm:inline"> · {moodMeta.blurb}</span>
+        <header className="sticky top-0 z-40">
+          <div className="app-container">
+            {/* Full-bleed on a phone; from lg up it ends where the app ends,
+                so the masthead reads as the top of a centred slab rather than
+                a site-wide banner. */}
+            <div className="notes-masthead flex items-center justify-between gap-3 px-4 py-3.5 lg:rounded-b-2xl">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15 lg:hidden">
+                    <div className="h-2.5 w-2.5 rounded-[3px] bg-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-lg font-bold tracking-tight text-white lg:hidden">
+                      DailyMark
                     </p>
-                  )}
+                    {sectionLabel && (
+                      <p className="truncate text-xs text-white/70 lg:text-sm lg:font-medium">
+                        {sectionLabel}
+                        <span className="hidden sm:inline"> · {moodMeta.blurb}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
+              <MoodPicker />
             </div>
-            <MoodPicker />
           </div>
         </header>
       )}
@@ -84,26 +82,32 @@ export default function Layout() {
         </div>
       )}
 
-      <main
-        className={
-          "mx-auto w-full max-w-2xl lg:max-w-6xl lg:px-4 " +
-          // The tab bar is gone from lg up, so the column stops reserving
-          // room for it there.
-          (hideChrome
-            ? playerVisible
-              ? "pb-28"
-              : "pb-6"
-            : playerVisible
-              ? "pb-48 lg:pb-24"
-              : "pb-28 lg:pb-8")
-        }
-      >
-        <Outlet />
-      </main>
+      {/* The rail lives inside the same centred container as the content, so
+          the whole app keeps its left and right margins instead of pinning
+          itself to the viewport edges. */}
+      <div className="app-container lg:flex lg:gap-6">
+        {!focus && <SideNav />}
+
+        <main
+          className={
+            "min-w-0 flex-1 " +
+            // The tab bar is gone from lg up, so the column stops reserving
+            // room for it there.
+            (hideChrome
+              ? playerVisible
+                ? "pb-28"
+                : "pb-6"
+              : playerVisible
+                ? "pb-48 lg:pb-24"
+                : "pb-28 lg:pb-8")
+          }
+        >
+          <Outlet />
+        </main>
       </div>
 
-      <div className={"fixed bottom-0 left-0 right-0 z-50" + railOffset}>
-        <div className="mx-auto max-w-2xl lg:max-w-6xl lg:px-4">
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="app-container">
           <ReadAloudBar />
           {!hideChrome && <BottomNav />}
         </div>

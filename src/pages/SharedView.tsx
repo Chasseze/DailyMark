@@ -50,7 +50,7 @@ export default function SharedView() {
                 {payload.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-md bg-surface-2 px-2.5 py-0.5 text-xs text-muted"
+                    className="rounded-md bg-accent-soft px-2.5 py-0.5 text-xs text-accent-ink"
                   >
                     {tag}
                   </span>

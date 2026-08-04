@@ -251,7 +251,7 @@ function NoteArticle({ note }: { note: Note }) {
         {note.tags.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-1.5">
             {note.tags.map((tag) => (
-              <span key={tag} className="rounded-md bg-surface-2 px-2.5 py-0.5 text-xs text-muted">
+              <span key={tag} className="rounded-md bg-accent-soft px-2.5 py-0.5 text-xs text-accent-ink">
                 {tag}
               </span>
             ))}

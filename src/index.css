@@ -279,6 +279,29 @@ html {
   }
 }
 
+/* ── App width ─────────────────────────────────────────────────────────────
+   DailyMark is a phone app first, so below lg it fills the device. From lg up
+   it stays a centred slab with real gutters rather than stretching edge to
+   edge — the rail, masthead and content all sit inside this one container.
+   Change --app-max to make the desktop app wider or narrower; nothing else
+   needs to move. */
+:root {
+  --app-max: 72rem;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+@media (width >= 64rem) {
+  .app-container {
+    max-width: var(--app-max);
+    padding-inline: 2rem;
+  }
+}
+
 .app-bottom-nav {
   /* Nearly opaque so the bar still reads as a surface on the devices
      that decline to composite the blur. */
@@ -478,7 +501,7 @@ html {
    independently, so choosing a note no longer replaces the list. */
 @media (width >= 64rem) {
   .notes-workspace {
-    grid-template-columns: 22rem minmax(0, 1fr);
+    grid-template-columns: 20rem minmax(0, 1fr);
     gap: 1.5rem;
     align-items: start;
     min-height: calc(100svh - 4.25rem);
@@ -496,6 +519,12 @@ html {
   .notes-sidebar {
     border-right: 1px solid var(--mood-line);
     padding-right: 0.25rem;
+  }
+
+  /* The display clamp is tuned for a full-width phone column; in the 20rem
+     list pane it wrapped "My notes" onto two lines. */
+  .notes-sidebar .page-title {
+    font-size: 2rem;
   }
 }
 

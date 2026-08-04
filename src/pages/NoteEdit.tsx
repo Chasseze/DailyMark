@@ -322,13 +322,13 @@ function NoteEditor({ note }: { note: Note }) {
       <div className="mb-4">
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2.5 py-0.5 text-xs text-ink-soft">
+            <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-2.5 py-0.5 text-xs text-accent-ink">
               {tag}
               <button
                 type="button"
                 onClick={() => setTags(tags.filter((t) => t !== tag))}
                 aria-label={`Remove ${tag}`}
-                className="ml-0.5 text-muted hover:text-danger"
+                className="ml-0.5 text-accent-ink hover:text-danger"
               >
                 ×
               </button>

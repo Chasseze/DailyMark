@@ -81,7 +81,7 @@ export default function NotesSidebar() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showTrash, setShowTrash] = useState(false);
   const [showDue, setShowDue] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
   const [ftsHits, setFtsHits] = useState<Note[] | null>(null);
   const [ftsBusy, setFtsBusy] = useState(false);
   const [showNewNotebook, setShowNewNotebook] = useState(false);
@@ -105,16 +105,6 @@ export default function NotesSidebar() {
     for (const note of notes) for (const tag of note.tags) set.add(tag);
     return [...set].sort();
   }, [notes]);
-
-  const activeNotebookMeta =
-    activeNotebook && !showTrash && !showDue
-      ? notebooks.find((nb) => nb.id === activeNotebook) ?? null
-      : null;
-  const activeFilterCount =
-    (activeNotebook ? 1 : 0) + (activeTag ? 1 : 0) + (showTrash ? 1 : 0);
-  // Editing or creating a notebook happens inside the panel, so it has to stay
-  // open while either form is up.
-  const filtersPanelOpen = filtersOpen || showNewNotebook || Boolean(editingNb);
 
   const searchQuery = search.trim();
   // Ignore stale FTS results when the query is cleared or Trash/Due is open.
@@ -478,21 +468,22 @@ export default function NotesSidebar() {
           )}
         </div>
 
-        {/* One scope row is always visible; notebooks, tags and Trash live
-            behind a disclosure. Stacking every filter control above the list
-            pushed the first note ~300px down the screen on a phone. */}
-        <div className="mb-3 flex items-center gap-1.5">
+        {/* Notebooks and Trash are structure — where a note lives — so they
+            stay on their own row, in view. Only the free-form article tags
+            (which grow without bound) sit behind a disclosure. */}
+        {/* Wraps rather than scrolls: Trash and the last notebook used to
+            sit off the right edge, which is exactly what has to stay in view. */}
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => {
               setShowTrash(false);
               setShowDue(false);
               setActiveNotebook(null);
-              setActiveTag(null);
             }}
             className={
               "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-              (!showTrash && !showDue && !activeNotebook && !activeTag
+              (!showTrash && !showDue && !activeNotebook
                 ? "bg-accent-soft text-accent-ink"
                 : "text-muted hover:bg-surface-2 hover:text-ink-soft")
             }
@@ -517,285 +508,241 @@ export default function NotesSidebar() {
               Due ({dueNotes.length})
             </button>
           )}
-
-          <div className="flex-1" />
-
+          {notebooks.map((nb) => (
+            <button
+              key={nb.id}
+              type="button"
+              onClick={() => {
+                setShowTrash(false);
+                setShowDue(false);
+                setActiveNotebook(nb.id);
+              }}
+              onDoubleClick={() => {
+                setEditingNb(nb.id);
+                setEditNbName(nb.name);
+                setEditNbColor(nb.color);
+                setShowNewNotebook(false);
+              }}
+              className={
+                "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
+                (!showTrash && !showDue && activeNotebook === nb.id
+                  ? "bg-accent-soft text-accent-ink"
+                  : "text-muted hover:bg-surface-2 hover:text-ink-soft")
+              }
+              title="Double-click to rename"
+            >
+              <span
+                className="mr-1 inline-block h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: nb.color }}
+              />
+              {nb.name}
+            </button>
+          ))}
           <button
             type="button"
-            onClick={() => setFiltersOpen((open) => !open)}
-            aria-expanded={filtersPanelOpen}
-            aria-controls="notes-filter-panel"
+            onClick={() => {
+              setShowNewNotebook(!showNewNotebook);
+              setEditingNb(null);
+            }}
+            aria-label="New notebook"
+            className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-ink-soft"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowTrash(true);
+              setShowDue(false);
+              setActiveNotebook(null);
+              setActiveTag(null);
+            }}
             className={
               "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-              (filtersPanelOpen || activeFilterCount > 0
-                ? "bg-surface-2 text-ink-soft"
+              (showTrash
+                ? "bg-danger-soft text-danger"
                 : "text-muted hover:bg-surface-2 hover:text-ink-soft")
             }
           >
-            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            Trash{trash.length > 0 ? ` (${trash.length})` : ""}
           </button>
         </div>
 
-        {/* What is currently narrowing the list, with a one-tap escape. */}
-        {(activeNotebookMeta || activeTag || showTrash) && (
-          <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            {activeNotebookMeta && (
-              <button
-                type="button"
-                onClick={() => setActiveNotebook(null)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-ink"
-              >
-                <span
-                  className="inline-block h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: activeNotebookMeta.color }}
-                />
-                {activeNotebookMeta.name}
-                <span aria-hidden="true">×</span>
-                <span className="sr-only">Clear notebook filter</span>
-              </button>
-            )}
-            {activeTag && (
-              <button
-                type="button"
-                onClick={() => setActiveTag(null)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-ink"
-              >
-                #{activeTag}
-                <span aria-hidden="true">×</span>
-                <span className="sr-only">Clear tag filter</span>
-              </button>
-            )}
-            {showTrash && (
-              <button
-                type="button"
-                onClick={() => setShowTrash(false)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-danger-soft px-2.5 py-1 text-xs font-medium text-danger"
-              >
-                Trash
-                <span aria-hidden="true">×</span>
-                <span className="sr-only">Leave trash</span>
-              </button>
-            )}
-            {activeNotebookMeta && !showTrash && !showDue && (
-              <button
-                type="button"
-                onClick={() => void handleShareNotebook()}
-                disabled={busy}
-                className="rounded-lg px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-ink-soft disabled:opacity-50"
-              >
-                Share
-              </button>
-            )}
+        {activeNotebook && !showTrash && !showDue && (
+          <div className="mb-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleShareNotebook()}
+              disabled={busy}
+              className="rounded-lg px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-ink-soft disabled:opacity-50"
+            >
+              Share
+            </button>
             {shareStatus && <span className="text-xs text-accent-ink">{shareStatus}</span>}
           </div>
         )}
 
-        {filtersPanelOpen && (
-          <div
-            id="notes-filter-panel"
-            className="mb-3 space-y-3 rounded-2xl border border-line bg-surface p-3"
-          >
-            <div>
-              <p className="mb-1.5 text-xs font-medium uppercase tracking-wider text-muted">
-                Notebooks
-              </p>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {notebooks.map((nb) => (
-                  <button
-                    key={nb.id}
-                    type="button"
-                    onClick={() => {
-                      setShowTrash(false);
-                      setShowDue(false);
-                      setActiveNotebook(activeNotebook === nb.id ? null : nb.id);
-                    }}
-                    onDoubleClick={() => {
-                      setEditingNb(nb.id);
-                      setEditNbName(nb.name);
-                      setEditNbColor(nb.color);
-                      setShowNewNotebook(false);
-                    }}
-                    className={
-                      "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-                      (!showTrash && !showDue && activeNotebook === nb.id
-                        ? "bg-accent-soft text-accent-ink"
-                        : "text-muted hover:bg-surface-2 hover:text-ink-soft")
-                    }
-                    title="Double-click to rename"
-                  >
-                    <span
-                      className="mr-1 inline-block h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: nb.color }}
-                    />
-                    {nb.name}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNewNotebook(!showNewNotebook);
-                    setEditingNb(null);
-                  }}
-                  className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-ink-soft"
-                >
-                  + New
-                </button>
-              </div>
-            </div>
-
-            {allTags.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-xs font-medium uppercase tracking-wider text-muted">
-                  Tags
-                </p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {allTags.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                      className={
-                        "shrink-0 rounded-md px-2 py-1 text-xs font-medium " +
-                        (activeTag === tag
-                          ? "bg-accent-soft text-accent-ink"
-                          : "text-muted hover:bg-surface-2 hover:text-ink-soft")
-                      }
-                    >
-                      #{tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {showNewNotebook && (
-              <div className="space-y-2 rounded-xl bg-surface-2 p-3">
-                <input
-                  type="text"
-                  value={newNbName}
-                  onChange={(e) => setNewNbName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void handleCreateNotebook()}
-                  placeholder="Notebook name…"
-                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-faint focus:outline-none"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex gap-1">
-                    {COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setNewNbColor(c)}
-                        aria-label={`Colour ${c}`}
-                        className={
-                          "h-5 w-5 rounded-full border-2 transition-transform " +
-                          (newNbColor === c ? "scale-110 border-ink" : "border-transparent")
-                        }
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleCreateNotebook()}
-                    className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-on-accent"
-                  >
-                    Create
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {editingNb && (
-              <div className="space-y-2 rounded-xl bg-surface-2 p-3">
-                <input
-                  type="text"
-                  value={editNbName}
-                  onChange={(e) => setEditNbName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void handleSaveNotebook()}
-                  aria-label="Notebook name"
-                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none"
-                />
-                <div className="flex gap-1">
-                  {COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setEditNbColor(c)}
-                      aria-label={`Colour ${c}`}
-                      className={
-                        "h-5 w-5 rounded-full border-2 transition-transform " +
-                        (editNbColor === c ? "scale-110 border-ink" : "border-transparent")
-                      }
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleSaveNotebook()}
-                    className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-on-accent"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingNb(null)}
-                    className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs text-ink-soft"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteNotebook(editingNb, editNbName)}
-                    className="rounded-lg px-3 py-1.5 text-xs text-danger"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2 border-t border-line pt-3">
+        {!showTrash && allTags.length > 0 && (
+          <div className="mb-3">
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => {
-                  setShowTrash(true);
-                  setShowDue(false);
-                  setActiveNotebook(null);
-                  setActiveTag(null);
-                }}
+                onClick={() => setTagsOpen((open) => !open)}
+                aria-expanded={tagsOpen}
+                aria-controls="notes-tag-filter"
                 className={
-                  "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-                  (showTrash
-                    ? "bg-danger-soft text-danger"
+                  "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
+                  (tagsOpen
+                    ? "bg-surface-2 text-ink-soft"
                     : "text-muted hover:bg-surface-2 hover:text-ink-soft")
                 }
               >
-                Trash{trash.length > 0 ? ` (${trash.length})` : ""}
+                Tags{activeTag ? " (1)" : ""}
               </button>
-              {showTrash && trash.length > 0 && (
+              {activeTag && (
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!confirm("Permanently delete everything in Trash?")) return;
-                    setBusy(true);
-                    try {
-                      await emptyTrash();
-                      navigate("/notes");
-                    } catch (err) {
-                      setWriteError(errorMessage(err));
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                  className="rounded-lg bg-danger-soft px-2.5 py-1.5 text-xs font-medium text-danger"
+                  onClick={() => setActiveTag(null)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-accent-soft px-2 py-1 text-xs font-medium text-accent-ink"
                 >
-                  Empty trash
+                  #{activeTag}
+                  <span aria-hidden="true">×</span>
+                  <span className="sr-only">Clear tag filter</span>
                 </button>
               )}
             </div>
+            {tagsOpen && (
+              <div
+                id="notes-tag-filter"
+                className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-line bg-surface p-2"
+              >
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                    className={
+                      "shrink-0 rounded-md px-2 py-1 text-xs font-medium " +
+                      (activeTag === tag
+                        ? "bg-accent-soft text-accent-ink"
+                        : "text-muted hover:bg-surface-2 hover:text-ink-soft")
+                    }
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+        )}
+
+        {showNewNotebook && (
+          <div className="mb-3 space-y-2 rounded-2xl border border-line bg-surface p-3">
+            <input
+              type="text"
+              value={newNbName}
+              onChange={(e) => setNewNbName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void handleCreateNotebook()}
+              placeholder="Notebook name…"
+              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink placeholder-faint focus:outline-none"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex gap-1">
+                {COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setNewNbColor(c)}
+                    aria-label={`Colour ${c}`}
+                    className={
+                      "h-5 w-5 rounded-full border-2 transition-transform " +
+                      (newNbColor === c ? "scale-110 border-ink" : "border-transparent")
+                    }
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleCreateNotebook()}
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-on-accent"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        )}
+
+        {editingNb && (
+          <div className="mb-3 space-y-2 rounded-2xl border border-line bg-surface p-3">
+            <input
+              type="text"
+              value={editNbName}
+              onChange={(e) => setEditNbName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void handleSaveNotebook()}
+              aria-label="Notebook name"
+              className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none"
+            />
+            <div className="flex gap-1">
+              {COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setEditNbColor(c)}
+                  aria-label={`Colour ${c}`}
+                  className={
+                    "h-5 w-5 rounded-full border-2 transition-transform " +
+                    (editNbColor === c ? "scale-110 border-ink" : "border-transparent")
+                  }
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveNotebook()}
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-on-accent"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingNb(null)}
+                className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs text-ink-soft"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteNotebook(editingNb, editNbName)}
+                className="rounded-lg px-3 py-1.5 text-xs text-danger"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showTrash && trash.length > 0 && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm("Permanently delete everything in Trash?")) return;
+              setBusy(true);
+              try {
+                await emptyTrash();
+                navigate("/notes");
+              } catch (err) {
+                setWriteError(errorMessage(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="mb-3 w-full rounded-lg bg-danger-soft px-3 py-2 text-xs font-medium text-danger"
+          >
+            Empty trash
+          </button>
         )}
       </div>
 
@@ -894,7 +841,7 @@ export default function NotesSidebar() {
                         {note.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-md bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-muted"
+                            className="rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent-ink"
                           >
                             {tag}
                           </span>
