@@ -667,10 +667,12 @@ function CadencePanel({ data, weeks }: { data: Cadence; weeks: number }) {
               non-uniform scale comes out an ellipse. */}
           {bars.map((bar, i) => {
             const isPeak = peaks.has(bar.key);
-            // The peak carries its value, and so does the latest week — the two
-            // a reader looks for. On a tie only the leftmost peak is labelled;
-            // the others are at the same height, so the number covers them.
-            const labelled = isPeak ? bar.key === data.peak[0]?.key : bar.key === last?.key;
+            // Only the peak is labelled in place, and on a tie only the
+            // leftmost of them — the rest are at the same height, so the one
+            // number reads for all of them. The latest week's count goes on the
+            // axis below instead: a second floating label lands near the
+            // average rule as often as not, and reads as belonging to it.
+            const labelled = isPeak && bar.key === data.peak[0]?.key;
             const at = x(i);
             return (
               <span
@@ -683,7 +685,6 @@ function CadencePanel({ data, weeks }: { data: Cadence; weeks: number }) {
                   <span
                     className={[
                       "rhythm-dot__value",
-                      isPeak ? "" : "rhythm-dot__value--quiet",
                       at > 85 ? "rhythm-dot__value--end" : "",
                       at < 15 ? "rhythm-dot__value--start" : "",
                     ]
@@ -700,7 +701,7 @@ function CadencePanel({ data, weeks }: { data: Cadence; weeks: number }) {
 
         <figcaption className="rhythm-plot__foot">
           <span>Week of {first?.label}</span>
-          <span>This week</span>
+          <span>This week · {last?.count ?? 0}</span>
         </figcaption>
       </figure>
 

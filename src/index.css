@@ -1075,11 +1075,6 @@ html {
   white-space: nowrap;
 }
 
-.rhythm-dot__value--quiet {
-  font-weight: 500;
-  color: var(--mood-muted);
-}
-
 /* The first and last dots sit on the edges of the plot, where a centred label
    would hang out over the panel's padding. They hug the dot instead. */
 .rhythm-dot__value--start {
