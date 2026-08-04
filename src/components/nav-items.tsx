@@ -45,6 +45,15 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    to: "/rhythm",
+    label: "Rhythm",
+    icon: (
+      <svg {...iconProps}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 14.5h3l2.5-7 3 11 2.5-8 1.75 4h4.25" />
+      </svg>
+    ),
+  },
+  {
     to: "/daily",
     label: "Daily",
     icon: (

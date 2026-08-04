@@ -26,11 +26,13 @@ export default function Layout() {
     ? "Notes"
     : isThoughtsRoute
       ? "Thoughts"
-      : location.pathname.startsWith("/daily")
-        ? "Daily"
-        : location.pathname.startsWith("/settings")
-          ? "Settings"
-          : "";
+      : location.pathname.startsWith("/rhythm")
+        ? "Rhythm"
+        : location.pathname.startsWith("/daily")
+          ? "Daily"
+          : location.pathname.startsWith("/settings")
+            ? "Settings"
+            : "";
 
   return (
     <div

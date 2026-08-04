@@ -7,6 +7,7 @@ import { useThoughts } from "../context/thoughts-context";
 import ReadAloudButton from "../components/ReadAloudButton";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { buildWeeklyReviewMarkdown } from "../lib/weekly-review";
+import { MOODS, isDailyMood, type DailyMood } from "../lib/mood-scale";
 import {
   CATEGORY_META,
   QUESTIONS_PER_DAY,
@@ -37,13 +38,6 @@ const QUOTES: Quote[] = [
   { text: "In the middle of difficulty lies opportunity.", source: "Albert Einstein" },
   { text: "Done is better than perfect.", source: "Sheryl Sandberg" },
 ];
-
-const MOODS = ["Calm", "Focused", "Tired", "Heavy", "Bright", "Unsure"] as const;
-type DailyMood = (typeof MOODS)[number];
-
-function isDailyMood(value: string): value is DailyMood {
-  return (MOODS as readonly string[]).includes(value);
-}
 
 function pickQuote(seed: number) {
   return QUOTES[seed % QUOTES.length];

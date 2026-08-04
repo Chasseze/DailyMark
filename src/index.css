@@ -118,6 +118,15 @@
   --mood-on-accent: #1a1208;
   --mood-danger: oklch(0.72 0.16 25);
   --mood-danger-soft: oklch(0.6 0.2 25 / 0.16);
+  /* Mood valence ramp (Rhythm). Diverging: indigo ← neutral → amber, because
+     mood is an ordered sentiment scale, not six unrelated labels. Steps are
+     validated against this surface — CVD separation and the normal-vision
+     floor both pass; see lib/mood-scale.ts for why colour encodes valence. */
+  --mood-vneg2: #5142c8;
+  --mood-vneg1: #9a90ee;
+  --mood-v0: #7c86a8;
+  --mood-vpos1: #b07d18;
+  --mood-vpos2: #fbbf24;
   /* Atmosphere */
   --mood-masthead: #1d4ed8;
   --mood-paper: #0b1220;
@@ -176,6 +185,13 @@
   --mood-on-accent: #1a1208;
   --mood-danger: oklch(0.51 0.2 27);
   --mood-danger-soft: oklch(0.6 0.2 27 / 0.13);
+  /* Restepped for the light surface: the dark ramp's bright end is invisible
+     on pale paper, so each arm runs the other way — extremes are darkest. */
+  --mood-vneg2: #4b3fbe;
+  --mood-vneg1: #8b7fe8;
+  --mood-v0: #7b839c;
+  --mood-vpos1: #c88a10;
+  --mood-vpos2: #92600a;
   /* Atmosphere */
   --mood-masthead: #1d4ed8;
   --mood-paper: #e8eef8;
@@ -308,6 +324,22 @@ html {
   background: color-mix(in oklab, var(--mood-paper) 96%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+
+/* Five tabs no longer fit a phone at a readable size, so the row scrolls.
+   The bar is hidden — the row should still read as a tab bar, not a list —
+   and snapping keeps tabs from coming to rest half cut off. */
+.app-bottom-nav__track {
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.app-bottom-nav__track::-webkit-scrollbar {
+  display: none;
+}
+.app-bottom-nav__track > * {
+  scroll-snap-align: center;
 }
 
 @media (prefers-reduced-transparency: reduce), (update: slow) {
@@ -750,6 +782,158 @@ html {
 .prose-compact blockquote { margin: 0 0 0.2rem; padding-left: 0.6rem; }
 .prose-compact hr { margin: 0.3rem 0; }
 .prose-compact .md-task-checkbox { margin-top: 0.2rem; }
+
+/* ── Rhythm ────────────────────────────────────────────────────────────────
+   Chart chrome. Marks carry colour; every label, value and axis stays on a
+   text token, so a light amber step is never asked to be legible as type. */
+
+.rhythm-panel {
+  border: 1px solid var(--mood-line);
+  border-radius: 1.25rem;
+  background: var(--mood-surface);
+  padding: 1rem 1.1rem;
+}
+
+/* Calendar heatmap. The 3px grid gap is the surface doing the separating —
+   cells never carry a stroke, which would add ink that is not data. */
+.rhythm-cal {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+}
+.rhythm-cal::-webkit-scrollbar { display: none; }
+
+.rhythm-cal__week {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.rhythm-cell {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 0.2rem;
+  background: var(--mood-surface-2);
+  padding: 0;
+  transition: outline-color 0.12s ease;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+
+/* Showed up, logged no mood: present but unfilled, so an empty square always
+   means "nothing happened" and never "forgot to tap a mood". */
+.rhythm-cell[data-active="true"] {
+  background: var(--mood-surface-3);
+  box-shadow: inset 0 0 0 1px var(--mood-line-strong);
+}
+
+.rhythm-cell[data-mood="true"] {
+  box-shadow: none;
+}
+
+.rhythm-cell:hover,
+.rhythm-cell[data-selected="true"] {
+  outline-color: var(--mood-accent);
+}
+
+.rhythm-cell--pad {
+  visibility: hidden;
+}
+
+/* Columns: 4px rounded cap, square at the baseline, capped thickness. */
+.rhythm-col {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+  flex: 1 1 0;
+  /* The fill is sized in %, which needs a definite height to resolve against —
+     without this the columns collapse to their 2px minimum. */
+  height: 100%;
+}
+
+.rhythm-col__fill {
+  width: 100%;
+  max-width: 1.5rem;
+  border-radius: 0.25rem 0.25rem 0 0;
+  background: var(--mood-accent);
+  min-height: 2px;
+}
+
+/* The peak's value, sat on the cap. Text keeps a text token — never the
+   series colour — so it stays legible on either paper. */
+.rhythm-col__value {
+  display: block;
+  margin-top: -1.15rem;
+  text-align: center;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--mood-ink-soft);
+}
+
+.rhythm-col__fill--empty {
+  background: var(--mood-surface-3);
+}
+
+.rhythm-baseline {
+  height: 1px;
+  background: var(--mood-line);
+}
+
+/* Horizontal ranked bars. */
+.rhythm-bar {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--mood-accent);
+}
+
+.rhythm-bar__track {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: var(--mood-surface-2);
+}
+
+/* Diverging stacked bar: one row, heaviest on the left, 2px surface gaps. */
+.rhythm-diverge {
+  display: flex;
+  gap: 2px;
+  height: 1.25rem;
+  border-radius: 0.35rem;
+  overflow: hidden;
+}
+
+.rhythm-diverge__seg {
+  min-width: 2px;
+}
+
+.rhythm-swatch {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 0.15rem;
+  flex: none;
+}
+
+.rhythm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.rhythm-table th,
+.rhythm-table td {
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--mood-line);
+  color: var(--mood-ink-soft);
+}
+
+.rhythm-table th {
+  color: var(--mood-muted);
+  font-weight: 600;
+}
 
 /* ── Live Markdown editor ───────────────────────────────────────────────────
    The highlighted mirror and the real <textarea> hold the same characters at

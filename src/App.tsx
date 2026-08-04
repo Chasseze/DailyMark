@@ -19,6 +19,7 @@ const ThoughtsWorkspace = lazy(() => import("./pages/ThoughtsWorkspace"));
 const ThoughtsEmptyPreview = lazy(() => import("./pages/ThoughtsEmptyPreview"));
 const ThoughtView = lazy(() => import("./pages/ThoughtView"));
 const Daily = lazy(() => import("./pages/Daily"));
+const Rhythm = lazy(() => import("./pages/Rhythm"));
 const Settings = lazy(() => import("./pages/Settings"));
 const SharedView = lazy(() => import("./pages/SharedView"));
 
@@ -66,6 +67,7 @@ export default function App() {
               </Route>
               <Route path="/daily" element={<Daily />} />
             </Route>
+            <Route path="/rhythm" element={<Rhythm />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>
