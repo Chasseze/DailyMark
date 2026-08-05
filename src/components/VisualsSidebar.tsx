@@ -174,7 +174,7 @@ export default function VisualsSidebar() {
             )}
             {shelf === "live" && !search && !activeCollection && (
               <p className="mt-2 text-xs text-muted">
-                Fresh pieces stay for 2–3 days, then drop off unless you save them.
+                Fresh pieces stay live for up to 5 days, then drop off unless you save them.
               </p>
             )}
           </div>

@@ -1,14 +1,20 @@
 import type { Visual } from "./types";
 
 /**
- * Mirrors thoughts-rotation.ts for the Visuals catalog — same drop cadence
- * and live-window rules, applied to picture stories instead of prose.
+ * Same live/saved rotation mechanics as thoughts-rotation.ts, applied to
+ * picture stories instead of prose — but Visuals runs its own cadence: a
+ * daily drop rather than every 2 days, so 5 stories are live at once
+ * instead of Thoughts' ~2.
  */
 
 /** New drops are meant to land about this often. */
-export const DROP_CADENCE_DAYS = 2;
-/** A live piece leaves the feed after this many days unless saved. */
-export const LIVE_MAX_AGE_DAYS = 3;
+export const DROP_CADENCE_DAYS = 1;
+/**
+ * A live piece leaves the feed after this many days unless saved. Paired
+ * with a 1-day drop cadence, this keeps exactly 5 picture stories live at
+ * once — one new drop a day, one dropping off five days later.
+ */
+export const LIVE_MAX_AGE_DAYS = 5;
 
 const MS_PER_DAY = 86_400_000;
 
@@ -93,8 +99,8 @@ export function nextLiveBoundary(
 }
 
 /**
- * Restage a fixed catalog onto a 2-day drop cadence ending at `date` so local
- * demo / bundled fallback always has a real live window.
+ * Restage a fixed catalog onto the daily drop cadence ending at `date` so
+ * local demo / bundled fallback always has a real live window.
  */
 export function withDropCadenceDates(
   catalog: readonly Visual[],

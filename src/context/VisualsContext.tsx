@@ -40,7 +40,7 @@ const STARTER_VISUAL_IDS = new Set(VISUALS_BANK.map((v) => v.id));
 function prepareCatalog(rows: Visual[], date: Date): Visual[] {
   const allStarter = rows.length > 0 && rows.every((v) => STARTER_VISUAL_IDS.has(v.id));
   if (!allStarter) return rows;
-  // Starter drops always land on the 2-day cadence so Live stays non-empty,
+  // Starter drops always land on the daily cadence so Live stays non-empty,
   // whether serving the bundled bank or the freshly-seeded DB table.
   return withDropCadenceDates(rows, date);
 }

@@ -98,7 +98,7 @@ The picture ran in a San Francisco newspaper days later, aid arrived at the camp
   'Public domain (U.S. government work)',
   array['history', 'photojournalism'],
   'Photojournalism',
-  '2026-07-23T09:00:00Z'
+  '2026-07-22T09:00:00Z'
 ),
 (
   'b2222222-2222-4222-8222-222222222203',
@@ -114,7 +114,7 @@ Hubble captured this view in 1995 and it became one of the most reproduced astro
   'Public domain (NASA/ESA)',
   array['space', 'science'],
   'Space',
-  '2026-07-25T09:00:00Z'
+  '2026-07-23T09:00:00Z'
 ),
 (
   'b2222222-2222-4222-8222-222222222204',
@@ -130,7 +130,7 @@ It is also one of the most reproduced photographs in existence. No single person
   'Public domain (NASA)',
   array['space', 'earth'],
   'Space',
-  '2026-07-27T09:00:00Z'
+  '2026-07-24T09:00:00Z'
 ),
 (
   'b2222222-2222-4222-8222-222222222205',
@@ -146,7 +146,7 @@ It won the Wikimedia Commons community vote for Picture of the Year in 2020 — 
   'CC BY-SA 4.0 — Luca Casale',
   array['nature', 'wildlife'],
   'Nature',
-  '2026-07-29T09:00:00Z'
+  '2026-07-25T09:00:00Z'
 ),
 (
   'b2222222-2222-4222-8222-222222222206',
@@ -162,6 +162,6 @@ The quiet of this frame is what carried it — no ventilator, no crowd, just a p
   'CC BY-SA 4.0 — Alberto Giuliani',
   array['photojournalism', 'health'],
   'Photojournalism',
-  '2026-07-31T09:00:00Z'
+  '2026-07-26T09:00:00Z'
 )
 on conflict (id) do nothing;
