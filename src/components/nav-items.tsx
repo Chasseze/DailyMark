@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /**
- * The four primary destinations, shared by the mobile tab bar and the desktop
+ * The primary destinations, shared by the mobile tab bar and the desktop
  * rail so the two can never drift apart.
  */
 export interface NavItem {
@@ -45,11 +45,13 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    to: "/rhythm",
-    label: "Rhythm",
+    to: "/visuals",
+    label: "Visuals",
     icon: (
       <svg {...iconProps}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 14.5h3l2.5-7 3 11 2.5-8 1.75 4h4.25" />
+        <rect x="3.75" y="5" width="16.5" height="14" rx="2" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="m5 16.25 4.25-4.5 3.1 3.1 3.65-4.25 4 5.65" />
+        <circle cx="9" cy="9.5" r="1.35" />
       </svg>
     ),
   },
@@ -60,6 +62,15 @@ export const NAV_ITEMS: NavItem[] = [
       <svg {...iconProps}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5v2M12 18.5v2M4.5 12h-2M21.5 12h-2M6.2 6.2 4.8 4.8M19.2 19.2l-1.4-1.4M6.2 17.8 4.8 19.2M19.2 4.8l-1.4 1.4" />
         <circle cx="12" cy="12" r="4.25" />
+      </svg>
+    ),
+  },
+  {
+    to: "/rhythm",
+    label: "Rhythm",
+    icon: (
+      <svg {...iconProps}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 14.5h3l2.5-7 3 11 2.5-8 1.75 4h4.25" />
       </svg>
     ),
   },

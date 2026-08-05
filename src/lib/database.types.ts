@@ -98,6 +98,33 @@ export type ThoughtBookmarkRow = {
   created_at: string;
 };
 
+/** Curated picture stories gathered from around the web — read-only for signed-in users. */
+export type VisualRow = {
+  id: string;
+  title: string;
+  /** Compressed rendition — never the original full-resolution file. */
+  image_url: string;
+  alt_text: string;
+  content: string;
+  preview: string;
+  /** Photographer / original creator. */
+  author: string;
+  source_name: string;
+  source_url: string;
+  /** e.g. "Public domain (NASA)" or "CC BY-SA 4.0" — shown with the credit. */
+  license: string;
+  tags: string[];
+  collection: string;
+  published_at: string;
+  created_at: string;
+};
+
+export type VisualBookmarkRow = {
+  user_id: string;
+  visual_id: string;
+  created_at: string;
+};
+
 export type SearchNoteRow = {
   id: string;
   user_id: string;
@@ -232,6 +259,52 @@ export type Database = {
         Insert: {
           user_id: string;
           thought_id: string;
+          created_at?: string;
+        };
+        Update: {
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      visuals: {
+        Row: VisualRow;
+        Insert: {
+          id?: string;
+          title: string;
+          image_url: string;
+          alt_text?: string;
+          content?: string;
+          preview?: string;
+          author?: string;
+          source_name?: string;
+          source_url?: string;
+          license?: string;
+          tags?: string[];
+          collection?: string;
+          published_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          title?: string;
+          image_url?: string;
+          alt_text?: string;
+          content?: string;
+          preview?: string;
+          author?: string;
+          source_name?: string;
+          source_url?: string;
+          license?: string;
+          tags?: string[];
+          collection?: string;
+          published_at?: string;
+        };
+        Relationships: [];
+      };
+      visual_bookmarks: {
+        Row: VisualBookmarkRow;
+        Insert: {
+          user_id: string;
+          visual_id: string;
           created_at?: string;
         };
         Update: {
