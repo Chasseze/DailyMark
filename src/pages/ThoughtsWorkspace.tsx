@@ -42,8 +42,9 @@ export function ThoughtsEmptyPreview() {
         Choose a thought
       </h2>
       <p className="mt-2 max-w-sm text-sm text-muted">
-        Fresh drops from around the web stay on Live for 2–3 days. Save a piece to
-        keep it — it moves into Saved when you bookmark it.
+        A few fresh drops from around the web arrive every day and stay on Live
+        for 2 days. Save a piece to keep it — it moves into Saved when you
+        bookmark it.
       </p>
     </div>
   );

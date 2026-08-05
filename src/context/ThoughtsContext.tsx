@@ -12,47 +12,6 @@ import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
 import { ThoughtsContext } from "./thoughts-context";
 
-const BOOKMARK_CACHE = "dailymark.thought_bookmarks";
-const PIN_CACHE = "dailymark.pinned_thought";
-
-function readBookmarkCache(userId: string): string[] {
-  try {
-    const raw = localStorage.getItem(`${BOOKMARK_CACHE}.${userId}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed)
-      ? parsed.filter((id): id is string => typeof id === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeBookmarkCache(userId: string, ids: string[]) {
-  try {
-    localStorage.setItem(`${BOOKMARK_CACHE}.${userId}`, JSON.stringify(ids));
-  } catch {
-    // private mode / quota
-  }
-}
-
-function readPinCache(userId: string): string | null {
-  try {
-    return localStorage.getItem(`${PIN_CACHE}.${userId}`);
-  } catch {
-    return null;
-  }
-}
-
-function writePinCache(userId: string, id: string | null) {
-  try {
-    if (id) localStorage.setItem(`${PIN_CACHE}.${userId}`, id);
-    else localStorage.removeItem(`${PIN_CACHE}.${userId}`);
-  } catch {
-    // ignore
-  }
-}
-
 function normalizeThought(row: Thought): Thought {
   return { ...row, collection: row.collection ?? "" };
 }
@@ -126,10 +85,10 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const cached = readBookmarkCache(userId);
-    setBookmarkIds(new Set(cached));
-    setPinnedId(readPinCache(userId));
-
+    // Bookmarks and the pinned "Thought of the week" live only in Supabase —
+    // no browser cache — so they read the same on every device. A fresh load
+    // starts empty and lets the DB fill it in; a failed read clears rather
+    // than resurrecting stale local data.
     try {
       const db = requireSupabase();
       const [bookmarksRes, profileRes] = await Promise.all([
@@ -139,18 +98,12 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
           .order("created_at", { ascending: false }),
         db.from("profiles").select("pinned_thought_id").eq("id", userId).maybeSingle(),
       ]);
-      if (!bookmarksRes.error && bookmarksRes.data) {
-        const ids = bookmarksRes.data.map((row) => row.thought_id);
-        setBookmarkIds(new Set(ids));
-        writeBookmarkCache(userId, ids);
-      }
-      if (!profileRes.error) {
-        const pin = profileRes.data?.pinned_thought_id ?? null;
-        setPinnedId(pin);
-        writePinCache(userId, pin);
-      }
+      if (bookmarksRes.error) throw bookmarksRes.error;
+      setBookmarkIds(new Set((bookmarksRes.data ?? []).map((row) => row.thought_id)));
+      setPinnedId(profileRes.error ? null : profileRes.data?.pinned_thought_id ?? null);
     } catch {
-      // Keep local caches if tables aren't available yet.
+      setBookmarkIds(new Set());
+      setPinnedId(null);
     } finally {
       setLoading(false);
     }
@@ -195,31 +148,31 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       if (!userId) throw new Error("Sign in to save thoughts.");
 
+      // Write to Supabase FIRST, update local state only once it commits (see
+      // the same change in VisualsContext). The old code flipped state
+      // optimistically and swallowed DB errors, so a failed write looked saved
+      // locally but never persisted — the reason saves didn't sync across
+      // browsers. A failure now throws so the caller can surface it.
+      const db = requireSupabase();
       const was = bookmarkIds.has(id);
+      if (was) {
+        const { error: err } = await db
+          .from("thought_bookmarks")
+          .delete()
+          .eq("thought_id", id);
+        if (err) throw err;
+      } else {
+        const { error: err } = await db.from("thought_bookmarks").insert({
+          user_id: userId,
+          thought_id: id,
+        });
+        if (err) throw err;
+      }
+
       const next = new Set(bookmarkIds);
       if (was) next.delete(id);
       else next.add(id);
       setBookmarkIds(next);
-      writeBookmarkCache(userId, [...next]);
-
-      try {
-        const db = requireSupabase();
-        if (was) {
-          const { error: err } = await db
-            .from("thought_bookmarks")
-            .delete()
-            .eq("thought_id", id);
-          if (err) throw err;
-        } else {
-          const { error: err } = await db.from("thought_bookmarks").insert({
-            user_id: userId,
-            thought_id: id,
-          });
-          if (err) throw err;
-        }
-      } catch {
-        // Keep optimistic local bookmark.
-      }
     },
     [userId, bookmarkIds]
   );
@@ -227,18 +180,16 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
   const pinThought = useCallback(
     async (id: string | null) => {
       if (!userId) throw new Error("Sign in to pin a thought.");
+      // DB-authoritative, same as bookmarks: persist then reflect, so the pin
+      // is identical on every device and a failure surfaces instead of living
+      // only in this browser.
+      const db = requireSupabase();
+      const { error: err } = await db
+        .from("profiles")
+        .update({ pinned_thought_id: id })
+        .eq("id", userId);
+      if (err) throw err;
       setPinnedId(id);
-      writePinCache(userId, id);
-      try {
-        const db = requireSupabase();
-        const { error: err } = await db
-          .from("profiles")
-          .update({ pinned_thought_id: id })
-          .eq("id", userId);
-        if (err) throw err;
-      } catch {
-        // Local pin still works until profiles column is applied.
-      }
     },
     [userId]
   );

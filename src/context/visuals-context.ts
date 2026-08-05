@@ -13,7 +13,7 @@ export interface VisualsContextType {
   bookmarkIds: ReadonlySet<string>;
   loading: boolean;
   error: string | null;
-  /** e.g. "Live up to 3 days" */
+  /** e.g. "Live up to 2 days" */
   rotationHint: string;
   isBookmarked: (id: string) => boolean;
   toggleBookmark: (id: string) => Promise<void>;

@@ -190,7 +190,7 @@ export default function ThoughtsSidebar() {
             )}
             {shelf === "live" && !search && !activeCollection && (
               <p className="mt-2 text-xs text-muted">
-                Fresh pieces stay for 2–3 days, then drop off unless you save them.
+                A few fresh pieces drop every day and stay live for 2 days, then drop off unless you save them.
               </p>
             )}
           </div>

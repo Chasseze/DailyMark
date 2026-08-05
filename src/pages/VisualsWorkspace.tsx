@@ -39,9 +39,8 @@ export function VisualsEmptyPreview() {
         Choose a picture story
       </h2>
       <p className="mt-2 max-w-sm text-sm text-muted">
-        A new picture story drops daily and stays on Live for up to 5 days —
-        5 live at once. Save one to keep it past that; it moves into Saved
-        when you bookmark it.
+        A few new picture stories drop every day and stay on Live for 2 days.
+        Save one to keep it past that; it moves into Saved when you bookmark it.
       </p>
     </div>
   );

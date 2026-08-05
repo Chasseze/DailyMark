@@ -1,11 +1,13 @@
 import type { Thought } from "./types";
 
-/** New drops are meant to land about this often. */
-export const DROP_CADENCE_DAYS = 2;
+/** At least this many fresh pieces are meant to drop each day. */
+export const DROPS_PER_DAY = 3;
 /** A live piece leaves the feed after this many days unless saved. */
-export const LIVE_MAX_AGE_DAYS = 3;
+export const LIVE_MAX_AGE_DAYS = 2;
 
 const MS_PER_DAY = 86_400_000;
+/** Even spacing between consecutive drops (3/day → one every 8 hours). */
+const DROP_INTERVAL_MS = MS_PER_DAY / DROPS_PER_DAY;
 
 /** When this piece drops off the live feed (published_at + LIVE_MAX_AGE_DAYS). */
 export function liveExpiresAt(thought: Thought): Date {
@@ -52,7 +54,7 @@ export function pickRotatingThoughts(
 
 /** Friendly sidebar hint for how long the freshest live piece still has. */
 export function liveFeedLabel(live: readonly Thought[], date = new Date()): string {
-  if (live.length === 0) return "Next drop within a couple of days";
+  if (live.length === 0) return "New drops arrive daily";
 
   let soonestExpiry = Infinity;
   for (const thought of live) {
@@ -101,8 +103,9 @@ export function nextLiveBoundary(
 }
 
 /**
- * Restage a fixed catalog onto a 2-day drop cadence ending at `date` so local
- * demo / bundled fallback always has a real live window.
+ * Restage a fixed catalog onto the drop cadence ending at `date`, spacing
+ * pieces one `DROP_INTERVAL_MS` apart (3/day), so local demo / bundled
+ * fallback always has a real live window with several fresh pieces.
  */
 export function withDropCadenceDates(
   catalog: readonly Thought[],
@@ -116,7 +119,7 @@ export function withDropCadenceDates(
   const newest = date.getTime();
   return ordered.map((thought, index) => {
     const ageSteps = ordered.length - 1 - index;
-    const published = new Date(newest - ageSteps * DROP_CADENCE_DAYS * MS_PER_DAY);
+    const published = new Date(newest - ageSteps * DROP_INTERVAL_MS);
     return {
       ...thought,
       published_at: published.toISOString(),
