@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DROP_CADENCE_DAYS,
+  DROPS_PER_DAY,
   LIVE_MAX_AGE_DAYS,
   isWithinLiveWindow,
   liveExpiresAt,
@@ -27,19 +27,19 @@ function stub(id: string, publishedAt: string): Thought {
   };
 }
 
+const DAY = 86_400_000;
+
 describe("isWithinLiveWindow", () => {
   const now = new Date("2026-08-03T12:00:00Z");
 
   it("keeps pieces younger than LIVE_MAX_AGE_DAYS", () => {
-    expect(
-      isWithinLiveWindow(stub("fresh", "2026-08-01T12:00:00Z"), now)
-    ).toBe(true);
+    const fresh = new Date(now.getTime() - (LIVE_MAX_AGE_DAYS - 1) * DAY);
+    expect(isWithinLiveWindow(stub("fresh", fresh.toISOString()), now)).toBe(true);
   });
 
   it("drops pieces at or past LIVE_MAX_AGE_DAYS", () => {
-    expect(
-      isWithinLiveWindow(stub("stale", "2026-07-31T12:00:00Z"), now)
-    ).toBe(false);
+    const stale = new Date(now.getTime() - LIVE_MAX_AGE_DAYS * DAY);
+    expect(isWithinLiveWindow(stub("stale", stale.toISOString()), now)).toBe(false);
   });
 
   it("rejects future publish dates", () => {
@@ -52,9 +52,9 @@ describe("isWithinLiveWindow", () => {
 describe("pickLiveThoughts", () => {
   const now = new Date("2026-08-03T12:00:00Z");
   const catalog = [
-    stub("old", "2026-07-28T10:00:00Z"),
-    stub("mid", "2026-08-01T10:00:00Z"),
-    stub("new", "2026-08-03T10:00:00Z"),
+    stub("old", new Date(now.getTime() - (LIVE_MAX_AGE_DAYS + 2) * DAY).toISOString()),
+    stub("mid", new Date(now.getTime() - (LIVE_MAX_AGE_DAYS - 1) * DAY).toISOString()),
+    stub("new", new Date(now.getTime() - 2 * 3_600_000).toISOString()),
   ];
 
   it("returns only in-window pieces, newest first", () => {
@@ -98,7 +98,7 @@ describe("liveFeedLabel", () => {
 });
 
 describe("withDropCadenceDates", () => {
-  it("stages catalog onto a DROP_CADENCE_DAYS cadence ending at now", () => {
+  it("stages catalog onto the drops-per-day cadence ending at now", () => {
     const bank = [
       stub("a", "2020-01-01T00:00:00Z"),
       stub("b", "2020-01-02T00:00:00Z"),
@@ -111,9 +111,8 @@ describe("withDropCadenceDates", () => {
     const newest = new Date(staged[2].published_at);
     const middle = new Date(staged[1].published_at);
     expect(newest.getTime()).toBe(now.getTime());
-    expect(
-      (newest.getTime() - middle.getTime()) / 86_400_000
-    ).toBe(DROP_CADENCE_DAYS);
+    // Consecutive drops are one even interval apart: 3/day → every 8h.
+    expect(newest.getTime() - middle.getTime()).toBe(DAY / DROPS_PER_DAY);
   });
 
   it("keeps the newest drop inside the live window immediately", () => {
@@ -139,14 +138,18 @@ describe("nextLiveBoundary", () => {
     const live = [stub("a", "2026-08-03T00:00:00Z")];
     const now = new Date("2026-08-03T00:30:00Z");
     const boundary = nextLiveBoundary(live, now);
-    // expiry = published + 3d; the nearest step down is expiry - 3d + 1 day.
+    // expiry = published + LIVE_MAX_AGE_DAYS; the nearest step down is one
+    // whole day after now's day boundary.
     expect(boundary?.toISOString()).toBe("2026-08-04T00:00:00.000Z");
     expect(boundary!.getTime() - now.getTime()).toBeGreaterThan(60_000);
   });
 
   it("lands exactly on the drop-off when that is soonest", () => {
-    const live = [stub("a", "2026-07-31T12:00:00Z")];
-    const now = new Date("2026-08-03T06:00:00Z");
+    const publishedAt = new Date("2026-07-31T12:00:00Z");
+    const live = [stub("a", publishedAt.toISOString())];
+    // Sit inside the final day before expiry, so every earlier day-step
+    // boundary has already passed and only the drop-off itself remains.
+    const now = new Date(publishedAt.getTime() + (LIVE_MAX_AGE_DAYS - 0.25) * DAY);
     expect(nextLiveBoundary(live, now)?.toISOString()).toBe(
       liveExpiresAt(live[0]).toISOString()
     );

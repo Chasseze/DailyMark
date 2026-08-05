@@ -12,29 +12,6 @@ import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
 import { VisualsContext } from "./visuals-context";
 
-const BOOKMARK_CACHE = "dailymark.visual_bookmarks";
-
-function readBookmarkCache(userId: string): string[] {
-  try {
-    const raw = localStorage.getItem(`${BOOKMARK_CACHE}.${userId}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed)
-      ? parsed.filter((id): id is string => typeof id === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeBookmarkCache(userId: string, ids: string[]) {
-  try {
-    localStorage.setItem(`${BOOKMARK_CACHE}.${userId}`, JSON.stringify(ids));
-  } catch {
-    // private mode / quota
-  }
-}
-
 function prepareCatalog(rows: Visual[], date: Date): Visual[] {
   if (rows.length === 0) return rows;
   // If something is genuinely fresh, trust the stored dates as-is. Only
@@ -97,22 +74,20 @@ export function VisualsProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const cached = readBookmarkCache(userId);
-    setBookmarkIds(new Set(cached));
-
+    // Saved state lives only in Supabase — no browser cache — so every device
+    // and browser reads the same source of truth. On a fresh load we start
+    // from empty and let the DB fill it in; a failed read leaves Saved empty
+    // rather than resurrecting stale local data.
     try {
       const db = requireSupabase();
       const { data, error: err } = await db
         .from("visual_bookmarks")
         .select("visual_id, created_at")
         .order("created_at", { ascending: false });
-      if (!err && data) {
-        const ids = data.map((row) => row.visual_id);
-        setBookmarkIds(new Set(ids));
-        writeBookmarkCache(userId, ids);
-      }
+      if (err) throw err;
+      setBookmarkIds(new Set((data ?? []).map((row) => row.visual_id)));
     } catch {
-      // Keep local cache if the table isn't available yet.
+      setBookmarkIds(new Set());
     } finally {
       setLoading(false);
     }
@@ -152,31 +127,32 @@ export function VisualsProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       if (!userId) throw new Error("Sign in to save visuals.");
 
+      // Write to Supabase FIRST and only update local state once it commits.
+      // The old code optimistically flipped state and swallowed DB errors, so
+      // a failed write (e.g. the table not yet migrated) still looked "saved"
+      // locally but never persisted — which is exactly why saves didn't sync
+      // across browsers. Now a failure throws so the caller can surface it,
+      // and local state can never drift from the database.
+      const db = requireSupabase();
       const was = bookmarkIds.has(id);
+      if (was) {
+        const { error: err } = await db
+          .from("visual_bookmarks")
+          .delete()
+          .eq("visual_id", id);
+        if (err) throw err;
+      } else {
+        const { error: err } = await db.from("visual_bookmarks").insert({
+          user_id: userId,
+          visual_id: id,
+        });
+        if (err) throw err;
+      }
+
       const next = new Set(bookmarkIds);
       if (was) next.delete(id);
       else next.add(id);
       setBookmarkIds(next);
-      writeBookmarkCache(userId, [...next]);
-
-      try {
-        const db = requireSupabase();
-        if (was) {
-          const { error: err } = await db
-            .from("visual_bookmarks")
-            .delete()
-            .eq("visual_id", id);
-          if (err) throw err;
-        } else {
-          const { error: err } = await db.from("visual_bookmarks").insert({
-            user_id: userId,
-            visual_id: id,
-          });
-          if (err) throw err;
-        }
-      } catch {
-        // Keep optimistic local bookmark.
-      }
     },
     [userId, bookmarkIds]
   );

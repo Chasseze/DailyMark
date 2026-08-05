@@ -2,21 +2,19 @@ import type { Visual } from "./types";
 
 /**
  * Same live/saved rotation mechanics as thoughts-rotation.ts, applied to
- * picture stories instead of prose — but Visuals runs its own cadence: a
- * daily drop rather than every 2 days, so 5 stories are live at once
- * instead of Thoughts' ~2.
+ * picture stories instead of prose — and now on the same cadence: at least
+ * 3 fresh pieces drop each day and a piece stays live for 2 days, so around
+ * 6 picture stories are live at once.
  */
 
-/** New drops are meant to land about this often. */
-export const DROP_CADENCE_DAYS = 1;
-/**
- * A live piece leaves the feed after this many days unless saved. Paired
- * with a 1-day drop cadence, this keeps exactly 5 picture stories live at
- * once — one new drop a day, one dropping off five days later.
- */
-export const LIVE_MAX_AGE_DAYS = 5;
+/** At least this many fresh pieces are meant to drop each day. */
+export const DROPS_PER_DAY = 3;
+/** A live piece leaves the feed after this many days unless saved. */
+export const LIVE_MAX_AGE_DAYS = 2;
 
 const MS_PER_DAY = 86_400_000;
+/** Even spacing between consecutive drops (3/day → one every 8 hours). */
+const DROP_INTERVAL_MS = MS_PER_DAY / DROPS_PER_DAY;
 
 /** When this piece drops off the live feed (published_at + LIVE_MAX_AGE_DAYS). */
 export function liveExpiresAt(visual: Visual): Date {
@@ -55,7 +53,7 @@ export function pickLiveVisuals(
 
 /** Friendly sidebar hint for how long the freshest live piece still has. */
 export function liveFeedLabel(live: readonly Visual[], date = new Date()): string {
-  if (live.length === 0) return "Next drop within a couple of days";
+  if (live.length === 0) return "New drops arrive daily";
 
   let soonestExpiry = Infinity;
   for (const visual of live) {
@@ -99,8 +97,9 @@ export function nextLiveBoundary(
 }
 
 /**
- * Restage a fixed catalog onto the daily drop cadence ending at `date` so
- * local demo / bundled fallback always has a real live window.
+ * Restage a fixed catalog onto the drop cadence ending at `date`, spacing
+ * pieces one `DROP_INTERVAL_MS` apart (3/day), so local demo / bundled
+ * fallback always has a real live window with several fresh pieces.
  */
 export function withDropCadenceDates(
   catalog: readonly Visual[],
@@ -114,7 +113,7 @@ export function withDropCadenceDates(
   const newest = date.getTime();
   return ordered.map((visual, index) => {
     const ageSteps = ordered.length - 1 - index;
-    const published = new Date(newest - ageSteps * DROP_CADENCE_DAYS * MS_PER_DAY);
+    const published = new Date(newest - ageSteps * DROP_INTERVAL_MS);
     return {
       ...visual,
       published_at: published.toISOString(),
