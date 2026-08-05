@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import type { Thought } from "../lib/types";
 import { THOUGHTS_BANK } from "../lib/thoughts-bank";
 import {
+  isWithinLiveWindow,
   liveFeedLabel,
   nextLiveBoundary,
   pickLiveThoughts,
@@ -56,16 +57,20 @@ function normalizeThought(row: Thought): Thought {
   return { ...row, collection: row.collection ?? "" };
 }
 
-/** Starter seed ids from 0004_thoughts — safe to restage onto the drop cadence. */
-const STARTER_THOUGHT_IDS = new Set(THOUGHTS_BANK.map((t) => t.id));
-
 function prepareCatalog(rows: Thought[], date: Date): Thought[] {
   const normalized = rows.map(normalizeThought);
-  const allStarter =
-    normalized.length > 0 && normalized.every((t) => STARTER_THOUGHT_IDS.has(t.id));
-  if (!allStarter) return normalized;
-  // Until 0007 is applied (or when using the bundled bank), keep Live non-empty
-  // by placing starter drops on the 2-day cadence.
+  if (normalized.length === 0) return normalized;
+  // If something is genuinely fresh (a real curated drop within the live
+  // window), trust the stored dates as-is. Only when NOTHING in the catalog
+  // is currently live — the whole table has gone stale, whether that's the
+  // bundled fallback bank, an untouched starter seed, or hand-curated rows
+  // nobody has topped up in a while — restage the lot onto the drop cadence
+  // ending at `date`, so Live never silently starves down to nothing but
+  // Saved. This used to only kick in when every row was one of the six
+  // starter ids; that broke for good the moment a single non-starter row
+  // existed in the table, even if everything else was stale too.
+  const hasLiveContent = normalized.some((t) => isWithinLiveWindow(t, date));
+  if (hasLiveContent) return normalized;
   return withDropCadenceDates(normalized, date);
 }
 
