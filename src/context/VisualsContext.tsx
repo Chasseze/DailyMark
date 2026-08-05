@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import type { Visual } from "../lib/types";
 import { VISUALS_BANK } from "../lib/visuals-bank";
 import {
+  isWithinLiveWindow,
   liveFeedLabel,
   nextLiveBoundary,
   pickLiveVisuals,
@@ -34,14 +35,18 @@ function writeBookmarkCache(userId: string, ids: string[]) {
   }
 }
 
-/** Starter seed ids from 0008_visuals — safe to restage onto the drop cadence. */
-const STARTER_VISUAL_IDS = new Set(VISUALS_BANK.map((v) => v.id));
-
 function prepareCatalog(rows: Visual[], date: Date): Visual[] {
-  const allStarter = rows.length > 0 && rows.every((v) => STARTER_VISUAL_IDS.has(v.id));
-  if (!allStarter) return rows;
-  // Starter drops always land on the daily cadence so Live stays non-empty,
-  // whether serving the bundled bank or the freshly-seeded DB table.
+  if (rows.length === 0) return rows;
+  // If something is genuinely fresh, trust the stored dates as-is. Only
+  // when NOTHING in the catalog is currently live does the whole table
+  // get restaged onto the drop cadence ending at `date`, so Live never
+  // silently starves down to nothing but Saved just because no one has
+  // curated a new drop recently. See ThoughtsContext.tsx for the fuller
+  // reasoning — this used to only restage when every row was one of the
+  // six starter ids, which broke for good the moment a single non-starter
+  // row existed in the table.
+  const hasLiveContent = rows.some((v) => isWithinLiveWindow(v, date));
+  if (hasLiveContent) return rows;
   return withDropCadenceDates(rows, date);
 }
 
