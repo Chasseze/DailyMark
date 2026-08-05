@@ -9,6 +9,7 @@ export type Notebook = Tables["notebooks"]["Row"];
 export type Note = Tables["notes"]["Row"] & { bodyLoaded: boolean };
 export type Profile = Tables["profiles"]["Row"];
 export type Thought = Tables["thoughts"]["Row"];
+export type Visual = Tables["visuals"]["Row"];
 
 /** Fields the user actually supplies when creating a note. */
 export type NewNote = Pick<

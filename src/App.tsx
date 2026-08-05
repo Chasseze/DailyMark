@@ -18,6 +18,10 @@ const ThoughtsRoutes = lazy(() => import("./pages/ThoughtsRoutes"));
 const ThoughtsWorkspace = lazy(() => import("./pages/ThoughtsWorkspace"));
 const ThoughtsEmptyPreview = lazy(() => import("./pages/ThoughtsEmptyPreview"));
 const ThoughtView = lazy(() => import("./pages/ThoughtView"));
+const VisualsRoutes = lazy(() => import("./pages/VisualsRoutes"));
+const VisualsWorkspace = lazy(() => import("./pages/VisualsWorkspace"));
+const VisualsEmptyPreview = lazy(() => import("./pages/VisualsEmptyPreview"));
+const VisualView = lazy(() => import("./pages/VisualView"));
 const Daily = lazy(() => import("./pages/Daily"));
 const Rhythm = lazy(() => import("./pages/Rhythm"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -66,6 +70,14 @@ export default function App() {
                 <Route path=":id" element={<ThoughtView />} />
               </Route>
               <Route path="/daily" element={<Daily />} />
+            </Route>
+            {/* Same lazy-scoping as ThoughtsRoutes — the visuals catalog
+                only loads for readers who open the tab. */}
+            <Route element={<VisualsRoutes />}>
+              <Route path="/visuals" element={<VisualsWorkspace />}>
+                <Route index element={<VisualsEmptyPreview />} />
+                <Route path=":id" element={<VisualView />} />
+              </Route>
             </Route>
             <Route path="/rhythm" element={<Rhythm />} />
             <Route path="/settings" element={<Settings />} />

@@ -19,6 +19,8 @@ export default function Layout() {
   const isNotesRoute = location.pathname === "/notes" || location.pathname.startsWith("/notes/");
   const isThoughtsRoute =
     location.pathname === "/thoughts" || location.pathname.startsWith("/thoughts/");
+  const isVisualsRoute =
+    location.pathname === "/visuals" || location.pathname.startsWith("/visuals/");
   const isEditing = /\/notes\/[^/]+\/edit\/?$/.test(location.pathname);
   const hideChrome = focus || isEditing;
 
@@ -26,13 +28,15 @@ export default function Layout() {
     ? "Notes"
     : isThoughtsRoute
       ? "Thoughts"
-      : location.pathname.startsWith("/rhythm")
-        ? "Rhythm"
-        : location.pathname.startsWith("/daily")
-          ? "Daily"
-          : location.pathname.startsWith("/settings")
-            ? "Settings"
-            : "";
+      : isVisualsRoute
+        ? "Visuals"
+        : location.pathname.startsWith("/rhythm")
+          ? "Rhythm"
+          : location.pathname.startsWith("/daily")
+            ? "Daily"
+            : location.pathname.startsWith("/settings")
+              ? "Settings"
+              : "";
 
   return (
     <div
