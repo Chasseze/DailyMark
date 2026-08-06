@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Markdown from "../components/Markdown";
+import ReadAloudButton from "../components/ReadAloudButton";
 import { useNotes } from "../context/notes-context";
 import { useVisuals } from "../context/visuals-context";
 import { errorMessage } from "../lib/supabase";
 import type { Visual } from "../lib/types";
+
+/** Byline used for both the caption credit and what gets shared. */
+function creditLine(visual: Visual): string {
+  const byline = visual.author
+    ? `${visual.author}${visual.source_name ? ` · ${visual.source_name}` : ""}`
+    : visual.source_name || "";
+  return [byline, visual.license].filter(Boolean).join(" · ");
+}
 
 export default function VisualView() {
   const { id } = useParams<{ id: string }>();
@@ -40,12 +49,62 @@ export default function VisualView() {
 
 function VisualArticle({ visual }: { visual: Visual }) {
   const navigate = useNavigate();
-  const { isBookmarked, toggleBookmark, featured, rotationHint } = useVisuals();
+  const { isBookmarked, toggleBookmark, featured, saved: savedList, catalog, rotationHint } =
+    useVisuals();
   const { addNote, inboxId } = useNotes();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [shareState, setShareState] = useState<"idle" | "copied">("idle");
   const saved = isBookmarked(visual.id);
   const onLiveShelf = !saved && featured.some((v) => v.id === visual.id);
+
+  // Flip through whichever shelf this piece belongs to — the live feed if it's
+  // a fresh drop, the Saved shelf if it's bookmarked, else the full catalog —
+  // so ← / → moves through "the day's drops" the way the list would.
+  const browseList = useMemo(() => {
+    if (featured.some((v) => v.id === visual.id)) return featured;
+    if (savedList.some((v) => v.id === visual.id)) return savedList;
+    return catalog;
+  }, [featured, savedList, catalog, visual.id]);
+  const browseIndex = browseList.findIndex((v) => v.id === visual.id);
+  const prevVisual = browseIndex > 0 ? browseList[browseIndex - 1] : undefined;
+  const nextVisual =
+    browseIndex >= 0 && browseIndex < browseList.length - 1
+      ? browseList[browseIndex + 1]
+      : undefined;
+
+  const goTo = useCallback(
+    (target?: Visual) => {
+      if (target) navigate("/visuals/" + target.id);
+    },
+    [navigate]
+  );
+
+  // Arrow-key browsing. Ignore it while typing (the desktop list pane keeps a
+  // search box mounted alongside this view) or when a modifier is held.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key === "ArrowLeft" && prevVisual) {
+        event.preventDefault();
+        goTo(prevVisual);
+      } else if (event.key === "ArrowRight" && nextVisual) {
+        event.preventDefault();
+        goTo(nextVisual);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prevVisual, nextVisual, goTo]);
 
   const date = new Date(visual.published_at).toLocaleDateString(undefined, {
     weekday: "long",
@@ -53,9 +112,28 @@ function VisualArticle({ visual }: { visual: Visual }) {
     month: "long",
     day: "numeric",
   });
+  const spoken = [visual.title, visual.content].filter((part) => part.trim()).join("\n\n");
 
   const iconBtn =
-    "rounded-xl p-2 text-muted transition-colors hover:bg-surface-2 hover:text-ink";
+    "rounded-xl p-2 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted";
+
+  const handleShare = async () => {
+    const credit = creditLine(visual);
+    const url = visual.source_url || window.location.href;
+    const text = credit ? `${visual.title} — ${credit}` : visual.title;
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: visual.title, text, url });
+      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        setShareState("copied");
+        window.setTimeout(() => setShareState("idle"), 1800);
+      }
+    } catch (err) {
+      // The user dismissing the native share sheet isn't an error.
+      if ((err as Error)?.name !== "AbortError") setActionError(errorMessage(err));
+    }
+  };
 
   const handleBookmark = async () => {
     if (busy) return;
@@ -114,7 +192,39 @@ function VisualArticle({ visual }: { visual: Visual }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.5 9 12l6.5 6.5" />
           </svg>
         </button>
+        <button
+          type="button"
+          onClick={() => goTo(prevVisual)}
+          disabled={!prevVisual}
+          className={iconBtn}
+          aria-label="Previous picture story"
+          title={prevVisual ? `Previous · ${prevVisual.title}` : "No previous story"}
+        >
+          <ChevronIcon direction="left" />
+        </button>
+        <button
+          type="button"
+          onClick={() => goTo(nextVisual)}
+          disabled={!nextVisual}
+          className={iconBtn}
+          aria-label="Next picture story"
+          title={nextVisual ? `Next · ${nextVisual.title}` : "No next story"}
+        >
+          <ChevronIcon direction="right" />
+        </button>
         <div className="min-w-0 flex-1" />
+        <ReadAloudButton
+          request={{ id: "visual:" + visual.id, label: visual.title, text: spoken }}
+        />
+        <button
+          type="button"
+          onClick={() => void handleShare()}
+          className={iconBtn + (shareState === "copied" ? " text-accent-ink" : "")}
+          aria-label="Share picture story"
+          title={shareState === "copied" ? "Link copied" : "Share"}
+        >
+          {shareState === "copied" ? <CheckIcon /> : <ShareIcon />}
+        </button>
         <button
           type="button"
           onClick={() => void handleBookmark()}
@@ -227,13 +337,64 @@ function BookmarkIcon({ filled }: { filled: boolean }) {
   );
 }
 
+function ChevronIcon({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d={direction === "left" ? "M15 5.5 8.5 12l6.5 6.5" : "M9 5.5 15.5 12 9 18.5"}
+      />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="12" r="2.25" />
+      <circle cx="17.5" cy="6" r="2.25" />
+      <circle cx="17.5" cy="18" r="2.25" />
+      <path strokeLinecap="round" d="m8 10.9 7.5-3.6M8 13.1l7.5 3.6" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4 4 10-10" />
+    </svg>
+  );
+}
+
 /** Always shown — points readers back to the original creator / source, and
  * states the image was compressed for delivery rather than reprinted as-is. */
 function VisualAttribution({ visual }: { visual: Visual }) {
-  const sourceLabel = visual.source_name || "the original publication";
   const byline = visual.author
     ? `${visual.author}${visual.source_name ? ` · ${visual.source_name}` : ""}`
-    : sourceLabel;
+    : visual.source_name || "the original publication";
 
   return (
     <aside
