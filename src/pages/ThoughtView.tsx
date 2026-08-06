@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
@@ -41,14 +41,71 @@ export default function ThoughtView() {
 
 function ThoughtArticle({ thought }: { thought: Thought }) {
   const navigate = useNavigate();
-  const { isBookmarked, toggleBookmark, pinThought, pinned, featured, rotationHint } =
-    useThoughts();
+  const {
+    isBookmarked,
+    toggleBookmark,
+    pinThought,
+    pinned,
+    featured,
+    saved: savedList,
+    catalog,
+    rotationHint,
+  } = useThoughts();
   const { addNote, inboxId } = useNotes();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const saved = isBookmarked(thought.id);
   const isPinned = pinned?.id === thought.id;
   const onLiveShelf = !saved && featured.some((t) => t.id === thought.id);
+
+  // Flip through whichever shelf this piece belongs to — the live feed if it's
+  // a fresh drop, the Saved shelf if it's bookmarked, else the full catalog —
+  // so ← / → moves through the list the same way tapping would. Mirrors the
+  // Visuals tab; deliberately not extended to Notes.
+  const browseList = useMemo(() => {
+    if (featured.some((t) => t.id === thought.id)) return featured;
+    if (savedList.some((t) => t.id === thought.id)) return savedList;
+    return catalog;
+  }, [featured, savedList, catalog, thought.id]);
+  const browseIndex = browseList.findIndex((t) => t.id === thought.id);
+  const prevThought = browseIndex > 0 ? browseList[browseIndex - 1] : undefined;
+  const nextThought =
+    browseIndex >= 0 && browseIndex < browseList.length - 1
+      ? browseList[browseIndex + 1]
+      : undefined;
+
+  const goTo = useCallback(
+    (target?: Thought) => {
+      if (target) navigate("/thoughts/" + target.id);
+    },
+    [navigate]
+  );
+
+  // Arrow-key browsing. Ignore it while typing (the desktop list pane keeps a
+  // search box mounted alongside this view) or when a modifier is held.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key === "ArrowLeft" && prevThought) {
+        event.preventDefault();
+        goTo(prevThought);
+      } else if (event.key === "ArrowRight" && nextThought) {
+        event.preventDefault();
+        goTo(nextThought);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prevThought, nextThought, goTo]);
 
   const date = new Date(thought.published_at).toLocaleDateString(undefined, {
     weekday: "long",
@@ -59,7 +116,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
   const spoken = [thought.title, thought.content].filter((part) => part.trim()).join("\n\n");
 
   const iconBtn =
-    "rounded-xl p-2 text-muted transition-colors hover:bg-surface-2 hover:text-ink";
+    "rounded-xl p-2 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted";
 
   const handleBookmark = async () => {
     if (busy) return;
@@ -135,6 +192,26 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.5 9 12l6.5 6.5" />
           </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => goTo(prevThought)}
+          disabled={!prevThought}
+          className={iconBtn}
+          aria-label="Previous thought"
+          title={prevThought ? `Previous · ${prevThought.title}` : "No previous thought"}
+        >
+          <ChevronIcon direction="left" />
+        </button>
+        <button
+          type="button"
+          onClick={() => goTo(nextThought)}
+          disabled={!nextThought}
+          className={iconBtn}
+          aria-label="Next thought"
+          title={nextThought ? `Next · ${nextThought.title}` : "No next thought"}
+        >
+          <ChevronIcon direction="right" />
         </button>
         <div className="min-w-0 flex-1" />
         <ReadAloudButton
@@ -243,6 +320,25 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
         <ThoughtAttribution thought={thought} />
       </article>
     </div>
+  );
+}
+
+function ChevronIcon({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d={direction === "left" ? "M15 5.5 8.5 12l6.5 6.5" : "M9 5.5 15.5 12 9 18.5"}
+      />
+    </svg>
   );
 }
 
