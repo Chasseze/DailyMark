@@ -65,6 +65,32 @@ references in `index.html` / `index.css` / `Login.tsx`) instead. `/sw.js` and
 `index.html` are deliberately left revalidating, or a deploy could never reach
 anyone who has already visited.
 
+### Daily drops (Thoughts + Visuals live feeds)
+
+`published_at` is owned by the **database**, not the client. Migration
+`0010_daily_drops.sql` installs `public.promote_daily_drops(p_count, p_force)`
+and schedules it via pg_cron at 06:00 UTC. Each run publishes `p_count`
+(default 3) rows per tab, chosen least-recently-published first among rows
+that are not already live. A `daily_drop_runs` row makes it idempotent, so a
+retry or manual call on the same day promotes nothing (pass `p_force => true`
+to override).
+
+- The client **must never rewrite `published_at`.** It used to, which meant the
+  same row reported a different publish date on every visit and nothing was
+  ever genuinely new. The only remaining restage is the bundled fallback bank,
+  for offline / unconfigured builds.
+- The live window (`LIVE_MAX_AGE_DAYS = 2`) lives in
+  `src/lib/{thoughts,visuals}-rotation.ts` and is mirrored by `v_live_days`
+  inside the function — change both together.
+- **The pool is the content lever.** Insert more rows into `thoughts` /
+  `visuals` and the cycle before anything repeats lengthens automatically;
+  18 rows at 3/day is a 6-day cycle. No code change needed.
+- If pg_cron cannot be enabled on the project the migration still applies (it
+  degrades with a `NOTICE`); schedule `select public.promote_daily_drops(3);`
+  externally in that case.
+- The function is `security definer` and **revoked from `anon` /
+  `authenticated`** — app users must never be able to churn the shared feed.
+
 ### Non-obvious gotchas
 
 - **`supabase/seed.sql` is required for local dev.** Hosted Supabase auto-grants

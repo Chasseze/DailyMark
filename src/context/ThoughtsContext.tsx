@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import type { Thought } from "../lib/types";
 import { THOUGHTS_BANK } from "../lib/thoughts-bank";
 import {
-  isWithinLiveWindow,
   liveFeedLabel,
   nextLiveBoundary,
   pickLiveThoughts,
@@ -16,21 +15,23 @@ function normalizeThought(row: Thought): Thought {
   return { ...row, collection: row.collection ?? "" };
 }
 
-function prepareCatalog(rows: Thought[], date: Date): Thought[] {
-  const normalized = rows.map(normalizeThought);
-  if (normalized.length === 0) return normalized;
-  // If something is genuinely fresh (a real curated drop within the live
-  // window), trust the stored dates as-is. Only when NOTHING in the catalog
-  // is currently live — the whole table has gone stale, whether that's the
-  // bundled fallback bank, an untouched starter seed, or hand-curated rows
-  // nobody has topped up in a while — restage the lot onto the drop cadence
-  // ending at `date`, so Live never silently starves down to nothing but
-  // Saved. This used to only kick in when every row was one of the six
-  // starter ids; that broke for good the moment a single non-starter row
-  // existed in the table, even if everything else was stale too.
-  const hasLiveContent = normalized.some((t) => isWithinLiveWindow(t, date));
-  if (hasLiveContent) return normalized;
-  return withDropCadenceDates(normalized, date);
+/**
+ * The database owns `published_at` now — migration 0010 schedules
+ * `promote_daily_drops()` to publish a fixed number of pieces per day, so
+ * stored dates are real and stable. The client must NOT rewrite them: doing
+ * that was what made the same row report a different publish date on every
+ * visit, and made "new" never actually new.
+ *
+ * The bundled bank is the only thing still restaged, because it ships with
+ * fixed dates and has no scheduler behind it — it exists purely so an
+ * offline / unconfigured build still shows a believable shelf.
+ */
+function fromDatabase(rows: Thought[]): Thought[] {
+  return rows.map(normalizeThought);
+}
+
+function fromBundledBank(date: Date): Thought[] {
+  return withDropCadenceDates(THOUGHTS_BANK.map(normalizeThought), date);
 }
 
 export function ThoughtsProvider({ children }: { children: ReactNode }) {
@@ -60,7 +61,7 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
 
   const fetchAll = useCallback(async () => {
     const asOf = new Date();
-    let nextCatalog = prepareCatalog(THOUGHTS_BANK, asOf);
+    let nextCatalog = fromBundledBank(asOf);
 
     try {
       const db = requireSupabase();
@@ -69,7 +70,7 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
         .select("*")
         .order("published_at", { ascending: false });
       if (err) throw err;
-      if (data && data.length > 0) nextCatalog = prepareCatalog(data as Thought[], asOf);
+      if (data && data.length > 0) nextCatalog = fromDatabase(data as Thought[]);
       setError(null);
     } catch (err) {
       setError(THOUGHTS_BANK.length ? null : errorMessage(err));
