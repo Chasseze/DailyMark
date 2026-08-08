@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import type { Visual } from "../lib/types";
 import { VISUALS_BANK } from "../lib/visuals-bank";
 import {
-  isWithinLiveWindow,
   liveFeedLabel,
   nextLiveBoundary,
   pickLiveVisuals,
@@ -12,19 +11,16 @@ import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
 import { VisualsContext } from "./visuals-context";
 
-function prepareCatalog(rows: Visual[], date: Date): Visual[] {
-  if (rows.length === 0) return rows;
-  // If something is genuinely fresh, trust the stored dates as-is. Only
-  // when NOTHING in the catalog is currently live does the whole table
-  // get restaged onto the drop cadence ending at `date`, so Live never
-  // silently starves down to nothing but Saved just because no one has
-  // curated a new drop recently. See ThoughtsContext.tsx for the fuller
-  // reasoning — this used to only restage when every row was one of the
-  // six starter ids, which broke for good the moment a single non-starter
-  // row existed in the table.
-  const hasLiveContent = rows.some((v) => isWithinLiveWindow(v, date));
-  if (hasLiveContent) return rows;
-  return withDropCadenceDates(rows, date);
+/**
+ * Stored dates are authoritative — migration 0010's scheduled
+ * `promote_daily_drops()` publishes a fixed number of picture stories per
+ * day, so the client never rewrites `published_at`. See ThoughtsContext for
+ * the full reasoning. The bundled bank is the sole exception: it ships with
+ * fixed dates and no scheduler, purely so an offline / unconfigured build
+ * still shows a believable shelf.
+ */
+function fromBundledBank(date: Date): Visual[] {
+  return withDropCadenceDates(VISUALS_BANK, date);
 }
 
 export function VisualsProvider({ children }: { children: ReactNode }) {
@@ -50,7 +46,7 @@ export function VisualsProvider({ children }: { children: ReactNode }) {
 
   const fetchAll = useCallback(async () => {
     const asOf = new Date();
-    let nextCatalog = prepareCatalog(VISUALS_BANK, asOf);
+    let nextCatalog = fromBundledBank(asOf);
 
     try {
       const db = requireSupabase();
@@ -59,7 +55,7 @@ export function VisualsProvider({ children }: { children: ReactNode }) {
         .select("*")
         .order("published_at", { ascending: false });
       if (err) throw err;
-      if (data && data.length > 0) nextCatalog = prepareCatalog(data as Visual[], asOf);
+      if (data && data.length > 0) nextCatalog = data as Visual[];
       setError(null);
     } catch (err) {
       setError(VISUALS_BANK.length ? null : errorMessage(err));
