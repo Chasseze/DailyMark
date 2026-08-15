@@ -7,6 +7,42 @@ const MAX_INPUT_BYTES = 20 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 1.5 * 1024 * 1024;
 const MAX_EDGE = 1600;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+const CAMERA_TYPES = new Set(["image/heic", "image/heif", "image/avif"]);
+const NAME_HINT = /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp)$/i;
+
+/** True for picker/camera files we should try to decode (including HEIC dumps). */
+export function isLikelyImage(file: File): boolean {
+  if (ALLOWED.has(file.type) || CAMERA_TYPES.has(file.type)) return true;
+  if (!file.type || file.type === "application/octet-stream") return NAME_HINT.test(file.name);
+  return file.type.startsWith("image/");
+}
+
+/** Wrap a canvas/camera blob as a File the compressor already understands. */
+export function fileFromBlob(blob: Blob, basename = "scan"): File {
+  const type = blob.type && blob.type !== "application/octet-stream" ? blob.type : "image/jpeg";
+  const ext =
+    type === "image/webp" ? "webp" : type === "image/png" ? "png" : type === "image/gif" ? "gif" : "jpg";
+  const base = basename.replace(/\.[^.]+$/, "") || "scan";
+  return new File([blob], `${base}.${ext}`, { type, lastModified: Date.now() });
+}
+
+/** Grab the current camera frame as a JPEG File (still compressed on upload). */
+export async function snapshotVideoFrame(
+  video: HTMLVideoElement,
+  basename = "scan"
+): Promise<File> {
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+  if (!width || !height) throw new Error("Camera is not ready yet.");
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not capture that photo.");
+  ctx.drawImage(video, 0, 0, width, height);
+  const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
+  return fileFromBlob(blob, basename);
+}
 
 /**
  * Scale an image so the longer edge fits inside `maxEdge`, keeping aspect ratio.
@@ -60,7 +96,7 @@ async function canvasToBlob(
  * Output is WebP when the browser supports it, otherwise JPEG.
  */
 export async function compressNoteImage(file: File): Promise<File> {
-  if (!ALLOWED.has(file.type)) {
+  if (!isLikelyImage(file)) {
     throw new Error("Use a JPEG, PNG, GIF, or WebP image.");
   }
   if (file.size > MAX_INPUT_BYTES) {
@@ -138,7 +174,13 @@ export async function uploadNoteImage(
     upsert: false,
     contentType: compressed.type,
   });
-  if (error) throw error;
+  if (error) {
+    const message = error.message || "Could not upload that image.";
+    if (/bucket not found/i.test(message)) {
+      throw new Error("Image storage is not set up on this project yet.");
+    }
+    throw error;
+  }
 
   const { data } = db.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;

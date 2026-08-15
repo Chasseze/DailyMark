@@ -11,6 +11,7 @@ import {
   indentLines,
   insertCodeBlock,
   insertLink,
+  insertStandaloneImage,
   insertTable,
   insertWikiLink,
   pasteMarkdown,
@@ -249,6 +250,36 @@ describe("pasteMarkdown", () => {
 
   it("separates the paste from text that follows it", () => {
     expect(paste("tail", 0, "# Title")).toBe("# Title|\n\ntail");
+  });
+});
+
+describe("insertStandaloneImage", () => {
+  it("fills an empty line in place", () => {
+    const value = "hello\n\nworld";
+    const edit = insertStandaloneImage(value, 6, 6, "https://img", "scan");
+    expect(render(value, edit)).toBe("hello\n![scan](https://img)|\nworld");
+  });
+
+  it("starts a new line after existing prose", () => {
+    const value = "hello";
+    const edit = insertStandaloneImage(value, 5, 5, "https://img", "scan");
+    expect(render(value, edit)).toBe("hello\n![scan](https://img)|\n");
+  });
+
+  it("drops the image after a table instead of inside a cell", () => {
+    const value = "| Column | Column |\n| --- | --- |\n|  |  |";
+    const caret = value.length - 2;
+    const edit = insertStandaloneImage(value, caret, caret, "https://img", "scan");
+    expect(applyMdEdit(value, edit)).toBe(
+      "| Column | Column |\n| --- | --- |\n|  |  |\n![scan](https://img)\n"
+    );
+  });
+
+  it("ignores selected table markup when choosing alt text", () => {
+    const value = "| a | b |";
+    const edit = insertStandaloneImage(value, 0, value.length, "https://img", "photo");
+    expect(applyMdEdit(value, edit)).toContain("![photo](https://img)");
+    expect(applyMdEdit(value, edit)).not.toContain("![| a | b |](");
   });
 });
 

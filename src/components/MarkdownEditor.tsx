@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useRef, useState, type ClipboardEvent, typ
 import Markdown from "./Markdown";
 import MarkdownHighlight from "./MarkdownHighlight";
 import MarkdownToolbar, { type MdCommand } from "./MarkdownToolbar";
+import NoteScanCapture from "./NoteScanCapture";
 import { useAuth } from "../context/auth-context";
 import { hasRichFormatting, htmlToMarkdown } from "../lib/html-to-markdown";
 import { looksLikeMarkdown } from "../lib/markdown";
@@ -20,6 +21,7 @@ import {
   insertCodeBlock,
   insertImage,
   insertLink,
+  insertStandaloneImage,
   insertTable,
   insertWikiLink,
   pasteMarkdown,
@@ -81,6 +83,8 @@ function editFor(command: MdCommand, value: string, start: number, end: number):
     case "image":
       // Handled asynchronously in the editor (file picker / upload).
       return insertImage(value, start, end, "https://", "image");
+    case "scan":
+      return insertImage(value, start, end, "https://", "scan");
     case "table":
       return insertTable(value, start, end);
   }
@@ -105,8 +109,11 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
   const { user } = useAuth();
   const [view, setView] = useState<View>("live");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const pendingSelection = useRef<[number, number] | null>(null);
 
   // Selection has to be restored after React has committed the new value, or
@@ -132,6 +139,11 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
     el.setSelectionRange(edit.selectionStart, edit.selectionEnd);
   };
 
+  const openDeviceCamera = () => {
+    setScanOpen(false);
+    cameraRef.current?.click();
+  };
+
   const runCommand = (command: MdCommand) => {
     if (command === "image") {
       if (noteId && user) {
@@ -143,6 +155,19 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
       apply(insertImage(el.value, el.selectionStart, el.selectionEnd, "https://", "image"));
       return;
     }
+    if (command === "scan") {
+      if (!noteId || !user) {
+        setUploadError("Sign in to scan or take a photo for this note.");
+        return;
+      }
+      const coarse = window.matchMedia("(pointer: coarse)").matches;
+      if (coarse) {
+        openDeviceCamera();
+        return;
+      }
+      setScanOpen(true);
+      return;
+    }
     const el = areaRef.current;
     if (!el) return;
     apply(editFor(command, el.value, el.selectionStart, el.selectionEnd));
@@ -151,6 +176,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
   const handleImageFile = async (file: File | undefined) => {
     if (!file || !noteId || !user) return;
     setUploadError(null);
+    setUploading(true);
     try {
       const url = await uploadNoteImage(user.id, noteId, file);
       const el = areaRef.current;
@@ -159,9 +185,11 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
         return;
       }
       const alt = file.name.replace(/\.[^.]+$/, "") || "image";
-      apply(insertImage(el.value, el.selectionStart, el.selectionEnd, url, alt));
+      apply(insertStandaloneImage(el.value, el.selectionStart, el.selectionEnd, url, alt));
     } catch (err) {
       setUploadError(errorMessage(err));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -261,7 +289,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
         ))}
       </div>
 
-      {showSource && <MarkdownToolbar onCommand={runCommand} />}
+      {showSource && <MarkdownToolbar onCommand={runCommand} disabled={uploading} />}
       <input
         ref={fileRef}
         type="file"
@@ -273,6 +301,27 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
           void handleImageFile(file);
         }}
       />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          void handleImageFile(file);
+        }}
+      />
+      <NoteScanCapture
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onCapture={(file) => void handleImageFile(file)}
+        onUseDeviceCamera={openDeviceCamera}
+      />
+      {uploading && (
+        <p className="mb-2 text-xs text-accent-ink">Compressing and adding the photo…</p>
+      )}
       {uploadError && (
         <p className="mb-2 text-xs text-danger">{uploadError}</p>
       )}
@@ -316,7 +365,8 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
 
       <p className="mt-2 text-xs leading-relaxed text-muted">
         Markdown is always on: syntax is styled as you type, pasted rich text is converted, and
-        Enter carries lists forward. Link another note with{" "}
+        Enter carries lists forward. Scan or take a photo from the toolbar — images are compressed
+        before they land in the article. Link another note with{" "}
         <span className="font-mono text-muted">[[Exact title]]</span> (toolbar: Note link) —
         matching titles become clickable in preview and when you open the note.
       </p>
