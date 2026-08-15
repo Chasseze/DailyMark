@@ -174,7 +174,13 @@ export async function uploadNoteImage(
     upsert: false,
     contentType: compressed.type,
   });
-  if (error) throw error;
+  if (error) {
+    const message = error.message || "Could not upload that image.";
+    if (/bucket not found/i.test(message)) {
+      throw new Error("Image storage is not set up on this project yet.");
+    }
+    throw error;
+  }
 
   const { data } = db.storage.from(BUCKET).getPublicUrl(path);
   return data.publicUrl;

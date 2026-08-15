@@ -232,6 +232,74 @@ export function insertImage(value: string, start: number, end: number, url: stri
   };
 }
 
+function isTableLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (trimmed.startsWith("|")) return true;
+  return /^\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(line);
+}
+
+/**
+ * Place an uploaded/scanned image on its own line so it renders as a figure,
+ * never inside a table cell or mid-sentence.
+ */
+export function insertStandaloneImage(
+  value: string,
+  start: number,
+  end: number,
+  url: string,
+  alt = "image"
+): MdEdit {
+  const selected = value.slice(start, end).trim();
+  const label =
+    selected && selected.length < 80 && !/[[\]()\n|]/.test(selected) ? selected : alt;
+  const snippet = `![${label}](${url})`;
+
+  const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+  const currentBreak = value.indexOf("\n", start);
+  const currentEnd = currentBreak === -1 ? value.length : currentBreak;
+  const currentLine = value.slice(lineStart, currentEnd);
+
+  if (isTableLine(currentLine)) {
+    let pos = lineStart;
+    while (pos < value.length) {
+      const nl = value.indexOf("\n", pos);
+      const lineEnd = nl === -1 ? value.length : nl;
+      const line = value.slice(pos, lineEnd);
+      if (!isTableLine(line)) break;
+      if (nl === -1) {
+        pos = value.length;
+        break;
+      }
+      pos = nl + 1;
+    }
+    const lead = pos > 0 && value[pos - 1] !== "\n" ? "\n" : "";
+    const text = `${lead}${snippet}\n`;
+    const caret = pos + lead.length + snippet.length;
+    return { start: pos, end: pos, text, selectionStart: caret, selectionEnd: caret };
+  }
+
+  if (currentLine.trim() === "") {
+    return {
+      start: lineStart,
+      end: currentEnd,
+      text: snippet,
+      selectionStart: lineStart + snippet.length,
+      selectionEnd: lineStart + snippet.length,
+    };
+  }
+
+  const lead = currentEnd > 0 && value[currentEnd - 1] !== "\n" ? "\n" : "";
+  const text = `${lead}${snippet}\n`;
+  const caret = currentEnd + lead.length + snippet.length;
+  return {
+    start: currentEnd,
+    end: currentEnd,
+    text,
+    selectionStart: caret,
+    selectionEnd: caret,
+  };
+}
+
 /** Fenced code block around the selection, always on its own lines. */
 export function insertCodeBlock(value: string, start: number, end: number): MdEdit {
   const [from, to] = lineBounds(value, start, end);

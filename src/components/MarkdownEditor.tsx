@@ -21,6 +21,7 @@ import {
   insertCodeBlock,
   insertImage,
   insertLink,
+  insertStandaloneImage,
   insertTable,
   insertWikiLink,
   pasteMarkdown,
@@ -184,7 +185,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
         return;
       }
       const alt = file.name.replace(/\.[^.]+$/, "") || "image";
-      apply(insertImage(el.value, el.selectionStart, el.selectionEnd, url, alt));
+      apply(insertStandaloneImage(el.value, el.selectionStart, el.selectionEnd, url, alt));
     } catch (err) {
       setUploadError(errorMessage(err));
     } finally {

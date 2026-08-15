@@ -164,6 +164,12 @@ export default function NoteScanCapture({
         <div className="relative bg-surface-3">
           {previewUrl ? (
             <img src={previewUrl} alt="Captured preview" className="mx-auto max-h-[60vh] w-full object-contain" />
+          ) : error ? (
+            <div className="flex min-h-[10rem] items-center justify-center px-4 py-8">
+              <p className="text-center text-sm text-muted">
+                Use the device camera to take or choose a photo.
+              </p>
+            </div>
           ) : (
             <>
               <video
@@ -209,29 +215,41 @@ export default function NoteScanCapture({
             </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => void handleSnap()}
-                disabled={!ready || busy}
-                className="btn-primary rounded-xl px-4 py-2 text-sm"
-              >
-                {busy ? "Capturing…" : "Capture"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFacing((side) => (side === "environment" ? "user" : "environment"))}
-                disabled={busy}
-                className="rounded-xl bg-surface-2 px-4 py-2 text-sm text-ink-soft hover:text-ink disabled:opacity-50"
-              >
-                Flip camera
-              </button>
-              <button
-                type="button"
-                onClick={onUseDeviceCamera}
-                className="rounded-xl px-3 py-2 text-sm text-muted hover:text-ink"
-              >
-                Device camera
-              </button>
+              {error ? (
+                <button
+                  type="button"
+                  onClick={onUseDeviceCamera}
+                  className="btn-primary rounded-xl px-4 py-2 text-sm"
+                >
+                  Device camera
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void handleSnap()}
+                    disabled={!ready || busy}
+                    className="btn-primary rounded-xl px-4 py-2 text-sm"
+                  >
+                    {busy ? "Capturing…" : "Capture"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFacing((side) => (side === "environment" ? "user" : "environment"))}
+                    disabled={busy}
+                    className="rounded-xl bg-surface-2 px-4 py-2 text-sm text-ink-soft hover:text-ink disabled:opacity-50"
+                  >
+                    Flip camera
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onUseDeviceCamera}
+                    className="rounded-xl px-3 py-2 text-sm text-muted hover:text-ink"
+                  >
+                    Device camera
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
