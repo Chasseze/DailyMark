@@ -88,26 +88,124 @@ export function emptyReturnSession(key: string): ReturnSession {
   return { dateKey: key, queuedIds: [], doneIds: [] };
 }
 
+function normalizeSession(key: string, parsed: Partial<ReturnSession> | null | undefined): ReturnSession {
+  if (!parsed || parsed.dateKey !== key) return emptyReturnSession(key);
+  const queuedIds = Array.isArray(parsed.queuedIds)
+    ? parsed.queuedIds.filter((id): id is string => typeof id === "string")
+    : [];
+  const doneIds = Array.isArray(parsed.doneIds)
+    ? parsed.doneIds.filter((id): id is string => typeof id === "string")
+    : [];
+  return { dateKey: key, queuedIds, doneIds };
+}
+
+function sameIdList(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+/**
+ * Combine a local cache with the cloud row for the same day.
+ * Frozen queues win; if two browsers froze different piles, the one with
+ * more Keep/Later marks is kept. Done ids are unioned onto that pile.
+ */
+export function mergeReturnSessions(local: ReturnSession, remote: ReturnSession): ReturnSession {
+  if (remote.dateKey !== local.dateKey) return local;
+
+  let queuedIds: string[];
+  if (local.queuedIds.length && remote.queuedIds.length) {
+    if (sameIdList(local.queuedIds, remote.queuedIds)) {
+      queuedIds = remote.queuedIds;
+    } else {
+      queuedIds =
+        local.doneIds.length > remote.doneIds.length ? local.queuedIds : remote.queuedIds;
+    }
+  } else {
+    queuedIds = remote.queuedIds.length ? remote.queuedIds : local.queuedIds;
+  }
+
+  const allowed = new Set(queuedIds);
+  const doneIds: string[] = [];
+  for (const id of [...local.doneIds, ...remote.doneIds]) {
+    if (doneIds.includes(id)) continue;
+    if (allowed.size === 0 || allowed.has(id)) doneIds.push(id);
+  }
+  return { dateKey: local.dateKey, queuedIds, doneIds };
+}
+
 export function loadReturnSession(key: string): ReturnSession {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyReturnSession(key);
-    const parsed = JSON.parse(raw) as Partial<ReturnSession>;
-    if (parsed.dateKey !== key) return emptyReturnSession(key);
-    const queuedIds = Array.isArray(parsed.queuedIds)
-      ? parsed.queuedIds.filter((id): id is string => typeof id === "string")
-      : [];
-    const doneIds = Array.isArray(parsed.doneIds)
-      ? parsed.doneIds.filter((id): id is string => typeof id === "string")
-      : [];
-    return { dateKey: key, queuedIds, doneIds };
+    return normalizeSession(key, JSON.parse(raw) as Partial<ReturnSession>);
   } catch {
     return emptyReturnSession(key);
   }
 }
 
+function writeLocal(session: ReturnSession): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  } catch {
+    // private mode / quota — the in-memory session still works for this tab
+  }
+}
+
+async function persistRemote(session: ReturnSession): Promise<void> {
+  try {
+    const { requireSupabase } = await import("./supabase");
+    const db = requireSupabase();
+    const { data: auth } = await db.auth.getSession();
+    const uid = auth.session?.user.id;
+    if (!uid) return;
+    await db.from("return_sessions").upsert({
+      user_id: uid,
+      date_key: session.dateKey,
+      queued_ids: session.queuedIds,
+      done_ids: session.doneIds,
+    });
+  } catch {
+    // offline / missing table — local cache still has the session
+  }
+}
+
+/** Prefer remote Return progress when signed in; fall back to localStorage. */
+export async function loadReturnSessionSynced(key: string): Promise<ReturnSession> {
+  const local = loadReturnSession(key);
+  try {
+    const { requireSupabase } = await import("./supabase");
+    const db = requireSupabase();
+    const { data: auth } = await db.auth.getSession();
+    if (!auth.session) return local;
+
+    const { data, error } = await db
+      .from("return_sessions")
+      .select("date_key, queued_ids, done_ids")
+      .eq("date_key", key)
+      .maybeSingle();
+    if (error || !data) return local;
+
+    const remote = normalizeSession(key, {
+      dateKey: data.date_key,
+      queuedIds: data.queued_ids,
+      doneIds: data.done_ids,
+    });
+    const merged = mergeReturnSessions(local, remote);
+    writeLocal(merged);
+    if (
+      !sameIdList(merged.queuedIds, remote.queuedIds) ||
+      !sameIdList(merged.doneIds, remote.doneIds)
+    ) {
+      void persistRemote(merged);
+    }
+    return merged;
+  } catch {
+    return local;
+  }
+}
+
 export function saveReturnSession(session: ReturnSession): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  writeLocal(session);
+  void persistRemote(session);
 }
 
 /**

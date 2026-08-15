@@ -8,6 +8,7 @@ import {
   isDueNote,
   laterRevisitAt,
   markReturnDone,
+  mergeReturnSessions,
 } from "./return-queue";
 
 function note(partial: Partial<Note>): Note {
@@ -159,5 +160,29 @@ describe("markReturnDone", () => {
     expect(next.doneIds).toEqual(["a"]);
     expect(markReturnDone(next, "a").doneIds).toEqual(["a"]);
     expect(RETURN_MAX).toBe(3);
+  });
+});
+
+describe("mergeReturnSessions", () => {
+  const day = "2026-08-15";
+
+  it("takes the remote freeze when local has not pinned yet", () => {
+    const local = { dateKey: day, queuedIds: [], doneIds: [] };
+    const remote = { dateKey: day, queuedIds: ["a", "b", "c"], doneIds: ["a"] };
+    expect(mergeReturnSessions(local, remote)).toEqual(remote);
+  });
+
+  it("unions Keep/Later marks onto the same frozen pile", () => {
+    const local = { dateKey: day, queuedIds: ["a", "b", "c"], doneIds: ["a"] };
+    const remote = { dateKey: day, queuedIds: ["a", "b", "c"], doneIds: ["b"] };
+    expect(mergeReturnSessions(local, remote).doneIds).toEqual(["a", "b"]);
+  });
+
+  it("keeps the pile with more marks when two browsers froze different ids", () => {
+    const local = { dateKey: day, queuedIds: ["x", "y"], doneIds: ["x", "y"] };
+    const remote = { dateKey: day, queuedIds: ["a", "b", "c"], doneIds: ["a"] };
+    const merged = mergeReturnSessions(local, remote);
+    expect(merged.queuedIds).toEqual(["x", "y"]);
+    expect(merged.doneIds).toEqual(["x", "y"]);
   });
 });

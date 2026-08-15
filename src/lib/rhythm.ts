@@ -7,7 +7,7 @@
  * testable without a browser.
  *
  * All day keys are local `YYYY-MM-DD`, matching `dateKey()` in quiz.ts and the
- * `date_key` columns in `daily_moods` / `quiz_progress`.
+ * `date_key` columns in `daily_moods` / `quiz_progress` / `return_sessions`.
  */
 
 import { MOOD_VALENCE, isDailyMood, type DailyMood, type MoodValence } from "./mood-scale";

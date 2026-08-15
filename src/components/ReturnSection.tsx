@@ -9,6 +9,7 @@ import {
   isDueNote,
   laterRevisitAt,
   loadReturnSession,
+  loadReturnSessionSynced,
   markReturnDone,
   saveReturnSession,
 } from "../lib/return-queue";
@@ -19,27 +20,43 @@ import type { Note } from "../lib/types";
 /**
  * Evening half of Daily: up to three marks — due notes first, then one that
  * has sat. Keep clears the date; In a week pushes it out. The day's queue
- * is frozen so this cannot become a second inbox.
+ * is frozen so this cannot become a second inbox. The freeze and the marks
+ * sync through Supabase so another browser sees the same evening.
  */
 export default function ReturnSection() {
   const { notes, loading, patchNote, ensureNote } = useNotes();
   const today = useMemo(() => dayKey(new Date()), []);
   const [session, setSession] = useState(() => loadReturnSession(today));
+  const [hydrated, setHydrated] = useState(false);
   const [jot, setJot] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    void loadReturnSessionSynced(today).then((remote) => {
+      if (!active) return;
+      setSession(remote);
+      setHydrated(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [today]);
+
   const pinned = useMemo(
-    () => ensureReturnQueue(session, notes),
-    [session, notes]
+    () => (hydrated ? ensureReturnQueue(session, notes) : session),
+    [hydrated, session, notes]
   );
   if (pinned !== session) {
     setSession(pinned);
   }
 
   useEffect(() => {
+    if (!hydrated) return;
+    if (loading && pinned.queuedIds.length === 0 && pinned.doneIds.length === 0) return;
     saveReturnSession(pinned);
-  }, [pinned]);
+  }, [hydrated, loading, pinned]);
 
   const remaining = useMemo(() => {
     return pinned.queuedIds
@@ -109,7 +126,7 @@ export default function ReturnSection() {
         )}
       </div>
 
-      {loading ? (
+      {loading || !hydrated ? (
         <div className="mt-4 space-y-2">
           <div className="skeleton h-6 w-40" />
           <div className="skeleton h-20" />
