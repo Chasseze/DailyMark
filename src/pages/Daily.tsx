@@ -5,6 +5,7 @@ import { useAuth } from "../context/auth-context";
 import { useNotes } from "../context/notes-context";
 import { useThoughts } from "../context/thoughts-context";
 import ReadAloudButton from "../components/ReadAloudButton";
+import ReturnSection from "../components/ReturnSection";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { buildWeeklyReviewMarkdown } from "../lib/weekly-review";
 import { MOODS, isDailyMood, moodColor, moodInk, type DailyMood } from "../lib/mood-scale";
@@ -75,7 +76,7 @@ const TIER_FLOURISH: Record<ReturnType<typeof resultTier>, { label: string }> = 
 export default function Daily() {
   const { streak } = useStreak();
   const { user } = useAuth();
-  const { addNote, notes, inboxId, dueNotes } = useNotes();
+  const { addNote, notes, inboxId } = useNotes();
   const { pinned } = useThoughts();
   const navigate = useNavigate();
   const key = useMemo(() => dateKey(), []);
@@ -202,8 +203,6 @@ export default function Daily() {
   const meta = current ? CATEGORY_META[current.category] : null;
   const tier = resultTier(progress.score, total);
   const flourish = TIER_FLOURISH[tier];
-  const revisitPreview = dueNotes.slice(0, 3);
-
   // Remount the question card when the prompt changes so the enter animation
   // plays — leave the phase out of the key so feedback does not re-animate options.
   const questionKey = `${progress.attempt}-${progress.index}`;
@@ -341,31 +340,6 @@ export default function Daily() {
         </Link>
       )}
 
-      {revisitPreview.length > 0 && (
-        <section className="mb-4 rounded-2xl border border-line bg-surface px-4 py-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted">
-              Revisit
-            </span>
-            {dueNotes.length > 3 && (
-              <span className="text-xs text-muted">+{dueNotes.length - 3} more</span>
-            )}
-          </div>
-          <ul className="mt-2 space-y-1.5">
-            {revisitPreview.map((note) => (
-              <li key={note.id}>
-                <Link
-                  to={"/notes/" + note.id}
-                  className="block truncate text-sm text-ink-soft transition-colors hover:text-accent"
-                >
-                  {note.title.trim() || "Untitled"}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <section className="glass mb-4 rounded-3xl p-6">
         <div className="flex items-start justify-between gap-2">
           <span className="inline-block rounded-lg bg-accent-soft px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-ink">
@@ -407,7 +381,7 @@ export default function Daily() {
         </div>
       </section>
 
-      <section className="glass rounded-3xl p-6">
+      <section className="glass mb-4 rounded-3xl p-6">
         <div className="flex items-center justify-between gap-2">
           <span className="inline-block rounded-lg bg-accent-soft px-3 py-1 text-xs font-medium uppercase tracking-wider text-accent-ink">
             Daily quiz
@@ -575,6 +549,8 @@ export default function Daily() {
           </div>
         )}
       </section>
+
+      <ReturnSection />
     </div>
   );
 }
