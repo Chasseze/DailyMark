@@ -12,6 +12,7 @@ export type MdCommand =
   | "link"
   | "noteLink"
   | "image"
+  | "scan"
   | "table";
 
 interface Tool {
@@ -36,6 +37,7 @@ const TOOLS: Tool[] = [
   { command: "link", glyph: "🔗", name: "Link", shortcut: "K" },
   { command: "noteLink", glyph: "[[ ]]", name: "Note link", glyphClass: "font-mono tracking-tight" },
   { command: "image", glyph: "▣", name: "Image" },
+  { command: "scan", glyph: "⊙", name: "Scan or photo" },
   { command: "table", glyph: "▦", name: "Table" },
 ];
 
