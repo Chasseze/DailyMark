@@ -1,7 +1,14 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { NavLink, useParams } from "react-router-dom";
 import { useVisuals, type VisualsShelf } from "../context/visuals-context";
+import { visualImageUrl } from "../lib/visual-image";
 import type { Visual } from "../lib/types";
+
+const CARD_DATE: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+};
 
 export default function VisualsSidebar() {
   const { featured, saved, bookmarkIds, loading, error, rotationHint } = useVisuals();
@@ -155,7 +162,7 @@ export default function VisualsSidebar() {
         {loading ? (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface" />
+              <div key={i} className="skeleton h-44 rounded-2xl" />
             ))}
           </div>
         ) : !hasContent ? (
@@ -195,7 +202,7 @@ export default function VisualsSidebar() {
   );
 }
 
-function VisualCard({
+const VisualCard = memo(function VisualCard({
   visual,
   selectedId,
   bookmarked,
@@ -205,61 +212,60 @@ function VisualCard({
   bookmarked: boolean;
 }) {
   const active = selectedId === visual.id;
-  const date = new Date(visual.published_at).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const date = new Date(visual.published_at).toLocaleDateString(undefined, CARD_DATE);
+  const thumb = visualImageUrl(visual.image_url, 640);
 
   return (
     <NavLink
       to={"/visuals/" + visual.id}
-      className="notes-file-card"
+      className="notes-file-card notes-file-card--shot"
       data-active={active ? "true" : "false"}
     >
-      <div className="mb-2.5 flex gap-3">
+      <div className="visual-card-media">
         <img
-          src={visual.image_url}
+          src={thumb}
           alt=""
+          width={640}
+          height={400}
           loading="lazy"
-          className="h-16 w-20 shrink-0 rounded-lg object-cover"
+          decoding="async"
         />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="min-w-0 flex-1 text-sm font-semibold leading-snug tracking-tight text-ink">
-              {visual.title}
-            </h3>
-            {bookmarked && (
-              <span className="mt-0.5 shrink-0 text-accent-ink" aria-label="Saved" title="Saved">
-                <BookmarkGlyph filled />
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-muted">
-            {date}
-            {visual.author ? ` · ${visual.author}` : ""}
-          </p>
-          {visual.collection ? (
-            <p className="mt-0.5 text-xs text-muted">{visual.collection}</p>
-          ) : null}
-        </div>
       </div>
-
-      {visual.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {visual.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent-ink"
-            >
-              {tag}
+      <div className="visual-card-body">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="min-w-0 flex-1 text-sm font-semibold leading-snug tracking-tight text-ink">
+            {visual.title}
+          </h3>
+          {bookmarked && (
+            <span className="mt-0.5 shrink-0 text-accent-ink" aria-label="Saved" title="Saved">
+              <BookmarkGlyph filled />
             </span>
-          ))}
+          )}
         </div>
-      )}
+        <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-muted">
+          {date}
+          {visual.author ? ` · ${visual.author}` : ""}
+        </p>
+        {visual.collection ? (
+          <p className="mt-0.5 text-xs text-muted">{visual.collection}</p>
+        ) : null}
+
+        {visual.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {visual.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent-ink"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </NavLink>
   );
-}
+});
 
 function BookmarkGlyph({ filled }: { filled?: boolean }) {
   return (

@@ -29,8 +29,12 @@ const SharedView = lazy(() => import("./pages/SharedView"));
 
 function RouteFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-transparent">
-      <span className="text-sm text-muted">Loading…</span>
+    <div className="app-shell min-h-screen w-full px-4 pt-10" aria-busy="true">
+      <div className="app-container space-y-3">
+        <div className="skeleton h-8 w-44" />
+        <div className="skeleton h-28" />
+        <div className="skeleton h-28" />
+      </div>
     </div>
   );
 }

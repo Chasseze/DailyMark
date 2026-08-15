@@ -66,7 +66,6 @@ export default function Login() {
           className="login-hero__media"
           width={1600}
           height={1067}
-          decoding="async"
           fetchPriority="high"
         />
         <div className="login-hero__scrim" />
@@ -179,7 +178,6 @@ export default function Login() {
         className="login-hero__media"
         width={1600}
         height={1067}
-        decoding="async"
         fetchPriority="high"
       />
       <div className="login-hero__scrim" aria-hidden="true" />

@@ -30,6 +30,12 @@ createRoot(document.getElementById("root")!).render(
 
 startReminderLoop();
 
+function syncPageHidden() {
+  document.documentElement.classList.toggle("page-hidden", document.hidden);
+}
+syncPageHidden();
+document.addEventListener("visibilitychange", syncPageHidden);
+
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     void navigator.serviceWorker.register("/sw.js").catch(() => {

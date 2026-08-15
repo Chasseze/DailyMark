@@ -7,7 +7,7 @@ import { useThoughts } from "../context/thoughts-context";
 import ReadAloudButton from "../components/ReadAloudButton";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { buildWeeklyReviewMarkdown } from "../lib/weekly-review";
-import { MOODS, isDailyMood, type DailyMood } from "../lib/mood-scale";
+import { MOODS, isDailyMood, moodColor, moodInk, type DailyMood } from "../lib/mood-scale";
 import {
   CATEGORY_META,
   QUESTIONS_PER_DAY,
@@ -307,10 +307,15 @@ export default function Daily() {
                 type="button"
                 onClick={() => void selectMood(mood)}
                 disabled={moodBusy}
+                style={
+                  active
+                    ? { backgroundColor: moodColor(mood), color: moodInk(mood) }
+                    : undefined
+                }
                 className={
                   "rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50 " +
                   (active
-                    ? "bg-accent-soft font-medium text-accent-ink"
+                    ? "font-medium"
                     : "bg-surface text-muted hover:bg-surface-2 hover:text-ink-soft")
                 }
               >
@@ -479,7 +484,7 @@ export default function Daily() {
                   cls +=
                     "border-line bg-surface text-ink-soft hover:border-accent/50 hover:bg-surface-2";
                 } else if (opt === current.answer) {
-                  cls += "quiz-option-correct border-green-500/30 bg-green-500/10 text-emerald-400";
+                  cls += "quiz-option-correct";
                 } else if (opt === progress.selected) {
                   cls += "quiz-option-wrong border-danger/40 bg-danger-soft text-danger";
                 } else {
@@ -510,7 +515,7 @@ export default function Daily() {
                   className={
                     "rounded-xl p-3 text-sm " +
                     (isCorrect
-                      ? "bg-green-500/10 text-emerald-400"
+                      ? "quiz-feedback--ok"
                       : "bg-danger-soft text-danger")
                   }
                 >

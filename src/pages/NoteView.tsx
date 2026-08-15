@@ -38,8 +38,9 @@ export default function NoteView() {
 
   if (loading || awaitingBody) {
     return (
-      <div className="flex h-full min-h-[16rem] items-center justify-center">
-        <p className="text-sm text-muted">Loading…</p>
+      <div className="note-view px-4 pt-6" aria-busy="true">
+        <div className="skeleton mb-4 h-9 w-40" />
+        <div className="skeleton h-64 rounded-2xl" />
       </div>
     );
   }

@@ -1,8 +1,10 @@
-import { createContext, useContext } from "react";
+import { createContext, memo, useContext, useMemo } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { expandWikiLinks, isInternalNoteHref } from "../lib/wiki-links";
+
+const REMARK_PLUGINS = [remarkGfm];
 
 interface Props {
   children: string;
@@ -28,7 +30,7 @@ const TaskLineContext = createContext<number | null>(null);
  * tables, strikethrough, task lists, autolinks — is on everywhere the app shows
  * note content, so what you type is what you see without opting in.
  */
-export default function Markdown({
+function Markdown({
   children,
   compact = false,
   className = "",
@@ -37,73 +39,78 @@ export default function Markdown({
 }: Props) {
   const source = notes ? expandWikiLinks(children, notes) : children;
 
-  const components: Components = {
-    a({ href, title, children: label }) {
-      if (href === "#missing-note") {
+  const components: Components = useMemo(
+    () => ({
+      a({ href, title, children: label }) {
+        if (href === "#missing-note") {
+          return (
+            <span
+              className="rounded-sm bg-accent-soft px-1 text-accent-ink underline decoration-dotted decoration-accent/50"
+              title="No note with this exact title — rename a note or fix the link"
+            >
+              {label}
+            </span>
+          );
+        }
+        if (isInternalNoteHref(href)) {
+          return (
+            <Link
+              to={href}
+              title={title ?? "Open linked note"}
+              className="font-medium text-accent-ink underline decoration-accent/60 underline-offset-2 hover:text-accent"
+            >
+              {label}
+            </Link>
+          );
+        }
         return (
-          <span
-            className="rounded-sm bg-accent-soft px-1 text-accent-ink underline decoration-dotted decoration-accent/50"
-            title="No note with this exact title — rename a note or fix the link"
-          >
+          <a href={href} title={title} target="_blank" rel="noreferrer noopener">
             {label}
-          </span>
+          </a>
         );
-      }
-      if (isInternalNoteHref(href)) {
+      },
+      img({ src, alt, title }) {
+        if (!src) return null;
         return (
-          <Link
-            to={href}
-            title={title ?? "Open linked note"}
-            className="font-medium text-accent-ink underline decoration-accent/60 underline-offset-2 hover:text-accent"
-          >
-            {label}
-          </Link>
+          <img
+            src={src}
+            alt={alt ?? ""}
+            title={title}
+            loading="lazy"
+            decoding="async"
+          />
         );
-      }
-      return (
-        <a href={href} title={title} target="_blank" rel="noreferrer noopener">
-          {label}
-        </a>
-      );
-    },
-    img({ src, alt, title }) {
-      if (!src) return null;
-      return (
-        <img
-          src={src}
-          alt={alt ?? ""}
-          title={title}
-          loading="lazy"
-          decoding="async"
-        />
-      );
-    },
-    li({ node, className: liClass, children: items }) {
-      const line = node?.position?.start.line ?? null;
-      if (!liClass?.includes("task-list-item") || line === null) {
-        return <li className={liClass}>{items}</li>;
-      }
-      return (
-        <li className={liClass}>
-          <TaskLineContext.Provider value={line}>{items}</TaskLineContext.Provider>
-        </li>
-      );
-    },
-    input({ type, checked }) {
-      // The only input Markdown produces is a task-list checkbox.
-      if (type !== "checkbox") return null;
-      return <TaskCheckbox checked={Boolean(checked)} onToggle={onToggleTask} />;
-    },
-  };
+      },
+      li({ node, className: liClass, children: items }) {
+        const line = node?.position?.start.line ?? null;
+        if (!liClass?.includes("task-list-item") || line === null) {
+          return <li className={liClass}>{items}</li>;
+        }
+        return (
+          <li className={liClass}>
+            <TaskLineContext.Provider value={line}>{items}</TaskLineContext.Provider>
+          </li>
+        );
+      },
+      input({ type, checked }) {
+        // The only input Markdown produces is a task-list checkbox.
+        if (type !== "checkbox") return null;
+        return <TaskCheckbox checked={Boolean(checked)} onToggle={onToggleTask} />;
+      },
+    }),
+    [onToggleTask]
+  );
 
   return (
     <div className={`prose-custom${compact ? " prose-compact" : ""}${className ? ` ${className}` : ""}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
         {source}
       </ReactMarkdown>
     </div>
   );
 }
+
+export default memo(Markdown);
 
 function TaskCheckbox({
   checked,
