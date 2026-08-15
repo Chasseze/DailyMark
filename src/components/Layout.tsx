@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import BottomNav from "./BottomNav";
 import SideNav from "./SideNav";
@@ -6,6 +7,7 @@ import MoodPicker from "./MoodPicker";
 import { useSpeechControls } from "../context/speech-context";
 import { useFocus } from "../context/focus-context";
 import { NOTES_MOODS } from "../lib/moods";
+import { prefetchAppRoutes } from "../lib/prefetch-routes";
 import { useMood } from "../context/mood-context";
 
 export default function Layout() {
@@ -23,6 +25,8 @@ export default function Layout() {
     location.pathname === "/visuals" || location.pathname.startsWith("/visuals/");
   const isEditing = /\/notes\/[^/]+\/edit\/?$/.test(location.pathname);
   const hideChrome = focus || isEditing;
+
+  useEffect(() => prefetchAppRoutes(), []);
 
   const sectionLabel = isNotesRoute
     ? "Notes"
@@ -81,7 +85,7 @@ export default function Layout() {
           <button
             type="button"
             onClick={() => setFocus(false)}
-            className="rounded-xl bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-soft backdrop-blur"
+            className="rounded-xl bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-soft"
           >
             Exit focus
           </button>

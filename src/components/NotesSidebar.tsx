@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import { useStreak } from "../hooks/useStreak";
@@ -773,7 +773,7 @@ export default function NotesSidebar() {
         {loading ? (
           <div className="space-y-3">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface" />
+              <div key={i} className="skeleton h-28 rounded-2xl" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -800,111 +800,139 @@ export default function NotesSidebar() {
           </div>
         ) : (
           <nav className="notes-file-list" aria-label={showTrash ? "Trash" : showDue ? "Due" : "Notes"}>
-            {filtered.map((note) => {
-              const active = selectedId === note.id;
-              const preview = openingLines(note.preview);
-              const date = new Date(note.updated_at).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              });
-
-              return (
-                <div key={note.id} className="relative">
-                  <NavLink
-                    to={"/notes/" + note.id}
-                    className="notes-file-card"
-                    data-active={active ? "true" : "false"}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-ink">
-                        {note.title || "Untitled"}
-                      </h3>
-                      {note.is_pinned && !showTrash && (
-                        <span
-                          className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
-                          role="img"
-                          aria-label="Pinned"
-                        />
-                      )}
-                    </div>
-
-                    <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-muted">
-                      {date}
-                      {showDue && note.revisit_at && (
-                        <span className="ml-1.5 normal-case tracking-normal text-accent-ink">
-                          · due{" "}
-                          {new Date(note.revisit_at).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                      )}
-                    </p>
-
-                    {note.tags.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {note.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent-ink"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {preview ? (
-                      <p className="notes-file-card__preview mt-2 text-xs leading-relaxed text-muted">
-                        {preview}
-                      </p>
-                    ) : (
-                      <p className="mt-2 text-xs italic text-muted">No content yet</p>
-                    )}
-                  </NavLink>
-
-                  {showTrash && (
-                    <div className="mt-1 mb-2 flex gap-2 px-1">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await restoreNote(note.id);
-                          } catch (err) {
-                            setWriteError(errorMessage(err));
-                          }
-                        }}
-                        className="text-xs font-medium text-accent-ink hover:text-accent"
-                      >
-                        Restore
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!confirm("Delete forever?")) return;
-                          try {
-                            await purgeNote(note.id);
-                            if (selectedId === note.id) navigate("/notes");
-                          } catch (err) {
-                            setWriteError(errorMessage(err));
-                          }
-                        }}
-                        className="text-xs font-medium text-danger hover:text-danger"
-                      >
-                        Delete forever
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {filtered.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                active={selectedId === note.id}
+                showTrash={showTrash}
+                showDue={showDue}
+                onRestore={restoreNote}
+                onPurge={purgeNote}
+                onWriteError={setWriteError}
+              />
+            ))}
           </nav>
         )}
       </div>
     </aside>
   );
 }
+
+const CARD_DATE: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+};
+const DUE_DATE: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+
+const NoteCard = memo(function NoteCard({
+  note,
+  active,
+  showTrash,
+  showDue,
+  onRestore,
+  onPurge,
+  onWriteError,
+}: {
+  note: Note;
+  active: boolean;
+  showTrash: boolean;
+  showDue: boolean;
+  onRestore: (id: string) => Promise<void>;
+  onPurge: (id: string) => Promise<void>;
+  onWriteError: (message: string | null) => void;
+}) {
+  const navigate = useNavigate();
+  const preview = openingLines(note.preview);
+  const date = new Date(note.updated_at).toLocaleDateString(undefined, CARD_DATE);
+
+  return (
+    <div className="relative">
+      <NavLink
+        to={"/notes/" + note.id}
+        className="notes-file-card"
+        data-active={active ? "true" : "false"}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-ink">
+            {note.title || "Untitled"}
+          </h3>
+          {note.is_pinned && !showTrash && (
+            <span
+              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+              role="img"
+              aria-label="Pinned"
+            />
+          )}
+        </div>
+
+        <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-muted">
+          {date}
+          {showDue && note.revisit_at && (
+            <span className="ml-1.5 normal-case tracking-normal text-accent-ink">
+              · due {new Date(note.revisit_at).toLocaleDateString(undefined, DUE_DATE)}
+            </span>
+          )}
+        </p>
+
+        {note.tags.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {note.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent-ink"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {preview ? (
+          <p className="notes-file-card__preview mt-2 text-xs leading-relaxed text-muted">
+            {preview}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs italic text-muted">No content yet</p>
+        )}
+      </NavLink>
+
+      {showTrash && (
+        <div className="mt-1 mb-2 flex gap-2 px-1">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await onRestore(note.id);
+              } catch (err) {
+                onWriteError(errorMessage(err));
+              }
+            }}
+            className="text-xs font-medium text-accent-ink hover:text-accent"
+          >
+            Restore
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!confirm("Delete forever?")) return;
+              try {
+                await onPurge(note.id);
+                if (active) navigate("/notes");
+              } catch (err) {
+                onWriteError(errorMessage(err));
+              }
+            }}
+            className="text-xs font-medium text-danger hover:text-danger"
+          >
+            Delete forever
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
 
 function MicIcon() {
   return (

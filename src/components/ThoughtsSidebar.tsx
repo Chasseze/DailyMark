@@ -171,7 +171,7 @@ export default function ThoughtsSidebar() {
         {loading ? (
           <div className="space-y-3">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface" />
+              <div key={i} className="skeleton h-28 rounded-2xl" />
             ))}
           </div>
         ) : !hasContent ? (

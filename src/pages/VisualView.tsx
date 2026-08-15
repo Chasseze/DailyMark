@@ -23,8 +23,9 @@ export default function VisualView() {
 
   if (loading) {
     return (
-      <div className="flex h-full min-h-[16rem] items-center justify-center">
-        <p className="text-sm text-muted">Loading…</p>
+      <div className="note-view px-4 pt-6" aria-busy="true">
+        <div className="skeleton mb-4 h-9 w-40" />
+        <div className="skeleton h-72 rounded-2xl" />
       </div>
     );
   }
@@ -287,8 +288,11 @@ function VisualArticle({ visual }: { visual: Visual }) {
         <img
           src={visual.image_url}
           alt={visual.alt_text || visual.title}
-          loading="lazy"
-          className="mb-4 w-full rounded-xl object-cover"
+          width={1600}
+          height={1000}
+          decoding="async"
+          fetchPriority="high"
+          className="visual-article-media mb-4 w-full rounded-xl object-cover"
         />
 
         {visual.tags.length > 0 && (
