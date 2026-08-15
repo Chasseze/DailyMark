@@ -56,6 +56,15 @@ export type QuizProgressRow = {
   updated_at: string;
 };
 
+/** Frozen Daily Return pile for one local calendar day. */
+export type ReturnSessionRow = {
+  user_id: string;
+  date_key: string;
+  queued_ids: string[];
+  done_ids: string[];
+  updated_at: string;
+};
+
 /** Curated shared stories — read-only for signed-in users. */
 export type ThoughtRow = {
   id: string;
@@ -199,6 +208,22 @@ export type Database = {
           streak?: number;
           last_visit?: string | null;
           pinned_thought_id?: string | null;
+        };
+        Relationships: [];
+      };
+      return_sessions: {
+        Row: ReturnSessionRow;
+        Insert: {
+          user_id: string;
+          date_key: string;
+          queued_ids?: string[];
+          done_ids?: string[];
+          updated_at?: string;
+        };
+        Update: {
+          queued_ids?: string[];
+          done_ids?: string[];
+          updated_at?: string;
         };
         Relationships: [];
       };
