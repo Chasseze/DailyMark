@@ -1,27 +1,16 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { FocusContext } from "./focus-context";
-
-const KEY = "dailymark.focus";
-
-function readFocus(): boolean {
-  try {
-    return localStorage.getItem(KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+import { usePrefs } from "./PrefsContext";
 
 export function FocusProvider({ children }: { children: ReactNode }) {
-  const [focus, setFocusState] = useState(readFocus);
+  const { focus, patchPrefs } = usePrefs();
 
-  const setFocus = useCallback((on: boolean) => {
-    setFocusState(on);
-    try {
-      localStorage.setItem(KEY, on ? "1" : "0");
-    } catch {
-      // ignore
-    }
-  }, []);
+  const setFocus = useCallback(
+    (on: boolean) => {
+      void patchPrefs({ focus: on });
+    },
+    [patchPrefs]
+  );
 
   const toggleFocus = useCallback(() => {
     setFocus(!focus);

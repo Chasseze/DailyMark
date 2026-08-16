@@ -6,11 +6,11 @@ import {
   RETURN_MAX,
   appendReturnLine,
   ensureReturnQueue,
-  isDueNote,
   laterRevisitAt,
   loadReturnSession,
   loadReturnSessionSynced,
   markReturnDone,
+  reasonForQueued,
   saveReturnSession,
 } from "../lib/return-queue";
 import { dayKey } from "../lib/rhythm";
@@ -152,7 +152,7 @@ export default function ReturnSection() {
       ) : (
         <div className="mt-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted">
-            {isDueNote(current) ? "Due" : "Sat a while"}
+            {reasonForQueued(pinned, current.id, current) === "due" ? "Due" : "Sat a while"}
           </p>
           <h2 className="note-title mt-2 text-xl leading-snug text-ink">
             {current.title.trim() || "Untitled"}

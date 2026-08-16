@@ -18,9 +18,7 @@ import {
   type SpeechRequest,
   type SpeechStatus,
 } from "./speech-context";
-
-const STORAGE_KEY = "dailymark.speech";
-const DEFAULT_PREFS: SpeechPrefs = { voiceURI: null, rate: 1, pitch: 1 };
+import { usePrefs } from "./PrefsContext";
 
 /** How often the run is checked against the engine's own idea of what it's doing. */
 const MONITOR_INTERVAL_MS = 400;
@@ -35,26 +33,16 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function loadPrefs(): SpeechPrefs {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_PREFS;
-    const parsed = JSON.parse(raw) as Partial<SpeechPrefs>;
-    return {
-      voiceURI: typeof parsed.voiceURI === "string" ? parsed.voiceURI : null,
-      rate: clamp(Number(parsed.rate) || 1, RATE_MIN, RATE_MAX),
-      pitch: clamp(Number(parsed.pitch) || 1, PITCH_MIN, PITCH_MAX),
-    };
-  } catch {
-    return DEFAULT_PREFS;
-  }
-}
-
 export function SpeechProvider({ children }: { children: ReactNode }) {
   const supported = useMemo(() => isSpeechSupported(), []);
+  const { prefs: accountPrefs, patchPrefs } = usePrefs();
 
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [prefs, setPrefs] = useState<SpeechPrefs>(loadPrefs);
+  const [prefs, setPrefs] = useState<SpeechPrefs>(() => ({
+    voiceURI: accountPrefs.speech?.voiceURI ?? null,
+    rate: clamp(Number(accountPrefs.speech?.rate) || 1, RATE_MIN, RATE_MAX),
+    pitch: clamp(Number(accountPrefs.speech?.pitch) || 1, PITCH_MIN, PITCH_MAX),
+  }));
   const [status, setStatus] = useState<SpeechStatus>("idle");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [label, setLabel] = useState<string | null>(null);
@@ -62,6 +50,16 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   const [chunkIndex, setChunkIndex] = useState(0);
   const [wordRange, setWordRange] = useState<[number, number] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next: SpeechPrefs = {
+      voiceURI: accountPrefs.speech?.voiceURI ?? null,
+      rate: clamp(Number(accountPrefs.speech?.rate) || 1, RATE_MIN, RATE_MAX),
+      pitch: clamp(Number(accountPrefs.speech?.pitch) || 1, PITCH_MIN, PITCH_MAX),
+    };
+    setPrefs(next);
+    prefsRef.current = next;
+  }, [accountPrefs.speech?.voiceURI, accountPrefs.speech?.rate, accountPrefs.speech?.pitch]);
 
   // A run id invalidates callbacks from utterances we've already walked away
   // from — cancel() fires their handlers a tick later.
@@ -328,16 +326,18 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
     (next: SpeechPrefs) => {
       setPrefs(next);
       prefsRef.current = next;
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // private mode / quota — the setting still applies for this session
-      }
+      void patchPrefs({
+        speech: {
+          voiceURI: next.voiceURI,
+          rate: next.rate,
+          pitch: next.pitch,
+        },
+      });
       // Voice and rate only reach the engine when an utterance is created, so
       // re-speak the current sentence to make the change audible right away.
       if (statusRef.current === "speaking") startRun(indexRef.current);
     },
-    [startRun]
+    [startRun, patchPrefs]
   );
 
   const setVoiceURI = useCallback(

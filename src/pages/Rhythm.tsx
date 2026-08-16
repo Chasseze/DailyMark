@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import { useStreak } from "../hooks/useStreak";
@@ -14,8 +14,10 @@ import {
 import { QUESTIONS_PER_DAY } from "../lib/quiz";
 import type { Note } from "../lib/types";
 import {
+  addDays,
   buildCalendar,
   buildMonth,
+  dayKey,
   historySpan,
   longestStreak,
   quizWindow,
@@ -30,6 +32,7 @@ import {
   type RhythmDay,
   type WeekdayCount,
 } from "../lib/rhythm";
+import { listReturnSessions, type ReturnHistoryRow } from "../lib/return-queue";
 import { errorMessage } from "../lib/supabase";
 import { buildWeeklyReviewMarkdown } from "../lib/weekly-review";
 
@@ -47,7 +50,20 @@ export default function Rhythm() {
   const [showTable, setShowTable] = useState(false);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [returns, setReturns] = useState<ReturnHistoryRow[]>([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let active = true;
+    const until = dayKey(new Date());
+    const since = dayKey(addDays(new Date(), -83));
+    void listReturnSessions(since, until).then((rows) => {
+      if (active) setReturns(rows);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Only ever claim the history that exists. A three-week-old account should
   // not be shown an 84-day record that is mostly empty squares.
@@ -78,7 +94,14 @@ export default function Rhythm() {
     setReviewBusy(true);
     setReviewError(null);
     try {
-      const { title, content } = buildWeeklyReviewMarkdown({ notes, streak });
+      const { title, content } = buildWeeklyReviewMarkdown({
+        notes,
+        streak,
+        moods,
+        quizzes,
+        returns,
+        savedThoughts,
+      });
       const note = await addNote({
         title,
         content,
@@ -160,10 +183,32 @@ export default function Rhythm() {
 
           {(tags.length > 0 || books.length > 0) && <RankedPanel tags={tags} books={books} />}
 
+          {returns.length > 0 && (
+            <section className="rhythm-panel">
+              <PanelTitle>Return evenings</PanelTitle>
+              <p className="mt-1 text-xs text-muted">
+                Keep and In a week marks from Daily — the frozen three, remembered.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {returns.slice(0, 14).map((row) => (
+                  <li
+                    key={row.dateKey}
+                    className="flex items-baseline justify-between gap-3 text-sm text-ink-soft"
+                  >
+                    <span>{row.dateKey}</span>
+                    <span className="text-xs text-muted">
+                      {row.doneIds.length} / {row.queuedIds.length || row.doneIds.length} marks
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="rhythm-panel">
             <PanelTitle>Weekly review</PanelTitle>
             <p className="mt-1 text-xs text-muted">
-              Turn this week's notes and your streak into a review note you can edit.
+              Fold this week’s notes, moods, quiz days, and Return marks into one editable note.
             </p>
             {reviewError && <p className="mt-2 text-xs text-danger">{reviewError}</p>}
             <button

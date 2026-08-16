@@ -10,6 +10,8 @@ export interface NotesContextType {
   loading: boolean;
   /** Set when a read or write failed, so the UI can surface it. */
   error: string | null;
+  /** True when serving or writing from the IndexedDB cache / outbox. */
+  offline: boolean;
   addNote: (note: NewNote) => Promise<Note>;
   updateNote: (id: string, data: NoteUpdate) => Promise<void>;
   /**

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
+import LibraryCollectionBar from "../components/LibraryCollectionBar";
 import { useNotes } from "../context/notes-context";
 import { useVisuals } from "../context/visuals-context";
 import { errorMessage } from "../lib/supabase";
+import { liveExpiresAt } from "../lib/visuals-rotation";
 import type { Visual } from "../lib/types";
 
 /** Byline used for both the caption credit and what gets shared. */
@@ -276,6 +278,15 @@ function VisualArticle({ visual }: { visual: Visual }) {
             </span>
           ) : null}
         </div>
+        {onLiveShelf && (
+          <p className="mb-3 text-xs text-muted">
+            Chosen for today’s drop · rotates off{" "}
+            {liveExpiresAt(visual).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
+        )}
 
         <h1 className="note-title mb-1 break-words text-2xl text-ink">
           {visual.title}
@@ -317,6 +328,7 @@ function VisualArticle({ visual }: { visual: Visual }) {
         </div>
 
         <VisualAttribution visual={visual} />
+        <LibraryCollectionBar kind="visual" itemId={visual.id} />
       </article>
     </div>
   );

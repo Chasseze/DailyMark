@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { Thought } from "../lib/types";
 
-export type ThoughtsShelf = "live" | "saved";
+export type ThoughtsShelf = "live" | "saved" | "library";
 
 export interface ThoughtsContextType {
   /** Full curated catalog (Live + older drops still reachable via Saved). */

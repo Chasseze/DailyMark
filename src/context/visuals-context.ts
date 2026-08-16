@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { Visual } from "../lib/types";
 
-export type VisualsShelf = "live" | "saved";
+export type VisualsShelf = "live" | "saved" | "library";
 
 export interface VisualsContextType {
   /** Full curated catalog (Live + older drops still reachable via Saved). */

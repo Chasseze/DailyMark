@@ -7,8 +7,6 @@ export const RETURN_MAX = 3;
 export const RETURN_DUE_SLOTS = 2;
 export const RETURN_LATER_DAYS = 7;
 
-const STORAGE_KEY = "dailymark.return";
-
 export type ReturnReason = "due" | "older";
 
 export interface ReturnItem {
@@ -20,6 +18,15 @@ export interface ReturnSession {
   dateKey: string;
   /** Frozen the first time the day has notes, so Keep/Later cannot refill the pile. */
   queuedIds: string[];
+  /** Parallel to queuedIds when frozen — why each seat was chosen. */
+  reasons: ReturnReason[];
+  doneIds: string[];
+}
+
+export interface ReturnHistoryRow {
+  dateKey: string;
+  queuedIds: string[];
+  reasons: ReturnReason[];
   doneIds: string[];
 }
 
@@ -85,10 +92,25 @@ export function appendReturnLine(
 }
 
 export function emptyReturnSession(key: string): ReturnSession {
-  return { dateKey: key, queuedIds: [], doneIds: [] };
+  return { dateKey: key, queuedIds: [], reasons: [], doneIds: [] };
 }
 
-function normalizeSession(key: string, parsed: Partial<ReturnSession> | null | undefined): ReturnSession {
+function asReason(value: unknown): ReturnReason | null {
+  return value === "due" || value === "older" ? value : null;
+}
+
+function normalizeSession(
+  key: string,
+  parsed:
+    | {
+        dateKey?: string;
+        queuedIds?: unknown;
+        doneIds?: unknown;
+        reasons?: unknown;
+      }
+    | null
+    | undefined
+): ReturnSession {
   if (!parsed || parsed.dateKey !== key) return emptyReturnSession(key);
   const queuedIds = Array.isArray(parsed.queuedIds)
     ? parsed.queuedIds.filter((id): id is string => typeof id === "string")
@@ -96,7 +118,15 @@ function normalizeSession(key: string, parsed: Partial<ReturnSession> | null | u
   const doneIds = Array.isArray(parsed.doneIds)
     ? parsed.doneIds.filter((id): id is string => typeof id === "string")
     : [];
-  return { dateKey: key, queuedIds, doneIds };
+  const reasons = Array.isArray(parsed.reasons)
+    ? parsed.reasons.map(asReason).filter((r): r is ReturnReason => Boolean(r))
+    : [];
+  return {
+    dateKey: key,
+    queuedIds,
+    reasons: reasons.length === queuedIds.length ? reasons : [],
+    doneIds,
+  };
 }
 
 function sameIdList(a: readonly string[], b: readonly string[]): boolean {
@@ -104,7 +134,7 @@ function sameIdList(a: readonly string[], b: readonly string[]): boolean {
 }
 
 /**
- * Combine a local cache with the cloud row for the same day.
+ * Combine in-memory progress with the cloud row for the same day.
  * Frozen queues win; if two browsers froze different piles, the one with
  * more Keep/Later marks is kept. Done ids are unioned onto that pile.
  */
@@ -112,15 +142,24 @@ export function mergeReturnSessions(local: ReturnSession, remote: ReturnSession)
   if (remote.dateKey !== local.dateKey) return local;
 
   let queuedIds: string[];
+  let reasons: ReturnReason[];
   if (local.queuedIds.length && remote.queuedIds.length) {
     if (sameIdList(local.queuedIds, remote.queuedIds)) {
       queuedIds = remote.queuedIds;
+      reasons = remote.reasons.length ? remote.reasons : local.reasons;
+    } else if (local.doneIds.length > remote.doneIds.length) {
+      queuedIds = local.queuedIds;
+      reasons = local.reasons;
     } else {
-      queuedIds =
-        local.doneIds.length > remote.doneIds.length ? local.queuedIds : remote.queuedIds;
+      queuedIds = remote.queuedIds;
+      reasons = remote.reasons;
     }
+  } else if (remote.queuedIds.length) {
+    queuedIds = remote.queuedIds;
+    reasons = remote.reasons;
   } else {
-    queuedIds = remote.queuedIds.length ? remote.queuedIds : local.queuedIds;
+    queuedIds = local.queuedIds;
+    reasons = local.reasons;
   }
 
   const allowed = new Set(queuedIds);
@@ -129,25 +168,11 @@ export function mergeReturnSessions(local: ReturnSession, remote: ReturnSession)
     if (doneIds.includes(id)) continue;
     if (allowed.size === 0 || allowed.has(id)) doneIds.push(id);
   }
-  return { dateKey: local.dateKey, queuedIds, doneIds };
+  return { dateKey: local.dateKey, queuedIds, reasons, doneIds };
 }
 
 export function loadReturnSession(key: string): ReturnSession {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyReturnSession(key);
-    return normalizeSession(key, JSON.parse(raw) as Partial<ReturnSession>);
-  } catch {
-    return emptyReturnSession(key);
-  }
-}
-
-function writeLocal(session: ReturnSession): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  } catch {
-    // private mode / quota — the in-memory session still works for this tab
-  }
+  return emptyReturnSession(key);
 }
 
 async function persistRemote(session: ReturnSession): Promise<void> {
@@ -162,49 +187,40 @@ async function persistRemote(session: ReturnSession): Promise<void> {
       date_key: session.dateKey,
       queued_ids: session.queuedIds,
       done_ids: session.doneIds,
+      reasons: session.reasons,
     });
   } catch {
-    // offline / missing table — local cache still has the session
+    // offline / missing column — in-memory session still works
   }
 }
 
-/** Prefer remote Return progress when signed in; fall back to localStorage. */
+/** Load today's Return session from the account. */
 export async function loadReturnSessionSynced(key: string): Promise<ReturnSession> {
-  const local = loadReturnSession(key);
   try {
     const { requireSupabase } = await import("./supabase");
     const db = requireSupabase();
     const { data: auth } = await db.auth.getSession();
-    if (!auth.session) return local;
+    if (!auth.session) return emptyReturnSession(key);
 
     const { data, error } = await db
       .from("return_sessions")
-      .select("date_key, queued_ids, done_ids")
+      .select("date_key, queued_ids, done_ids, reasons")
       .eq("date_key", key)
       .maybeSingle();
-    if (error || !data) return local;
+    if (error || !data) return emptyReturnSession(key);
 
-    const remote = normalizeSession(key, {
+    return normalizeSession(key, {
       dateKey: data.date_key,
       queuedIds: data.queued_ids,
       doneIds: data.done_ids,
+      reasons: data.reasons,
     });
-    const merged = mergeReturnSessions(local, remote);
-    writeLocal(merged);
-    if (
-      !sameIdList(merged.queuedIds, remote.queuedIds) ||
-      !sameIdList(merged.doneIds, remote.doneIds)
-    ) {
-      void persistRemote(merged);
-    }
-    return merged;
   } catch {
-    return local;
+    return emptyReturnSession(key);
   }
 }
 
 export function saveReturnSession(session: ReturnSession): void {
-  writeLocal(session);
   void persistRemote(session);
 }
 
@@ -224,14 +240,62 @@ export function ensureReturnQueue(
   if (session.queuedIds.length > 0 || session.doneIds.length >= RETURN_MAX) {
     return session;
   }
-  const queuedIds = buildReturnQueue(notes, session.doneIds, now).map(
-    (item) => item.note.id
-  );
+  const built = buildReturnQueue(notes, session.doneIds, now);
+  const queuedIds = built.map((item) => item.note.id);
   if (queuedIds.length === 0) return session;
-  return { ...session, queuedIds };
+  return {
+    ...session,
+    queuedIds,
+    reasons: built.map((item) => item.reason),
+  };
 }
 
 export function markReturnDone(session: ReturnSession, id: string): ReturnSession {
   if (session.doneIds.includes(id)) return session;
   return { ...session, doneIds: [...session.doneIds, id] };
+}
+
+export function reasonForQueued(
+  session: ReturnSession,
+  noteId: string,
+  note: Note,
+  now = new Date()
+): ReturnReason {
+  const idx = session.queuedIds.indexOf(noteId);
+  if (idx >= 0 && session.reasons[idx]) return session.reasons[idx];
+  return isDueNote(note, now) ? "due" : "older";
+}
+
+/** Past Return evenings for Rhythm / weekly review. */
+export async function listReturnSessions(
+  sinceKey: string,
+  untilKey: string
+): Promise<ReturnHistoryRow[]> {
+  try {
+    const { requireSupabase } = await import("./supabase");
+    const db = requireSupabase();
+    const { data: auth } = await db.auth.getSession();
+    if (!auth.session) return [];
+    const { data, error } = await db
+      .from("return_sessions")
+      .select("date_key, queued_ids, done_ids, reasons")
+      .gte("date_key", sinceKey)
+      .lte("date_key", untilKey)
+      .order("date_key", { ascending: false });
+    if (error || !data) return [];
+    return data.map((row) => {
+      const queuedIds = row.queued_ids ?? [];
+      const reasons = (row.reasons ?? [])
+        .map(asReason)
+        .filter((r): r is ReturnReason => Boolean(r));
+      return {
+        dateKey: row.date_key,
+        queuedIds,
+        doneIds: row.done_ids ?? [],
+        reasons: reasons.length === queuedIds.length ? reasons : [],
+      };
+    });
+  } catch {
+    return [];
+  }
 }

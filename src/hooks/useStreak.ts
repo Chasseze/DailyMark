@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "../context/auth-context";
+import { dayKey } from "../lib/rhythm";
 
 interface StreakState {
   streak: number | null;
@@ -29,7 +30,9 @@ export function useStreak(): StreakState {
     let active = true;
     void (async () => {
       try {
-        const { data, error } = await requireSupabase().rpc("touch_streak");
+        const { data, error } = await requireSupabase().rpc("touch_streak", {
+          p_local_day: dayKey(new Date()),
+        });
         if (error) throw error;
         if (active) setState({ streak: data.streak, error: null });
       } catch (err) {

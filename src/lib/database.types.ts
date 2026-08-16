@@ -40,6 +40,8 @@ export type ProfileRow = {
   last_visit: string | null;
   /** Thought pinned as “of the week” for this user. */
   pinned_thought_id: string | null;
+  /** Cross-device UI prefs (theme, notesMood, speech, reminder, focus). */
+  prefs: Record<string, unknown>;
   created_at: string;
 };
 
@@ -62,7 +64,24 @@ export type ReturnSessionRow = {
   date_key: string;
   queued_ids: string[];
   done_ids: string[];
+  /** Reason labels frozen with the day's pile (parallel to queued_ids). */
+  reasons: string[];
   updated_at: string;
+};
+
+/** User-owned collection of Thoughts or Visuals. */
+export type LibraryCollectionRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  kind: "thought" | "visual";
+  created_at: string;
+};
+
+export type LibraryCollectionItemRow = {
+  collection_id: string;
+  item_id: string;
+  created_at: string;
 };
 
 /** Curated shared stories — read-only for signed-in users. */
@@ -203,11 +222,13 @@ export type Database = {
           streak?: number;
           last_visit?: string | null;
           pinned_thought_id?: string | null;
+          prefs?: Record<string, unknown>;
         };
         Update: {
           streak?: number;
           last_visit?: string | null;
           pinned_thought_id?: string | null;
+          prefs?: Record<string, unknown>;
         };
         Relationships: [];
       };
@@ -218,12 +239,41 @@ export type Database = {
           date_key: string;
           queued_ids?: string[];
           done_ids?: string[];
+          reasons?: string[];
           updated_at?: string;
         };
         Update: {
           queued_ids?: string[];
           done_ids?: string[];
+          reasons?: string[];
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      library_collections: {
+        Row: LibraryCollectionRow;
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          kind: "thought" | "visual";
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          kind?: "thought" | "visual";
+        };
+        Relationships: [];
+      };
+      library_collection_items: {
+        Row: LibraryCollectionItemRow;
+        Insert: {
+          collection_id: string;
+          item_id: string;
+          created_at?: string;
+        };
+        Update: {
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -374,10 +424,9 @@ export type Database = {
     };
     Views: Record<never, never>;
     Functions: {
-      // Record<PropertyKey, never> is how postgrest-js recognises a function
-      // that takes no arguments, so rpc("touch_streak") needs no second arg.
+      // p_local_day is the caller's local calendar day (YYYY-MM-DD); omit to use UTC today.
       touch_streak: {
-        Args: Record<PropertyKey, never>;
+        Args: { p_local_day?: string };
         Returns: ProfileRow;
       };
       search_notes: {

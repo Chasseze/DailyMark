@@ -33,23 +33,14 @@
     />
     <title>DailyMark</title>
     <script>
-      // Apply the stored theme + notes mood before first paint so there's no
-      // flash of the wrong palette while React boots.
+      // Apply system theme + default notes mood before first paint. Account
+      // prefs hydrate after sign-in and update the same classes.
       (function () {
         var root = document.documentElement;
-        var stored = localStorage.getItem("theme");
-        var light =
-          stored === "light" ||
-          (stored !== "dark" &&
-            window.matchMedia("(prefers-color-scheme: light)").matches);
+        var light = window.matchMedia("(prefers-color-scheme: light)").matches;
         root.classList.toggle("light", light);
         root.classList.toggle("dark", !light);
-
-        var mood = localStorage.getItem("notes-mood");
-        if (mood !== "cobalt" && mood !== "midnight" && mood !== "harbor") {
-          mood = "cobalt";
-        }
-        root.dataset.mood = mood;
+        root.dataset.mood = "cobalt";
 
         // The login hero is the LCP element, and it lives inside the lazily
         // loaded Login chunk — the browser could not discover it until
