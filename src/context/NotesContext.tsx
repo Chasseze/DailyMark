@@ -398,6 +398,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       const nextNotes = [hydrated, ...notesRef.current];
       setNotes(nextNotes);
       await persistSnapshot(userId, nextNotes, trashRef.current);
+      setOffline(false);
+      setError(null);
       return hydrated;
     },
     [persistSnapshot, userId]
@@ -457,6 +459,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         setNotes(syncedNotes);
         setTrash(syncedTrash);
         if (userId) await persistSnapshot(userId, syncedNotes, syncedTrash);
+        setOffline(false);
+        setError(null);
       } catch {
         await enqueueAndKeep();
       }
@@ -531,6 +535,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         setNotes(nextNotes);
         setTrash(nextTrash);
         if (userId) await persistSnapshot(userId, nextNotes, nextTrash);
+        setOffline(false);
+        setError(null);
       } catch {
         await enqueueAndKeep();
       }
@@ -576,6 +582,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         const { error: err } = await db.from("notes").delete().eq("id", id);
         if (err) throw err;
         if (userId) await persistSnapshot(userId, nextNotes, nextTrash);
+        setOffline(false);
+        setError(null);
       } catch {
         await enqueueAndKeep();
       }
@@ -607,6 +615,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       const { error: err } = await db.from("notes").delete().in("id", ids);
       if (err) throw err;
       if (userId) await persistSnapshot(userId, notesRef.current, nextTrash);
+      setOffline(false);
+      setError(null);
     } catch {
       await enqueueAndKeep();
     }
