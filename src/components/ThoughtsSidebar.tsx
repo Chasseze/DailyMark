@@ -11,13 +11,14 @@ function openingLines(preview: string): string {
 }
 
 export default function ThoughtsSidebar() {
-  const { featured, saved, pinned, bookmarkIds, loading, error, rotationHint } = useThoughts();
+  const { featured, saved, catalog, pinned, bookmarkIds, loading, error, rotationHint } =
+    useThoughts();
   const { id: selectedId } = useParams<{ id?: string }>();
   const [search, setSearch] = useState("");
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [shelf, setShelf] = useState<ThoughtsShelf>("live");
 
-  const shelfList = shelf === "live" ? featured : saved;
+  const shelfList = shelf === "live" ? featured : shelf === "saved" ? saved : catalog;
 
   const collections = useMemo(() => {
     const set = new Set<string>();
@@ -68,7 +69,9 @@ export default function ThoughtsSidebar() {
               ? "Loading…"
               : shelf === "live"
                 ? `Live feed · ${rotationHint}`
-                : `${saved.length} saved`}
+                : shelf === "saved"
+                  ? `${saved.length} saved`
+                  : `Library · ${catalog.length} pieces`}
           </p>
         </div>
 
@@ -80,7 +83,7 @@ export default function ThoughtsSidebar() {
               setActiveCollection(null);
             }}
             className={
-              "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors " +
+              "flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors " +
               (shelf === "live"
                 ? "bg-accent-soft text-accent-ink"
                 : "bg-surface text-muted hover:text-ink-soft")
@@ -95,13 +98,28 @@ export default function ThoughtsSidebar() {
               setActiveCollection(null);
             }}
             className={
-              "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors " +
+              "flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors " +
               (shelf === "saved"
                 ? "bg-accent-soft text-accent-ink"
                 : "bg-surface text-muted hover:text-ink-soft")
             }
           >
             Saved{bookmarkIds.size > 0 ? ` · ${bookmarkIds.size}` : ""}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShelf("library");
+              setActiveCollection(null);
+            }}
+            className={
+              "flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors " +
+              (shelf === "library"
+                ? "bg-accent-soft text-accent-ink"
+                : "bg-surface text-muted hover:text-ink-soft")
+            }
+          >
+            Library
           </button>
         </div>
 

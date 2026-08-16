@@ -156,33 +156,26 @@ function normalizeProgress(key: string, parsed: Partial<QuizProgress>): QuizProg
   };
 }
 
-export function loadProgress(key: string): QuizProgress | null {
-  try {
-    const raw = localStorage.getItem(storageKey(key));
-    if (!raw) return null;
-    return normalizeProgress(key, JSON.parse(raw) as Partial<QuizProgress>);
-  } catch {
-    return null;
-  }
+export function loadProgress(_key: string): QuizProgress | null {
+  return null;
 }
 
-/** Prefer remote quiz progress when signed in; fall back to localStorage. */
+/** Load quiz progress from the account (no device cache). */
 export async function loadProgressSynced(key: string): Promise<QuizProgress | null> {
-  const local = loadProgress(key);
   try {
     const { requireSupabase } = await import("./supabase");
     const db = requireSupabase();
     const { data: auth } = await db.auth.getSession();
-    if (!auth.session) return local;
+    if (!auth.session) return null;
 
     const { data, error } = await db
       .from("quiz_progress")
       .select("*")
       .eq("date_key", key)
       .maybeSingle();
-    if (error || !data) return local;
+    if (error || !data) return null;
 
-    const remote = normalizeProgress(key, {
+    return normalizeProgress(key, {
       dateKey: data.date_key,
       attempt: data.attempt,
       questionIds: data.question_ids,
@@ -191,40 +184,12 @@ export async function loadProgressSynced(key: string): Promise<QuizProgress | nu
       selected: data.selected,
       phase: data.phase,
     });
-    if (!remote) return local;
-
-    // Keep whichever attempt is further along so a mid-quiz device isn't wiped.
-    if (
-      local &&
-      (local.attempt > remote.attempt ||
-        (local.attempt === remote.attempt && local.index > remote.index) ||
-        (local.attempt === remote.attempt &&
-          local.index === remote.index &&
-          local.phase === "results" &&
-          remote.phase !== "results"))
-    ) {
-      return local;
-    }
-
-    try {
-      localStorage.setItem(storageKey(key), JSON.stringify(remote));
-    } catch {
-      // ignore
-    }
-    return remote;
   } catch {
-    return local;
+    return null;
   }
 }
 
 export function saveProgress(progress: QuizProgress): void {
-  try {
-    localStorage.setItem(storageKey(progress.dateKey), JSON.stringify(progress));
-  } catch {
-    // private mode / quota — quiz still works for the session
-  }
-
-  // Best-effort cloud sync; never block the quiz UI on network.
   void (async () => {
     try {
       const { requireSupabase } = await import("./supabase");
@@ -243,7 +208,7 @@ export function saveProgress(progress: QuizProgress): void {
         phase: progress.phase,
       });
     } catch {
-      // offline / RLS — local cache still has the progress
+      // offline — in-memory quiz state still works for this session
     }
   })();
 }

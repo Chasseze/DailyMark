@@ -11,13 +11,13 @@ const CARD_DATE: Intl.DateTimeFormatOptions = {
 };
 
 export default function VisualsSidebar() {
-  const { featured, saved, bookmarkIds, loading, error, rotationHint } = useVisuals();
+  const { featured, saved, catalog, bookmarkIds, loading, error, rotationHint } = useVisuals();
   const { id: selectedId } = useParams<{ id?: string }>();
   const [search, setSearch] = useState("");
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [shelf, setShelf] = useState<VisualsShelf>("live");
 
-  const shelfList = shelf === "live" ? featured : saved;
+  const shelfList = shelf === "live" ? featured : shelf === "saved" ? saved : catalog;
 
   const collections = useMemo(() => {
     const set = new Set<string>();
@@ -59,7 +59,9 @@ export default function VisualsSidebar() {
               ? "Loading…"
               : shelf === "live"
                 ? `Live feed · ${rotationHint}`
-                : `${saved.length} saved`}
+                : shelf === "saved"
+                  ? `${saved.length} saved`
+                  : `Library · ${catalog.length} pieces`}
           </p>
         </div>
 
@@ -71,7 +73,7 @@ export default function VisualsSidebar() {
               setActiveCollection(null);
             }}
             className={
-              "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors " +
+              "flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors " +
               (shelf === "live"
                 ? "bg-accent-soft text-accent-ink"
                 : "bg-surface text-muted hover:text-ink-soft")
@@ -86,13 +88,28 @@ export default function VisualsSidebar() {
               setActiveCollection(null);
             }}
             className={
-              "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors " +
+              "flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors " +
               (shelf === "saved"
                 ? "bg-accent-soft text-accent-ink"
                 : "bg-surface text-muted hover:text-ink-soft")
             }
           >
             Saved{bookmarkIds.size > 0 ? ` · ${bookmarkIds.size}` : ""}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShelf("library");
+              setActiveCollection(null);
+            }}
+            className={
+              "flex-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors " +
+              (shelf === "library"
+                ? "bg-accent-soft text-accent-ink"
+                : "bg-surface text-muted hover:text-ink-soft")
+            }
+          >
+            Library
           </button>
         </div>
 

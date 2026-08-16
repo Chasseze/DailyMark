@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
+import LibraryCollectionBar from "../components/LibraryCollectionBar";
 import { useNotes } from "../context/notes-context";
 import { useThoughts } from "../context/thoughts-context";
 import { errorMessage } from "../lib/supabase";
+import { liveExpiresAt } from "../lib/thoughts-rotation";
 import type { Thought } from "../lib/types";
 
 export default function ThoughtView() {
@@ -54,6 +56,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
   const { addNote, inboxId } = useNotes();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [shareState, setShareState] = useState<"idle" | "copied">("idle");
   const saved = isBookmarked(thought.id);
   const isPinned = pinned?.id === thought.id;
   const onLiveShelf = !saved && featured.some((t) => t.id === thought.id);
@@ -117,6 +120,23 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
 
   const iconBtn =
     "rounded-xl p-2 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted";
+
+  const handleShare = async () => {
+    const credit = [thought.author, thought.source_name].filter(Boolean).join(" · ");
+    const url = thought.source_url || window.location.href;
+    const text = credit ? `${thought.title} — ${credit}` : thought.title;
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: thought.title, text, url });
+      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        setShareState("copied");
+        window.setTimeout(() => setShareState("idle"), 1800);
+      }
+    } catch (err) {
+      if ((err as Error)?.name !== "AbortError") setActionError(errorMessage(err));
+    }
+  };
 
   const handleBookmark = async () => {
     if (busy) return;
@@ -219,6 +239,24 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
         />
         <button
           type="button"
+          onClick={() => void handleShare()}
+          className={iconBtn}
+          aria-label="Share thought"
+          title={shareState === "copied" ? "Link copied" : "Share"}
+        >
+          {shareState === "copied" ? (
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="m16 6-4-4-4 4M12 2v14" />
+            </svg>
+          )}
+        </button>
+        <button
+          type="button"
           onClick={() => void handleBookmark()}
           disabled={busy}
           className={
@@ -287,6 +325,15 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
             </span>
           ) : null}
         </div>
+        {onLiveShelf && (
+          <p className="mb-3 text-xs text-muted">
+            Chosen for today’s drop · rotates off{" "}
+            {liveExpiresAt(thought).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
+        )}
 
         <h1 className="note-title mb-1 break-words text-2xl text-ink">
           {thought.title}
@@ -318,6 +365,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
         </div>
 
         <ThoughtAttribution thought={thought} />
+        <LibraryCollectionBar kind="thought" itemId={thought.id} />
       </article>
     </div>
   );

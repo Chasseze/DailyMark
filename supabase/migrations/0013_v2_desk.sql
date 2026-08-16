@@ -35,6 +35,14 @@ create index if not exists library_collections_user_kind_idx
 alter table public.library_collections enable row level security;
 alter table public.library_collection_items enable row level security;
 
+drop policy if exists "own library collections: select" on public.library_collections;
+drop policy if exists "own library collections: insert" on public.library_collections;
+drop policy if exists "own library collections: update" on public.library_collections;
+drop policy if exists "own library collections: delete" on public.library_collections;
+drop policy if exists "own library items: select" on public.library_collection_items;
+drop policy if exists "own library items: insert" on public.library_collection_items;
+drop policy if exists "own library items: delete" on public.library_collection_items;
+
 create policy "own library collections: select" on public.library_collections
   for select using (auth.uid() = user_id);
 create policy "own library collections: insert" on public.library_collections

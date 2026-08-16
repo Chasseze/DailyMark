@@ -1,5 +1,5 @@
 /* DailyMark service worker — caches the app shell; never caches Supabase API. */
-const CACHE = "dailymark-shell-v2";
+const CACHE = "dailymark-shell-v3";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
