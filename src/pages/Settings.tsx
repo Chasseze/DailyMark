@@ -26,15 +26,31 @@ import {
   safeFilename,
 } from "../lib/notes-io";
 import {
+  DEFAULT_REMINDER,
   ensureNotificationPermission,
-  loadReminderPrefs,
-  saveReminderPrefs,
+  getReminderPrefs,
+  setReminderPrefs,
   type ReminderPrefs,
 } from "../lib/reminders";
+import { usePrefs } from "../context/PrefsContext";
 import { errorMessage } from "../lib/supabase";
 import type { Theme } from "../lib/types";
 
 const SAMPLE = "This is how DailyMark will sound when it reads your notes aloud.";
+const APP_VERSION = "2.0.0";
+
+function reminderFromPrefs(
+  reminder: { enabled?: boolean; time?: string } | undefined
+): ReminderPrefs | null {
+  if (!reminder) return null;
+  return {
+    enabled: Boolean(reminder.enabled),
+    time:
+      typeof reminder.time === "string" && /^\d{2}:\d{2}$/.test(reminder.time)
+        ? reminder.time
+        : DEFAULT_REMINDER.time,
+  };
+}
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -42,6 +58,7 @@ export default function Settings() {
   const { mood, setMood } = useMood();
   const { notes, trash, notebooks, addNote, ensureNote, inboxId, dueNotes } = useNotes();
   const { user, signOut } = useAuth();
+  const { prefs, patchPrefs } = usePrefs();
   const { streak } = useStreak();
   const speech = useSpeechControls();
   const [signingOut, setSigningOut] = useState(false);
@@ -49,12 +66,23 @@ export default function Settings() {
   const [ioBusy, setIoBusy] = useState(false);
   const [ioMessage, setIoMessage] = useState<string | null>(null);
   const [ioError, setIoError] = useState<string | null>(null);
-  const [reminder, setReminder] = useState<ReminderPrefs>(() => loadReminderPrefs());
+  const [reminder, setReminder] = useState<ReminderPrefs>(
+    () => reminderFromPrefs(prefs.reminder) ?? getReminderPrefs()
+  );
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    saveReminderPrefs(reminder);
-  }, [reminder]);
+    const next = reminderFromPrefs(prefs.reminder);
+    if (!next) return;
+    setReminderPrefs(next);
+    setReminder(next);
+  }, [prefs.reminder?.enabled, prefs.reminder?.time]);
+
+  const applyReminder = (next: ReminderPrefs) => {
+    setReminder(next);
+    setReminderPrefs(next);
+    void patchPrefs({ reminder: next });
+  };
 
   const locale = typeof navigator !== "undefined" ? navigator.language : "en-US";
   const languages = useMemo(() => voiceLanguages(speech.voices, locale), [speech.voices, locale]);
@@ -148,11 +176,11 @@ export default function Settings() {
       const permission = await ensureNotificationPermission();
       if (permission !== "granted") {
         setIoError("Notifications are blocked in this browser.");
-        setReminder((prev) => ({ ...prev, enabled: false }));
+        applyReminder({ ...reminder, enabled: false });
         return;
       }
     }
-    setReminder((prev) => ({ ...prev, enabled }));
+    applyReminder({ ...reminder, enabled });
   };
 
   return (
@@ -449,14 +477,14 @@ export default function Settings() {
 
       <div className="glass mb-4 rounded-2xl p-4">
         <h2 className="mb-1 text-sm font-semibold text-ink-soft">
-          Local reminder
+          Daily reminder
         </h2>
         <p className="mb-3 text-xs text-muted">
-          A once-a-day nudge on this device — nothing leaves the browser.
+          Settings sync with your account; the notification still fires on this device.
         </p>
         <div className="flex items-center justify-between gap-3">
           <label htmlFor="reminder-enabled" className="text-sm text-ink-soft">
-            Daily reminder
+            Enable reminder
           </label>
           <button
             id="reminder-enabled"
@@ -484,7 +512,9 @@ export default function Settings() {
           id="reminder-time"
           type="time"
           value={reminder.time}
-          onChange={(e) => setReminder((prev) => ({ ...prev, time: e.target.value || "20:00" }))}
+          onChange={(e) =>
+            applyReminder({ ...reminder, time: e.target.value || DEFAULT_REMINDER.time })
+          }
           disabled={!reminder.enabled}
           className="mt-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink-soft focus:border-accent/50 focus:outline-none disabled:opacity-40"
         />
@@ -493,9 +523,9 @@ export default function Settings() {
       <div className="glass rounded-2xl p-4">
         <h2 className="mb-2 text-sm font-semibold text-ink-soft">About</h2>
         <p className="text-xs leading-relaxed text-muted">
-          DailyMark — A minimal note-taking app with daily prompts. Built with React, TailwindCSS, and Supabase.
+          DailyMark v{APP_VERSION}
         </p>
-        <p className="mt-2 text-xs text-muted">v1.0.0</p>
+        <p className="mt-2 text-xs text-muted">Account-synced desk</p>
       </div>
     </div>
   );
