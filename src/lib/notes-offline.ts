@@ -52,7 +52,9 @@ function txDone(tx: IDBTransaction): Promise<void> {
 }
 
 export function isOnline(): boolean {
-  return typeof navigator === "undefined" ? true : navigator.onLine;
+  if (typeof navigator === "undefined") return true;
+  // Some test/SSR hosts expose `navigator` without `onLine`.
+  return navigator.onLine !== false;
 }
 
 export async function saveNotesSnapshot(snap: NotesSnapshot): Promise<void> {
