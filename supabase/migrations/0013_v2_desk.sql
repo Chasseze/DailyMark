@@ -3,7 +3,7 @@
 
 -- Account prefs
 alter table public.profiles
-  add column if not exists prefs jsonb not null default jsonb_build_object();
+  add column if not exists prefs jsonb not null default '{}'::jsonb;
 
 comment on column public.profiles.prefs is
   'Cross-device UI prefs (theme, notesMood, speech, reminder, focus).';
@@ -109,7 +109,6 @@ grant select, insert, update, delete on public.library_collection_items to authe
 grant select, insert, update, delete on public.return_sessions to authenticated;
 
 -- Streak: drop every overload, then recreate with a local-day argument.
--- Named dollar-quotes so a SQL editor cannot confuse this with JavaScript.
 do $desk$
 declare
   r record;
@@ -126,30 +125,43 @@ begin
 end
 $desk$;
 
+-- p_local_day is the caller's local calendar day, so the streak rolls over at
+-- the user's midnight rather than UTC's. It arrives from the client, so it is
+-- never trusted directly: real timezones are only ever within a day of UTC
+-- (UTC-12..UTC+14), and the visit day is not allowed to move backwards.
+-- Without the clamp a client could walk last_visit forward one day per call
+-- and farm an arbitrary streak, and a skewed clock could reset an honest one.
 create or replace function public.touch_streak(p_local_day date default null)
 returns public.profiles
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $touch_streak$
 declare
   uid uuid := auth.uid();
-  today date := coalesce(p_local_day, (current_timestamp at time zone 'utc')::date);
+  server_day date := (current_timestamp at time zone 'utc')::date;
+  today date;
   result public.profiles;
 begin
   if uid is null then
     raise exception 'Not authenticated';
   end if;
 
+  today := least(server_day + 1, greatest(server_day - 1,
+                 coalesce(p_local_day, server_day)));
+
   insert into public.profiles as p (id, streak, last_visit)
   values (uid, 1, today)
   on conflict (id) do update set
     streak = case
-      when p.last_visit = excluded.last_visit then p.streak
-      when p.last_visit = excluded.last_visit - 1 then p.streak + 1
+      when p.last_visit is null then 1
+      -- Same day, or a clock that reports an older day: hold the streak.
+      when excluded.last_visit <= p.last_visit then p.streak
+      when excluded.last_visit = p.last_visit + 1 then p.streak + 1
+      -- A day or more was missed.
       else 1
     end,
-    last_visit = excluded.last_visit
+    last_visit = greatest(p.last_visit, excluded.last_visit)
   returning * into result;
 
   return result;
