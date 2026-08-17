@@ -1,7 +1,7 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import type { NotesMood } from "../lib/moods";
 import { MoodContext } from "./mood-context";
-import { usePrefs } from "./PrefsContext";
+import { usePrefs } from "./prefs-context";
 
 export function MoodProvider({ children }: { children: ReactNode }) {
   const { notesMood: mood, patchPrefs } = usePrefs();

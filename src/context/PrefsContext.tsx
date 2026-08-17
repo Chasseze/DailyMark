@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -9,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth-context";
+import { PrefsContext } from "./prefs-context";
 import {
   DEFAULT_PREFS,
   loadUserPrefs,
@@ -18,7 +17,6 @@ import {
 } from "../lib/user-prefs";
 import { DEFAULT_REMINDER, setReminderPrefs } from "../lib/reminders";
 import type { Theme } from "../lib/types";
-import type { NotesMood } from "../lib/moods";
 import { DEFAULT_NOTES_MOOD } from "../lib/moods";
 
 function syncReminderLoop(prefs: UserPrefs) {
@@ -31,17 +29,6 @@ function syncReminderLoop(prefs: UserPrefs) {
   });
 }
 
-interface PrefsContextValue {
-  prefs: UserPrefs;
-  loading: boolean;
-  patchPrefs: (patch: Partial<UserPrefs>) => Promise<void>;
-  theme: Theme;
-  notesMood: NotesMood;
-  focus: boolean;
-}
-
-const PrefsContext = createContext<PrefsContextValue | null>(null);
-
 function applyTheme(theme: Theme) {
   const systemLight = window.matchMedia("(prefers-color-scheme: light)").matches;
   const resolved = theme === "system" ? (systemLight ? "light" : "dark") : theme;
@@ -53,8 +40,14 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [prefs, setPrefs] = useState<UserPrefs>({ ...DEFAULT_PREFS });
   const [loading, setLoading] = useState(true);
+  // patchPrefs merges onto the latest prefs without depending on them, so two
+  // patches fired in the same tick don't clobber each other. Writing the ref
+  // during render is not allowed, so it is kept current from an effect and
+  // written through synchronously by patchPrefs itself.
   const prefsRef = useRef(prefs);
-  prefsRef.current = prefs;
+  useEffect(() => {
+    prefsRef.current = prefs;
+  }, [prefs]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -96,6 +89,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
 
   const patchPrefs = useCallback(async (patch: Partial<UserPrefs>) => {
     const next = mergePrefs(prefsRef.current, patch);
+    prefsRef.current = next;
     setPrefs(next);
     if (patch.reminder) syncReminderLoop(next);
     if (!user) return;
@@ -112,10 +106,4 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   );
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>;
-}
-
-export function usePrefs(): PrefsContextValue {
-  const ctx = useContext(PrefsContext);
-  if (!ctx) throw new Error("usePrefs must be used within PrefsProvider");
-  return ctx;
 }

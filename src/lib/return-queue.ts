@@ -171,10 +171,6 @@ export function mergeReturnSessions(local: ReturnSession, remote: ReturnSession)
   return { dateKey: local.dateKey, queuedIds, reasons, doneIds };
 }
 
-export function loadReturnSession(key: string): ReturnSession {
-  return emptyReturnSession(key);
-}
-
 async function persistRemote(session: ReturnSession): Promise<void> {
   try {
     const { requireSupabase } = await import("./supabase");

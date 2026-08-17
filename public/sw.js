@@ -1,5 +1,7 @@
 /* DailyMark service worker — caches the app shell; never caches Supabase API. */
-const CACHE = "dailymark-shell-v3";
+// Bumped whenever the caching rules change, so activate() drops shells that an
+// older revision may have stored under the previous rules.
+const CACHE = "dailymark-shell-v4";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -37,11 +39,26 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          void caches.open(CACHE).then((cache) => cache.put("/", copy));
+          // Only a good document may become the offline shell — caching a 404
+          // or a 502 here would serve that error page to every later visit.
+          if (response.ok) {
+            const copy = response.clone();
+            void caches.open(CACHE).then((cache) => cache.put("/", copy));
+          }
           return response;
         })
-        .catch(() => caches.match("/") || caches.match(request))
+        .catch(async () => {
+          // caches.match() returns a promise, so `a || b` would always take the
+          // first branch and resolve to undefined when the shell is missing.
+          const shell = await caches.match("/");
+          if (shell) return shell;
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          return new Response(
+            "<!doctype html><title>Offline</title><p>DailyMark is offline.</p>",
+            { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } }
+          );
+        })
     );
     return;
   }

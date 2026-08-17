@@ -1,18 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { snapshotVideoFrame } from "../lib/note-images";
 
 type Facing = "environment" | "user";
 
 interface Props {
-  open: boolean;
   onClose: () => void;
   onCapture: (file: File) => void;
   /** Native camera / scan sheet when in-page video is unavailable. */
   onUseDeviceCamera: () => void;
 }
 
+/** Mounted only while the sheet is open — unmounting is the reset. */
 export default function NoteScanCapture({
-  open,
   onClose,
   onCapture,
   onUseDeviceCamera,
@@ -23,34 +22,30 @@ export default function NoteScanCapture({
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // The object URL is minted with the capture rather than derived from it: a
+  // render-phase createObjectURL leaks one URL per StrictMode double-render.
+  const [preview, setPreview] = useState<{ file: File; url: string } | null>(null);
 
   useEffect(() => {
-    if (!preview) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(preview);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+    if (!preview) return;
+    return () => URL.revokeObjectURL(preview.url);
   }, [preview]);
 
-  useEffect(() => {
-    if (!open) {
-      stopStream();
-      setPreview(null);
-      setError(null);
-      setReady(false);
-      setBusy(false);
-      return;
-    }
+  const stopStream = useCallback(() => {
+    const stream = streamRef.current;
+    streamRef.current = null;
+    if (!stream) return;
+    for (const track of stream.getTracks()) track.stop();
+    const video = videoRef.current;
+    if (video) video.srcObject = null;
+  }, []);
 
+  // Only re-runs on a flip or a retake; both handlers clear `ready`/`error`
+  // themselves so this effect never has to reset state on the way in.
+  useEffect(() => {
     if (preview) return;
 
     let cancelled = false;
-    setError(null);
-    setReady(false);
 
     const start = async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -92,25 +87,15 @@ export default function NoteScanCapture({
       cancelled = true;
       stopStream();
     };
-  }, [open, facing, preview]);
+  }, [facing, preview, stopStream]);
 
   useEffect(() => {
-    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  const stopStream = () => {
-    const stream = streamRef.current;
-    streamRef.current = null;
-    if (!stream) return;
-    for (const track of stream.getTracks()) track.stop();
-    const video = videoRef.current;
-    if (video) video.srcObject = null;
-  };
+  }, [onClose]);
 
   const handleSnap = async () => {
     const video = videoRef.current;
@@ -120,7 +105,7 @@ export default function NoteScanCapture({
     try {
       const file = await snapshotVideoFrame(video, "scan");
       stopStream();
-      setPreview(file);
+      setPreview({ file, url: URL.createObjectURL(file) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not capture that photo.");
     } finally {
@@ -130,11 +115,9 @@ export default function NoteScanCapture({
 
   const handleUse = () => {
     if (!preview) return;
-    onCapture(preview);
+    onCapture(preview.file);
     onClose();
   };
-
-  if (!open) return null;
 
   return (
     <div
@@ -162,8 +145,8 @@ export default function NoteScanCapture({
         </div>
 
         <div className="relative bg-surface-3">
-          {previewUrl ? (
-            <img src={previewUrl} alt="Captured preview" className="mx-auto max-h-[60vh] w-full object-contain" />
+          {preview ? (
+            <img src={preview.url} alt="Captured preview" className="mx-auto max-h-[60vh] w-full object-contain" />
           ) : error ? (
             <div className="flex min-h-[10rem] items-center justify-center px-4 py-8">
               <p className="text-center text-sm text-muted">
@@ -207,6 +190,7 @@ export default function NoteScanCapture({
                 onClick={() => {
                   setPreview(null);
                   setError(null);
+                  setReady(false);
                 }}
                 className="rounded-xl bg-surface-2 px-4 py-2 text-sm text-ink-soft hover:text-ink"
               >
@@ -235,7 +219,11 @@ export default function NoteScanCapture({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFacing((side) => (side === "environment" ? "user" : "environment"))}
+                    onClick={() => {
+                      setReady(false);
+                      setError(null);
+                      setFacing((side) => (side === "environment" ? "user" : "environment"));
+                    }}
                     disabled={busy}
                     className="rounded-xl bg-surface-2 px-4 py-2 text-sm text-ink-soft hover:text-ink disabled:opacity-50"
                   >

@@ -18,7 +18,7 @@ import {
   type SpeechRequest,
   type SpeechStatus,
 } from "./speech-context";
-import { usePrefs } from "./PrefsContext";
+import { usePrefs } from "./prefs-context";
 
 /** How often the run is checked against the engine's own idea of what it's doing. */
 const MONITOR_INTERVAL_MS = 400;
@@ -38,11 +38,16 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   const { prefs: accountPrefs, patchPrefs } = usePrefs();
 
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [prefs, setPrefs] = useState<SpeechPrefs>(() => ({
-    voiceURI: accountPrefs.speech?.voiceURI ?? null,
-    rate: clamp(Number(accountPrefs.speech?.rate) || 1, RATE_MIN, RATE_MAX),
-    pitch: clamp(Number(accountPrefs.speech?.pitch) || 1, PITCH_MIN, PITCH_MAX),
-  }));
+  // The account row is the only source of truth; patchPrefs updates it
+  // optimistically, so there is no local copy to drift out of sync with it.
+  const prefs = useMemo<SpeechPrefs>(
+    () => ({
+      voiceURI: accountPrefs.speech?.voiceURI ?? null,
+      rate: clamp(Number(accountPrefs.speech?.rate) || 1, RATE_MIN, RATE_MAX),
+      pitch: clamp(Number(accountPrefs.speech?.pitch) || 1, PITCH_MIN, PITCH_MAX),
+    }),
+    [accountPrefs.speech?.voiceURI, accountPrefs.speech?.rate, accountPrefs.speech?.pitch]
+  );
   const [status, setStatus] = useState<SpeechStatus>("idle");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [label, setLabel] = useState<string | null>(null);
@@ -50,16 +55,6 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
   const [chunkIndex, setChunkIndex] = useState(0);
   const [wordRange, setWordRange] = useState<[number, number] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const next: SpeechPrefs = {
-      voiceURI: accountPrefs.speech?.voiceURI ?? null,
-      rate: clamp(Number(accountPrefs.speech?.rate) || 1, RATE_MIN, RATE_MAX),
-      pitch: clamp(Number(accountPrefs.speech?.pitch) || 1, PITCH_MIN, PITCH_MAX),
-    };
-    setPrefs(next);
-    prefsRef.current = next;
-  }, [accountPrefs.speech?.voiceURI, accountPrefs.speech?.rate, accountPrefs.speech?.pitch]);
 
   // A run id invalidates callbacks from utterances we've already walked away
   // from — cancel() fires their handlers a tick later.
@@ -324,7 +319,8 @@ export function SpeechProvider({ children }: { children: ReactNode }) {
 
   const savePrefs = useCallback(
     (next: SpeechPrefs) => {
-      setPrefs(next);
+      // Written through so an immediate re-speak below uses the new voice,
+      // rather than waiting for the account patch to come back as a render.
       prefsRef.current = next;
       void patchPrefs({
         speech: {

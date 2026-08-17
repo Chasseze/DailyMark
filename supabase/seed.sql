@@ -21,3 +21,9 @@ alter default privileges in schema public
   grant usage, select on sequences to anon, authenticated;
 alter default privileges in schema public
   grant execute on functions to anon, authenticated;
+
+-- The blanket grant above runs after the migrations and would hand
+-- promote_daily_drops() back to the API roles, undoing the revoke in
+-- 0010_daily_drops.sql. It is `security definer` and owns the shared daily
+-- feed, so app users must never be able to churn it — locally either.
+revoke all on function public.promote_daily_drops(int, boolean) from anon, authenticated;
