@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStreak } from "../hooks/useStreak";
 import { useAuth } from "../context/auth-context";
@@ -20,9 +20,17 @@ import {
   resultMessage,
   resultTier,
   saveProgress,
+  type QuizPhase,
   type QuizProgress,
   type QuizQuestion,
 } from "../lib/quiz";
+import {
+  MIN_NOTE_QUIZ_POOL,
+  buildNoteQuestions,
+  collectCloze,
+  loadNoteQuizPool,
+  type NoteQuizSource,
+} from "../lib/note-quiz";
 
 interface Quote {
   text: string;
@@ -53,6 +61,14 @@ function freshProgress(key: string, attempt: number, questions: QuizQuestion[]):
     selected: null,
     phase: "ready",
   };
+}
+
+/** Where a round's questions came from. */
+type QuizSource = "general" | "notes";
+
+/** Note questions carry their origin in the id, so a saved round knows itself. */
+function sourceOf(questionIds: readonly string[]): QuizSource {
+  return questionIds.some((id) => id.startsWith("note:")) ? "notes" : "general";
 }
 
 /** Today's fresh set, shown while the account's saved progress loads. */
@@ -86,19 +102,61 @@ export default function Daily() {
 
   const [{ progress, questions }, setState] = useState(() => bootstrapProgress(key));
 
-  // Swap in the account's saved progress for today once it arrives.
+  // The cloze pool needs whole note bodies, which the notes list does not carry,
+  // so it is fetched once and reused for every round and replay.
+  const [pool, setPool] = useState<NoteQuizSource[] | null>(null);
+  const [poolError, setPoolError] = useState<string | null>(null);
+
+  const source = sourceOf(progress.questionIds);
+  const cloze = useMemo(() => (pool ? collectCloze(pool) : []), [pool]);
+  const notesReady = cloze.length >= MIN_NOTE_QUIZ_POOL;
+
   useEffect(() => {
+    if (!user) return;
     let active = true;
-    void loadProgressSynced(key).then((remote) => {
-      if (!active || !remote) return;
-      const resolved = resolveQuestions(remote.questionIds);
-      if (!resolved) return;
-      setState({ progress: remote, questions: resolved });
+    void loadNoteQuizPool().then((rows) => {
+      if (active) setPool(rows);
     });
     return () => {
       active = false;
     };
-  }, [key]);
+  }, [user]);
+
+  // Swap in the account's saved progress for today once it arrives. A saved
+  // round drawn from notes has to be rebuilt from the pool before its ids mean
+  // anything, so it waits for the pool rather than silently reverting to the bank.
+  //
+  // This effect re-runs when the pool lands, so it restores at most once: a
+  // second restore would overwrite answers given in the meantime with the
+  // round as it stood when the page opened.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    let active = true;
+    void loadProgressSynced(key).then((remote) => {
+      if (!active || restoredRef.current) return;
+      if (!remote) {
+        restoredRef.current = true;
+        return;
+      }
+      let resolved: QuizQuestion[] | null;
+      if (sourceOf(remote.questionIds) === "notes") {
+        // Nothing to rebuild against yet — leave it for the pool's re-run.
+        if (!pool) return;
+        resolved = resolveQuestions(
+          remote.questionIds,
+          buildNoteQuestions(collectCloze(pool), key, remote.attempt)
+        );
+      } else {
+        resolved = resolveQuestions(remote.questionIds);
+      }
+      restoredRef.current = true;
+      if (resolved) setState({ progress: remote, questions: resolved });
+    });
+    return () => {
+      active = false;
+    };
+  }, [key, pool]);
 
   // Load today's mood check-in from Supabase.
   useEffect(() => {
@@ -237,10 +295,15 @@ export default function Daily() {
     });
   };
 
-  /** A new attempt draws a different mix from the bank for the same calendar day. */
-  const playAgain = () => {
-    const attempt = progress.attempt + 1;
-    const nextQuestions = pickQuestions(key, attempt);
+  /** Draws a round from one source and starts it. */
+  const startRound = (nextSource: QuizSource, attempt: number, phase: QuizPhase) => {
+    const nextQuestions =
+      nextSource === "notes" ? buildNoteQuestions(cloze, key, attempt) : pickQuestions(key, attempt);
+    if (!nextQuestions.length) {
+      setPoolError("Not enough marked-up notes yet to build a round.");
+      return;
+    }
+    setPoolError(null);
     update(
       {
         dateKey: key,
@@ -249,10 +312,19 @@ export default function Daily() {
         index: 0,
         score: 0,
         selected: null,
-        phase: "question",
+        phase,
       },
       nextQuestions
     );
+  };
+
+  /** A new attempt draws a different mix from the same source for the same day. */
+  const playAgain = () => startRound(source, progress.attempt + 1, "question");
+
+  /** Switching source resets to a fresh unplayed round rather than mid-round. */
+  const selectSource = (next: QuizSource) => {
+    if (next === source) return;
+    startRound(next, 0, "ready");
   };
 
   const categoriesInRound = useMemo(() => {
@@ -404,13 +476,61 @@ export default function Daily() {
 
         {progress.phase === "ready" && (
           <div className="quiz-panel mt-4">
+            {/* Two sources, one round: the bundled bank, or blanks cut out of
+                your own notes. The notes tab stays disabled until there is
+                enough marked-up material to make the wrong answers plausible. */}
+            <div
+              role="group"
+              aria-label="Question source"
+              className="mb-4 flex gap-1 rounded-xl bg-surface-2 p-1"
+            >
+              {([
+                { id: "general" as const, label: "General" },
+                { id: "notes" as const, label: "From your notes" },
+              ]).map((tab) => {
+                const active = source === tab.id;
+                const disabled = tab.id === "notes" && !notesReady;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => selectSource(tab.id)}
+                    disabled={disabled}
+                    aria-pressed={active}
+                    title={
+                      disabled
+                        ? "Bold or ==highlight== key terms in your notes to unlock this"
+                        : undefined
+                    }
+                    className={
+                      "flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:opacity-40 " +
+                      (active
+                        ? "bg-accent-soft text-accent-ink"
+                        : "text-muted hover:text-ink-soft")
+                    }
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <p className="note-title text-xl text-ink">
-              {total} questions · mixed categories
+              {source === "notes"
+                ? `${total} questions · from your notes`
+                : `${total} questions · mixed categories`}
             </p>
             <p className="mt-2 text-sm text-muted">
-              Medicine, science, current affairs, general knowledge and more. Finish for a score —
-              play again and the set rotates.
+              {source === "notes"
+                ? "Terms you bolded or highlighted, blanked out of the sentence you wrote them in. The wrong answers are your own words too."
+                : "Medicine, science, current affairs, general knowledge and more. Finish for a score — play again and the set rotates."}
             </p>
+            {!notesReady && pool !== null && (
+              <p className="mt-2 text-xs text-faint">
+                Bold or ==highlight== key terms as you write and they become questions here.
+              </p>
+            )}
+            {poolError && <p className="mt-2 text-xs text-danger">{poolError}</p>}
             <div className="mt-4 flex flex-wrap gap-1.5">
               {categoriesInRound.map((category) => {
                 const chip = CATEGORY_META[category];

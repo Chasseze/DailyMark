@@ -29,6 +29,8 @@ export type NoteRow = {
   deleted_at: string | null;
   /** Optional gentle “revisit by” reminder. */
   revisit_at: string | null;
+  /** Rung on the Return spacing ladder; 0 = never deferred. */
+  revisit_step: number;
   created_at: string;
   updated_at: string;
 };
@@ -167,6 +169,22 @@ export type SearchNoteRow = {
   rank: number;
 };
 
+/** One inbound `[[wiki link]]`, from note_backlinks(). */
+export type BacklinkRow = {
+  id: string;
+  title: string;
+  preview: string;
+  updated_at: string;
+};
+
+/** A note body offered to the cloze extractor, from note_quiz_pool(). */
+export type NoteQuizPoolRow = {
+  id: string;
+  title: string;
+  content: string;
+  updated_at: string;
+};
+
 // `Relationships` is part of the shape postgrest-js requires of every table
 // (GenericTable). Omit it and the whole table type silently degrades to `never`,
 // which surfaces as baffling "not assignable to type 'never'" errors on insert.
@@ -202,6 +220,7 @@ export type Database = {
           tags?: string[];
           deleted_at?: string | null;
           revisit_at?: string | null;
+          revisit_step?: number;
         };
         Update: {
           notebook_id?: string | null;
@@ -212,6 +231,7 @@ export type Database = {
           tags?: string[];
           deleted_at?: string | null;
           revisit_at?: string | null;
+          revisit_step?: number;
         };
         Relationships: [];
       };
@@ -436,6 +456,16 @@ export type Database = {
       get_shared_content: {
         Args: { p_token: string };
         Returns: unknown;
+      };
+      /** Notes whose body carries a [[wiki link]] to the given note. */
+      note_backlinks: {
+        Args: { p_note_id: string };
+        Returns: BacklinkRow[];
+      };
+      /** Live notes containing a cloze candidate, for the notes quiz. */
+      note_quiz_pool: {
+        Args: { p_limit?: number };
+        Returns: NoteQuizPoolRow[];
       };
     };
     Enums: Record<never, never>;

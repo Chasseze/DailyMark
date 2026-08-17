@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { Note } from "./types";
 import {
+  RETURN_LADDER,
   RETURN_MAX,
   appendReturnLine,
   buildReturnQueue,
   ensureReturnQueue,
   isDueNote,
+  ladderRung,
   laterRevisitAt,
   markReturnDone,
+  nextDeferral,
   mergeReturnSessions,
   type ReturnSession,
 } from "./return-queue";
@@ -24,6 +27,7 @@ function note(partial: Partial<Note>): Note {
     tags: [],
     deleted_at: null,
     revisit_at: null,
+    revisit_step: 0,
     created_at: "2026-07-01T09:00:00Z",
     updated_at: "2026-07-01T09:00:00Z",
     bodyLoaded: false,
@@ -215,5 +219,51 @@ describe("mergeReturnSessions", () => {
     const merged = mergeReturnSessions(local, remote);
     expect(merged.queuedIds).toEqual(["x", "y"]);
     expect(merged.doneIds).toEqual(["x", "y"]);
+  });
+});
+
+describe("spacing ladder", () => {
+  const now = new Date("2026-07-10T09:00:00Z");
+
+  function daysOut(iso: string): number {
+    const at = new Date(iso);
+    const noon = new Date(now);
+    noon.setHours(12, 0, 0, 0);
+    return Math.round((at.getTime() - noon.getTime()) / 86_400_000);
+  }
+
+  it("walks one rung per deferral instead of always meaning a week", () => {
+    expect(daysOut(nextDeferral(0, now).revisit_at)).toBe(3);
+    expect(daysOut(nextDeferral(1, now).revisit_at)).toBe(7);
+    expect(daysOut(nextDeferral(2, now).revisit_at)).toBe(21);
+    expect(daysOut(nextDeferral(3, now).revisit_at)).toBe(60);
+  });
+
+  it("advances the stored rung so the next deferral spaces further out", () => {
+    expect(nextDeferral(0, now).revisit_step).toBe(1);
+    expect(nextDeferral(1, now).revisit_step).toBe(2);
+  });
+
+  it("stops at the top rung rather than running off the ladder", () => {
+    const top = RETURN_LADDER.length - 1;
+    expect(nextDeferral(top, now).revisit_step).toBe(top);
+    expect(nextDeferral(99, now).revisit_step).toBe(top);
+    expect(daysOut(nextDeferral(99, now).revisit_at)).toBe(60);
+  });
+
+  it("labels the button with the span it will actually set", () => {
+    expect(nextDeferral(0, now).label).toBe("In 3 days");
+    expect(nextDeferral(2, now).label).toBe("In 3 weeks");
+  });
+
+  it("treats a missing or nonsense rung as the bottom of the ladder", () => {
+    for (const step of [null, undefined, -4, Number.NaN]) {
+      expect(ladderRung(step)).toBe(0);
+      expect(nextDeferral(step, now).label).toBe("In 3 days");
+    }
+  });
+
+  it("lands the revisit at midday so a due check cannot miss it", () => {
+    expect(new Date(nextDeferral(0, now).revisit_at).getHours()).toBe(12);
   });
 });

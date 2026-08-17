@@ -5,7 +5,49 @@ import { addDays, dayKey } from "./rhythm";
 export const RETURN_MAX = 3;
 /** Due notes take the first seats; an older note fills what is left. */
 export const RETURN_DUE_SLOTS = 2;
-export const RETURN_LATER_DAYS = 7;
+
+/**
+ * The spacing ladder. Deferring a note walks one rung up: something you push
+ * away for the fifth time is not asking to be seen again in a week, and a note
+ * you have never deferred should not vanish for two months. Keep resets to the
+ * bottom, because clearing the date means the note is finished, not spaced.
+ *
+ * `notes.revisit_step` (0014_linked_desk.sql) stores the rung. The days live
+ * here rather than in SQL so the button's copy and the date it writes come from
+ * one place and cannot disagree.
+ */
+export const RETURN_LADDER: readonly { days: number; label: string }[] = [
+  { days: 3, label: "In 3 days" },
+  { days: 7, label: "In a week" },
+  { days: 21, label: "In 3 weeks" },
+  { days: 60, label: "In 2 months" },
+];
+
+/** Kept for the first rung's spacing; the ladder is the source of truth now. */
+export const RETURN_LATER_DAYS = RETURN_LADDER[1].days;
+
+/** Clamps a stored rung onto the ladder, tolerating nulls and junk. */
+export function ladderRung(step: number | null | undefined): number {
+  if (!Number.isFinite(step) || Number(step) < 0) return 0;
+  return Math.min(Math.trunc(Number(step)), RETURN_LADDER.length - 1);
+}
+
+/** What the defer button should say and do for a note at this rung. */
+export function nextDeferral(
+  step: number | null | undefined,
+  now = new Date()
+): { revisit_at: string; revisit_step: number; label: string; days: number } {
+  const rung = ladderRung(step);
+  const { days, label } = RETURN_LADDER[rung];
+  return {
+    revisit_at: laterRevisitAt(now, days),
+    // Walking past the top rung stays on it — the ladder ends at "2 months",
+    // it does not keep doubling into never.
+    revisit_step: Math.min(rung + 1, RETURN_LADDER.length - 1),
+    label,
+    days,
+  };
+}
 
 export type ReturnReason = "due" | "older";
 

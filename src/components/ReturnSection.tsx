@@ -7,7 +7,7 @@ import {
   appendReturnLine,
   emptyReturnSession,
   ensureReturnQueue,
-  laterRevisitAt,
+  nextDeferral,
   loadReturnSessionSynced,
   markReturnDone,
   reasonForQueued,
@@ -19,7 +19,9 @@ import type { Note } from "../lib/types";
 
 /**
  * Evening half of Daily: up to three marks — due notes first, then one that
- * has sat. Keep clears the date; In a week pushes it out. The day's queue
+ * has sat. Keep clears the date and the ladder; deferring walks one rung up
+ * the spacing ladder, so a note you keep pushing away comes back less often.
+ * The day's queue
  * is frozen so this cannot become a second inbox. The freeze and the marks
  * sync through Supabase so another browser sees the same evening.
  */
@@ -82,12 +84,16 @@ export default function ReturnSection() {
         .join("\n\n")
     : "";
 
-  const resolve = async (revisit_at: string | null) => {
+  // The rung this note is on decides both the button's copy and the date it
+  // writes, so they can never drift apart.
+  const defer = nextDeferral(current?.revisit_step);
+
+  const resolve = async (patch: { revisit_at: string | null; revisit_step: number }) => {
     if (!current || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await patchNote(current.id, { revisit_at });
+      await patchNote(current.id, patch);
       setSession((prev) => markReturnDone(prev, current.id));
       setJot("");
     } catch (err) {
@@ -194,7 +200,7 @@ export default function ReturnSection() {
                 type="text"
                 value={jot}
                 onChange={(event) => setJot(event.target.value)}
-                placeholder="One line, then Keep or wait a week…"
+                placeholder="One line, then Keep or push it out…"
                 className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-faint focus:border-accent/50 focus:outline-none"
               />
               <button
@@ -210,7 +216,7 @@ export default function ReturnSection() {
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
-              onClick={() => void resolve(null)}
+              onClick={() => void resolve({ revisit_at: null, revisit_step: 0 })}
               disabled={busy}
               className="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-on-accent disabled:opacity-50"
             >
@@ -218,11 +224,16 @@ export default function ReturnSection() {
             </button>
             <button
               type="button"
-              onClick={() => void resolve(laterRevisitAt())}
+              onClick={() =>
+                void resolve({
+                  revisit_at: defer.revisit_at,
+                  revisit_step: defer.revisit_step,
+                })
+              }
               disabled={busy}
               className="flex-1 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2 disabled:opacity-50"
             >
-              In a week
+              {defer.label}
             </button>
           </div>
         </div>

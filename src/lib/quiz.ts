@@ -47,6 +47,10 @@ export const CATEGORY_META: Record<
   Art: { label: "Art", tone: "text-pink-400 bg-pink-500/10" },
   Math: { label: "Math", tone: "text-teal-400 bg-teal-500/10" },
   Culture: { label: "Culture", tone: "text-lime-400 bg-lime-500/10" },
+  "From your notes": {
+    label: "From your notes",
+    tone: "text-accent-ink bg-accent-soft",
+  },
 };
 
 export function dateKey(d = new Date()): string {

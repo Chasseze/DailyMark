@@ -17,7 +17,7 @@ import { useAuth } from "./auth-context";
 import { NotesContext } from "./notes-context";
 
 const LIST_COLUMNS =
-  "id,user_id,notebook_id,title,preview,is_pinned,tags,deleted_at,revisit_at,created_at,updated_at";
+  "id,user_id,notebook_id,title,preview,is_pinned,tags,deleted_at,revisit_at,revisit_step,created_at,updated_at";
 
 const OFFLINE_ERROR = "Working offline";
 
@@ -28,6 +28,7 @@ function asListNote(row: Omit<NoteRow, "content"> & { content?: string }): Note 
     preview: row.preview ?? "",
     deleted_at: row.deleted_at ?? null,
     revisit_at: row.revisit_at ?? null,
+    revisit_step: row.revisit_step ?? 0,
     bodyLoaded: false,
   };
 }
@@ -38,6 +39,7 @@ function asHydratedNote(row: NoteRow): Note {
     preview: row.preview ?? "",
     deleted_at: row.deleted_at ?? null,
     revisit_at: row.revisit_at ?? null,
+    revisit_step: row.revisit_step ?? 0,
     bodyLoaded: true,
   };
 }
@@ -54,6 +56,7 @@ function asSearchNote(row: SearchNoteRow): Note {
     tags: row.tags ?? [],
     deleted_at: row.deleted_at,
     revisit_at: null,
+    revisit_step: 0,
     created_at: row.created_at,
     updated_at: row.updated_at,
     bodyLoaded: false,
@@ -373,6 +376,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
           tags: note.tags ?? [],
           deleted_at: null,
           revisit_at: null,
+          revisit_step: 0,
           created_at: now,
           updated_at: now,
           bodyLoaded: true,

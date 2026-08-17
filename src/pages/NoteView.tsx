@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useFocus } from "../context/focus-context";
 import { useNotes } from "../context/notes-context";
+import BacklinksSection from "../components/BacklinksSection";
 import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
 import { toggleTaskAtLine } from "../lib/markdown-edit";
@@ -271,6 +272,13 @@ function NoteArticle({ note }: { note: Note }) {
             <p className="italic text-muted">This note is empty. Tap edit to add content.</p>
           )}
         </div>
+
+        <BacklinksSection
+          noteId={note.id}
+          content={note.content}
+          title={note.title}
+          notes={notes}
+        />
       </article>
     </div>
   );
