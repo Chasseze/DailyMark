@@ -19,7 +19,9 @@ export type QuizCategory =
   | "Philosophy"
   | "Art"
   | "Math"
-  | "Culture";
+  | "Culture"
+  /** Cloze questions generated from the reader's own notes, not from this bank. */
+  | "From your notes";
 
 export interface QuizQuestion {
   id: string;

@@ -24,6 +24,7 @@ function note(partial: Partial<Note> = {}): Note {
     tags: [],
     deleted_at: null,
     revisit_at: null,
+    revisit_step: 0,
     created_at: "2026-08-16T00:00:00Z",
     updated_at: "2026-08-16T00:00:00Z",
     bodyLoaded: true,
