@@ -339,6 +339,46 @@ export default function Daily() {
     return list;
   }, [questions]);
 
+  // Two sources, one round: the bundled bank, or blanks cut out of your own
+  // notes. Rendered in both the ready panel and the results panel — "Play
+  // again" jumps straight back to a question, so a round that is already under
+  // way has no other route back to this choice until the next day.
+  const sourceToggle = (
+    <div
+      role="group"
+      aria-label="Question source"
+      className="mb-4 flex gap-1 rounded-xl bg-surface-2 p-1"
+    >
+      {([
+        { id: "general" as const, label: "General" },
+        { id: "notes" as const, label: "From your notes" },
+      ]).map((tab) => {
+        const active = source === tab.id;
+        const disabled = tab.id === "notes" && !notesReady;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => selectSource(tab.id)}
+            disabled={disabled}
+            aria-pressed={active}
+            title={
+              disabled
+                ? "Bold or ==highlight== key terms in your notes to unlock this"
+                : undefined
+            }
+            className={
+              "flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:opacity-40 " +
+              (active ? "bg-accent-soft text-accent-ink" : "text-muted hover:text-ink-soft")
+            }
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="animate-in px-4 pt-6">
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -476,44 +516,7 @@ export default function Daily() {
 
         {progress.phase === "ready" && (
           <div className="quiz-panel mt-4">
-            {/* Two sources, one round: the bundled bank, or blanks cut out of
-                your own notes. The notes tab stays disabled until there is
-                enough marked-up material to make the wrong answers plausible. */}
-            <div
-              role="group"
-              aria-label="Question source"
-              className="mb-4 flex gap-1 rounded-xl bg-surface-2 p-1"
-            >
-              {([
-                { id: "general" as const, label: "General" },
-                { id: "notes" as const, label: "From your notes" },
-              ]).map((tab) => {
-                const active = source === tab.id;
-                const disabled = tab.id === "notes" && !notesReady;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => selectSource(tab.id)}
-                    disabled={disabled}
-                    aria-pressed={active}
-                    title={
-                      disabled
-                        ? "Bold or ==highlight== key terms in your notes to unlock this"
-                        : undefined
-                    }
-                    className={
-                      "flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:opacity-40 " +
-                      (active
-                        ? "bg-accent-soft text-accent-ink"
-                        : "text-muted hover:text-ink-soft")
-                    }
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
+            {sourceToggle}
 
             <p className="note-title text-xl text-ink">
               {source === "notes"
@@ -646,7 +649,8 @@ export default function Daily() {
             <p className="mt-2 text-sm text-muted">
               {resultMessage(progress.score, total)}
             </p>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-5 text-left">{sourceToggle}</div>
+            <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
                 onClick={playAgain}
