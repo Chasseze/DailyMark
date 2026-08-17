@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   addToLibraryCollection,
   createLibraryCollection,
@@ -21,16 +21,31 @@ export default function LibraryCollectionBar({ kind, itemId }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     try {
       setCollections(await listLibraryCollections(kind));
+      setError(null);
     } catch (err) {
       setError(errorMessage(err));
     }
-  };
+  }, [kind]);
 
   useEffect(() => {
-    void reload();
+    let active = true;
+    void listLibraryCollections(kind).then(
+      (list) => {
+        // Switching tabs mid-flight must not paint the previous kind's shelves.
+        if (!active) return;
+        setCollections(list);
+        setError(null);
+      },
+      (err) => {
+        if (active) setError(errorMessage(err));
+      }
+    );
+    return () => {
+      active = false;
+    };
   }, [kind]);
 
   const toggle = async (col: LibraryCollection) => {

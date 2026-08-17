@@ -313,12 +313,15 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
           void handleImageFile(file);
         }}
       />
-      <NoteScanCapture
-        open={scanOpen}
-        onClose={() => setScanOpen(false)}
-        onCapture={(file) => void handleImageFile(file)}
-        onUseDeviceCamera={openDeviceCamera}
-      />
+      {/* Mounted only while open so closing the sheet drops the camera stream
+          and the capture state with it, instead of resetting them by hand. */}
+      {scanOpen && (
+        <NoteScanCapture
+          onClose={() => setScanOpen(false)}
+          onCapture={(file) => void handleImageFile(file)}
+          onUseDeviceCamera={openDeviceCamera}
+        />
+      )}
       {uploading && (
         <p className="mb-2 text-xs text-accent-ink">Compressing and adding the photo…</p>
       )}

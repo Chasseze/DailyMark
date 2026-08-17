@@ -14,7 +14,6 @@ import {
   QUESTIONS_PER_DAY,
   dateKey,
   daySeed,
-  loadProgress,
   loadProgressSynced,
   pickQuestions,
   resolveQuestions,
@@ -56,12 +55,8 @@ function freshProgress(key: string, attempt: number, questions: QuizQuestion[]):
   };
 }
 
+/** Today's fresh set, shown while the account's saved progress loads. */
 function bootstrapProgress(key: string): { progress: QuizProgress; questions: QuizQuestion[] } {
-  const saved = loadProgress(key);
-  if (saved) {
-    const resolved = resolveQuestions(saved.questionIds);
-    if (resolved) return { progress: saved, questions: resolved };
-  }
   const questions = pickQuestions(key, 0);
   return { progress: freshProgress(key, 0, questions), questions };
 }
@@ -91,7 +86,7 @@ export default function Daily() {
 
   const [{ progress, questions }, setState] = useState(() => bootstrapProgress(key));
 
-  // Prefer cloud progress once the session is ready (localStorage is the cache).
+  // Swap in the account's saved progress for today once it arrives.
   useEffect(() => {
     let active = true;
     void loadProgressSynced(key).then((remote) => {

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import type { Theme } from "../lib/types";
 import { ThemeContext } from "./theme-context";
-import { usePrefs } from "./PrefsContext";
+import { usePrefs } from "./prefs-context";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { theme, patchPrefs } = usePrefs();

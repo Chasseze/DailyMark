@@ -156,10 +156,6 @@ function normalizeProgress(key: string, parsed: Partial<QuizProgress>): QuizProg
   };
 }
 
-export function loadProgress(_key: string): QuizProgress | null {
-  return null;
-}
-
 /** Load quiz progress from the account (no device cache). */
 export async function loadProgressSynced(key: string): Promise<QuizProgress | null> {
   try {

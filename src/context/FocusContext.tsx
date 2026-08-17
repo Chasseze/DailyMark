@@ -1,6 +1,6 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import { FocusContext } from "./focus-context";
-import { usePrefs } from "./PrefsContext";
+import { usePrefs } from "./prefs-context";
 
 export function FocusProvider({ children }: { children: ReactNode }) {
   const { focus, patchPrefs } = usePrefs();

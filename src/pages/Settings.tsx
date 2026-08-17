@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/theme-context";
 import { useMood } from "../context/mood-context";
@@ -28,11 +28,9 @@ import {
 import {
   DEFAULT_REMINDER,
   ensureNotificationPermission,
-  getReminderPrefs,
-  setReminderPrefs,
   type ReminderPrefs,
 } from "../lib/reminders";
-import { usePrefs } from "../context/PrefsContext";
+import { usePrefs } from "../context/prefs-context";
 import { errorMessage } from "../lib/supabase";
 import type { Theme } from "../lib/types";
 
@@ -66,21 +64,16 @@ export default function Settings() {
   const [ioBusy, setIoBusy] = useState(false);
   const [ioMessage, setIoMessage] = useState<string | null>(null);
   const [ioError, setIoError] = useState<string | null>(null);
-  const [reminder, setReminder] = useState<ReminderPrefs>(
-    () => reminderFromPrefs(prefs.reminder) ?? getReminderPrefs()
+  // Read straight off the account row — PrefsProvider already mirrors it into
+  // the reminder module on load and on every patch, so a local copy here would
+  // only be a second thing to keep in step.
+  const reminder = useMemo(
+    () => reminderFromPrefs(prefs.reminder) ?? DEFAULT_REMINDER,
+    [prefs.reminder]
   );
   const importRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const next = reminderFromPrefs(prefs.reminder);
-    if (!next) return;
-    setReminderPrefs(next);
-    setReminder(next);
-  }, [prefs.reminder?.enabled, prefs.reminder?.time]);
-
   const applyReminder = (next: ReminderPrefs) => {
-    setReminder(next);
-    setReminderPrefs(next);
     void patchPrefs({ reminder: next });
   };
 

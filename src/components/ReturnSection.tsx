@@ -5,9 +5,9 @@ import { useNotes } from "../context/notes-context";
 import {
   RETURN_MAX,
   appendReturnLine,
+  emptyReturnSession,
   ensureReturnQueue,
   laterRevisitAt,
-  loadReturnSession,
   loadReturnSessionSynced,
   markReturnDone,
   reasonForQueued,
@@ -26,7 +26,7 @@ import type { Note } from "../lib/types";
 export default function ReturnSection() {
   const { notes, loading, patchNote, ensureNote } = useNotes();
   const today = useMemo(() => dayKey(new Date()), []);
-  const [session, setSession] = useState(() => loadReturnSession(today));
+  const [session, setSession] = useState(() => emptyReturnSession(today));
   const [hydrated, setHydrated] = useState(false);
   const [jot, setJot] = useState("");
   const [busy, setBusy] = useState(false);
