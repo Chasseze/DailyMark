@@ -4,11 +4,13 @@
 
 ### Linked desk
 
-Requires `supabase/migrations/0014_linked_desk.sql`.
+Requires `supabase/migrations/0014_linked_desk.sql` and
+`supabase/migrations/0015_desk_function_grants.sql`.
 
 - **Backlinks** — a note now shows what links *to* it. Wiki links resolve by title, so renaming a note used to break every link into it silently; the unresolved ones are now named under “Links to nothing”
 - **Return spacing ladder** — deferring walks 3 days → 1 week → 3 weeks → 2 months rather than always meaning a week, so a note you keep pushing away comes back less often. Keep resets it
 - **Quiz from your notes** — `**bold**` and `==highlight==` spans become fill-in-the-blank questions, with the wrong answers drawn from your own other notes. No model involved, so a note always yields the same question
+- **Function grants** — `0014` revoked the two new functions from `PUBLIC`, which on hosted Supabase does not undo the default `EXECUTE` grant to the `anon` role. No data was reachable (both filter on `auth.uid()`), but anon could call them; `0015` revokes by role name, as `0010` already did
 
 ### Review pass
 
