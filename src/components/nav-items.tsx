@@ -21,6 +21,15 @@ const iconProps = {
 
 export const NAV_ITEMS: NavItem[] = [
   {
+    to: "/desk",
+    label: "Desk",
+    icon: (
+      <svg {...iconProps}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 20h16M6 16.5 16.8 5.7a2 2 0 0 1 2.8 2.8L8.8 19.3 4.5 20l.7-4.3Z" />
+      </svg>
+    ),
+  },
+  {
     to: "/notes",
     label: "Notes",
     icon: (
