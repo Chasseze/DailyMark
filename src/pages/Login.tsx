@@ -74,7 +74,7 @@ export default function Login() {
   }
 
   if (session && !passwordRecovery) {
-    const from = (location.state as { from?: string } | null)?.from ?? "/notes";
+    const from = (location.state as { from?: string } | null)?.from ?? "/desk";
     return <Navigate to={from} replace />;
   }
 

@@ -23,6 +23,7 @@ const VisualsWorkspace = lazy(() => import("./pages/VisualsWorkspace"));
 const VisualsEmptyPreview = lazy(() => import("./pages/VisualsEmptyPreview"));
 const VisualView = lazy(() => import("./pages/VisualView"));
 const Daily = lazy(() => import("./pages/Daily"));
+const Desk = lazy(() => import("./pages/Desk"));
 const Rhythm = lazy(() => import("./pages/Rhythm"));
 const Settings = lazy(() => import("./pages/Settings"));
 const SharedView = lazy(() => import("./pages/SharedView"));
@@ -60,7 +61,11 @@ export default function App() {
               </NotesProvider>
             }
           >
-            <Route path="/" element={<Navigate to="/notes" replace />} />
+            <Route path="/" element={<Navigate to="/desk" replace />} />
+            {/* Outside ThoughtsRoutes on purpose: the desk is the landing page,
+                and mounting the thoughts catalog here would put it back on the
+                sign-in path. It reads the one pinned row directly instead. */}
+            <Route path="/desk" element={<Desk />} />
             <Route path="/notes" element={<NotesWorkspace />}>
               <Route index element={<NotesEmptyPreview />} />
               <Route path=":id" element={<NoteView />} />
@@ -88,7 +93,7 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/notes" replace />} />
+        <Route path="*" element={<Navigate to="/desk" replace />} />
       </Routes>
     </Suspense>
   );

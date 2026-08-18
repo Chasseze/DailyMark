@@ -2,7 +2,7 @@
  * Account-backed UI prefs. Source of truth is profiles.prefs — never localStorage.
  */
 
-import type { NotesMood } from "./moods";
+import { isNotesMood, type NotesMood } from "./moods";
 import type { Theme } from "./types";
 
 export type UserPrefs = {
@@ -28,10 +28,10 @@ export function normalizePrefs(raw: unknown): UserPrefs {
   const o = raw as Record<string, unknown>;
   const theme =
     o.theme === "dark" || o.theme === "light" || o.theme === "system" ? o.theme : undefined;
-  const notesMood =
-    o.notesMood === "cobalt" || o.notesMood === "midnight" || o.notesMood === "harbor"
-      ? o.notesMood
-      : undefined;
+  // Validated through isNotesMood so adding a mood cannot leave this behind.
+  const notesMood = typeof o.notesMood === "string" && isNotesMood(o.notesMood)
+    ? o.notesMood
+    : undefined;
   const speech =
     o.speech && typeof o.speech === "object"
       ? (o.speech as UserPrefs["speech"])

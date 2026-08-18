@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Desk
+
+- **Desk** — a new landing page at `/desk`: a capture bar, tonight's Return count, the daily quiz, Thought of the week and the notes you last touched. Every card is a doorway to the page that owns the thing, so the desk stays thin. It reads the one pinned thought directly rather than mounting the thoughts catalog, which would put it back on the sign-in path
+- **Capture bar** — type a line and it becomes a titled note, or dictate one. Replaces the pair of small buttons in the notes header, and is the same component on both surfaces. Dictation moved to a `useDictation` hook so there is one recogniser, not two
+- **Ember mood** — a fourth mood beside Cobalt / Midnight / Harbor, and the only one that changes more than colour: cream paper, a full-height charcoal rail with a curved edge in place of the blue masthead, Outfit for headings, muted gold for the accent, and the script sign-off in the rail. Expressed entirely in the mood's own CSS block, so the three blues are untouched. Outfit and Sacramento are self-hosted like the existing faces
+
 ### Linked desk
 
 Requires `supabase/migrations/0014_linked_desk.sql` and

@@ -1,42 +1,13 @@
-import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
+import CaptureBar from "./CaptureBar";
 import { useStreak } from "../hooks/useStreak";
 import { shareUrl } from "../lib/share";
 import { errorMessage } from "../lib/supabase";
 import type { Note } from "../lib/types";
 
 const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
-
-type SpeechRecognitionResultLike = {
-  isFinal: boolean;
-  0?: { transcript: string };
-};
-
-type SpeechRecognitionEventLike = {
-  resultIndex: number;
-  results: ArrayLike<SpeechRecognitionResultLike> & { length: number };
-};
-
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((event: { error?: string }) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-};
-
-function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
-  const w = window as unknown as {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
 
 /** Opening preview from the DB snippet, wrapped to ~3 lines via CSS. */
 function openingLines(preview: string): string {
@@ -69,7 +40,6 @@ export default function NotesSidebar() {
     purgeNote,
     emptyTrash,
     searchNotes,
-    inboxId,
     dueNotes,
     createNotebookShare,
   } = useNotes();
@@ -91,14 +61,8 @@ export default function NotesSidebar() {
   const [editNbName, setEditNbName] = useState("");
   const [editNbColor, setEditNbColor] = useState(COLORS[0]);
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [voiceDraft, setVoiceDraft] = useState("");
   const [writeError, setWriteError] = useState<string | null>(null);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const voiceFinalsRef = useRef("");
-  const voiceActiveRef = useRef(false);
-  const voiceStoppingRef = useRef(false);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -199,142 +163,6 @@ export default function NotesSidebar() {
     }
   };
 
-  const saveVoiceNote = async (transcript: string) => {
-    setBusy(true);
-    setWriteError(null);
-    try {
-      const note = await addNote({
-        title: "Voice note",
-        content: transcript,
-        notebook_id: inboxId,
-        is_pinned: false,
-        tags: ["voice"],
-      });
-      navigate("/notes/" + note.id + "/edit");
-    } catch (err) {
-      setWriteError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const endVoiceSession = (transcript: string) => {
-    // onerror + onend can both fire; only finalize once.
-    if (!voiceActiveRef.current && !recognitionRef.current) return;
-    recognitionRef.current = null;
-    voiceActiveRef.current = false;
-    voiceStoppingRef.current = false;
-    const text = transcript.trim();
-    voiceFinalsRef.current = "";
-    setListening(false);
-    setVoiceDraft("");
-
-    if (!text) {
-      setWriteError("No speech detected. Try again.");
-      return;
-    }
-    void saveVoiceNote(text);
-  };
-
-  const handleVoiceCapture = () => {
-    if (busy || showTrash) return;
-
-    // Second click stops the session and saves one note with the full dictation.
-    if (voiceActiveRef.current && recognitionRef.current) {
-      voiceStoppingRef.current = true;
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        endVoiceSession(voiceFinalsRef.current);
-      }
-      return;
-    }
-
-    const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) {
-      setWriteError("Voice capture is not supported in this browser.");
-      return;
-    }
-
-    setWriteError(null);
-    setVoiceDraft("");
-    voiceFinalsRef.current = "";
-    voiceStoppingRef.current = false;
-    voiceActiveRef.current = true;
-
-    const recognition = new Ctor();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = navigator.language || "en-US";
-    recognitionRef.current = recognition;
-
-    recognition.onresult = (event) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        const piece = result?.[0]?.transcript?.trim() ?? "";
-        if (!piece) continue;
-        if (result.isFinal) {
-          voiceFinalsRef.current = [voiceFinalsRef.current, piece].filter(Boolean).join(" ");
-        } else {
-          interim = interim ? `${interim} ${piece}` : piece;
-        }
-      }
-      const draft = [voiceFinalsRef.current, interim].filter(Boolean).join(" ");
-      setVoiceDraft(draft);
-    };
-
-    recognition.onerror = (event) => {
-      const code = event.error;
-      // aborted / no-speech: keep the session; onend restarts or finalizes.
-      if (code === "aborted" || code === "no-speech") return;
-      voiceActiveRef.current = false;
-      voiceStoppingRef.current = false;
-      recognitionRef.current = null;
-      setListening(false);
-      setVoiceDraft("");
-      setWriteError(code ? `Voice capture failed: ${code}` : "Voice capture failed.");
-    };
-
-    recognition.onend = () => {
-      // Browsers often end continuous recognition after a pause; keep going
-      // until the user clicks the mic again.
-      if (voiceActiveRef.current && !voiceStoppingRef.current && recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-          return;
-        } catch {
-          // Fall through and finalize whatever we have.
-        }
-      }
-      endVoiceSession(voiceFinalsRef.current);
-    };
-
-    try {
-      setListening(true);
-      recognition.start();
-    } catch (err) {
-      voiceActiveRef.current = false;
-      recognitionRef.current = null;
-      setListening(false);
-      setVoiceDraft("");
-      setWriteError(errorMessage(err));
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      voiceActiveRef.current = false;
-      voiceStoppingRef.current = true;
-      try {
-        recognitionRef.current?.abort();
-      } catch {
-        // ignore teardown errors
-      }
-      recognitionRef.current = null;
-    };
-  }, []);
-
   const handleShareNotebook = async () => {
     if (!activeNotebook || busy) return;
     setShareStatus(null);
@@ -412,35 +240,15 @@ export default function NotesSidebar() {
               )}
             </p>
           </div>
-          {!showTrash && (
-            <div className="flex shrink-0 items-center gap-1.5">
-              <button
-                type="button"
-                onClick={handleVoiceCapture}
-                disabled={busy}
-                aria-pressed={listening}
-                className={
-                  "rounded-xl p-2 transition-colors disabled:opacity-50 " +
-                  (listening
-                    ? "bg-accent-soft text-accent-ink ring-2 ring-accent/40"
-                    : "bg-surface text-muted hover:bg-surface-2 hover:text-ink-soft")
-                }
-                aria-label={listening ? "Stop listening and save" : "Voice note"}
-                title={listening ? "Tap to stop and save" : "Voice note — tap to dictate"}
-              >
-                <MicIcon />
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleQuickNote()}
-                disabled={busy}
-                className="btn-primary rounded-xl px-3.5 py-2 text-sm"
-              >
-                New
-              </button>
-            </div>
-          )}
         </div>
+
+        {/* The fast path. Was a pair of small buttons up in the header; a note
+            app's primary job deserves the full width. */}
+        {!showTrash && (
+          <div className="mb-4">
+            <CaptureBar notebookId={activeNotebook} tags={activeTag ? [activeTag] : []} />
+          </div>
+        )}
 
         <div className="relative mb-3">
           <svg
@@ -753,17 +561,6 @@ export default function NotesSidebar() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        {listening && (
-          <div className="mb-3 rounded-xl border border-accent/40 bg-accent-soft px-3 py-2 text-xs text-accent-ink">
-            <p className="font-medium text-accent-ink">
-              Listening… tap the mic again to save one note
-            </p>
-            <p className="mt-1 line-clamp-3 text-ink-soft">
-              {voiceDraft.trim() || "Say something…"}
-            </p>
-          </div>
-        )}
-
         {(error || writeError) && (
           <div className="mb-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
             {error ?? writeError}
@@ -934,11 +731,3 @@ const NoteCard = memo(function NoteCard({
   );
 });
 
-function MicIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-      <rect x="9" y="3.5" width="6" height="11" rx="3" />
-      <path strokeLinecap="round" d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3.5" />
-    </svg>
-  );
-}

@@ -28,6 +28,48 @@
     U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
     U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
+/* Ember's faces. Self-hosted for the same reason as the other two: a Google
+   Fonts stylesheet is a render-blocking request to a third origin. */
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/outfit-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/outfit-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Sacramento";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/sacramento-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Sacramento";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/sacramento-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 @font-face {
   font-family: "Fraunces";
   font-style: normal;
@@ -116,6 +158,10 @@
   /* Accent — one hue, three jobs: solid, tint, and text-on-paper. */
   --mood-accent: #f59e0b;
   --mood-accent-ink: #fbbf24;
+  /* The one gradient in the app. A token so a mood can restyle it. */
+  --mood-btn-a: #fbbf24;
+  --mood-btn-b: #f97316;
+  --mood-btn-ink: var(--mood-on-accent);
   --mood-accent-soft: oklch(0.75 0.15 85 / 0.16);
   --mood-on-accent: #1a1208;
   --mood-danger: oklch(0.72 0.16 25);
@@ -175,6 +221,38 @@
   --mood-glass-border: oklch(1 0 0 / 0.1);
 }
 
+/* Ember — the warm one. Unlike the three blues it also moves the accent, from
+   amber to a muted gold, because the whole point of the mood is the warmth of
+   the metal against paper. Contrast was checked against this surface: ink
+   16.8:1, ink-soft 12.1:1, muted 8.0:1, accent-ink 9.7:1. */
+:root[data-mood="ember"] {
+  --mood-ink: #f7f4ee;
+  --mood-ink-soft: #d6d1c6;
+  --mood-muted: #b0aa9c;
+  --mood-faint: #8b8578;
+  --mood-surface: oklch(1 0.02 80 / 0.05);
+  --mood-surface-2: oklch(1 0.02 80 / 0.09);
+  --mood-surface-3: oklch(1 0.02 80 / 0.14);
+  --mood-line: oklch(1 0.02 80 / 0.1);
+  --mood-line-strong: oklch(1 0.02 80 / 0.2);
+  --mood-accent: #c2a068;
+  --mood-accent-ink: #d8b96e;
+  --mood-accent-soft: oklch(0.72 0.08 80 / 0.16);
+  --mood-on-accent: #1a1208;
+  --mood-btn-a: #26241f;
+  --mood-btn-b: #1c1c1e;
+  --mood-btn-ink: #f7f4ee;
+  --mood-masthead: #1c1c1e;
+  --mood-paper: #15140f;
+  --mood-sidebar: oklch(0.2 0.012 80 / 0.6);
+  --mood-row-hover: oklch(1 0.02 80 / 0.05);
+  --mood-row-active: oklch(0.72 0.08 80 / 0.14);
+  --mood-glow-a: oklch(0.6 0.07 80 / 0.18);
+  --mood-glow-b: oklch(0.35 0.02 60 / 0.3);
+  --mood-glass: oklch(0.26 0.012 70 / 0.74);
+  --mood-glass-border: oklch(0.85 0.06 80 / 0.12);
+}
+
 :root.light,
 :root.light[data-mood="cobalt"] {
   /* Text */
@@ -191,6 +269,9 @@
   /* Accent */
   --mood-accent: #d97706;
   --mood-accent-ink: oklch(0.52 0.13 65);
+  --mood-btn-a: #fbbf24;
+  --mood-btn-b: #f97316;
+  --mood-btn-ink: var(--mood-on-accent);
   --mood-accent-soft: oklch(0.75 0.15 85 / 0.2);
   --mood-on-accent: #1a1208;
   --mood-danger: oklch(0.51 0.2 27);
@@ -246,6 +327,37 @@
   --mood-glow-b: oklch(0.82 0.05 230 / 0.35);
   --mood-glass: oklch(1 0 0 / 0.8);
   --mood-glass-border: oklch(0.35 0.04 230 / 0.1);
+}
+
+/* Cream paper, charcoal masthead, gold instead of amber. Checked on #f6f2ea:
+   ink 15.6:1, ink-soft 8.5:1, muted 6.4:1, accent-ink 5.3:1, and the solid
+   accent carries the dark on-accent ink at 5.5:1. */
+:root.light[data-mood="ember"] {
+  --mood-ink: #1a1a1c;
+  --mood-ink-soft: #4a453d;
+  --mood-muted: #5d574d;
+  --mood-faint: #9a958c;
+  --mood-surface: oklch(0.3 0.02 70 / 0.06);
+  --mood-surface-2: oklch(0.3 0.02 70 / 0.1);
+  --mood-surface-3: oklch(0.3 0.02 70 / 0.15);
+  --mood-line: oklch(0.3 0.02 70 / 0.14);
+  --mood-line-strong: oklch(0.3 0.02 70 / 0.26);
+  --mood-accent: #a8874e;
+  --mood-accent-ink: #7d6029;
+  --mood-accent-soft: oklch(0.7 0.08 80 / 0.2);
+  --mood-on-accent: #1a1208;
+  --mood-btn-a: #26241f;
+  --mood-btn-b: #1c1c1e;
+  --mood-btn-ink: #f7f4ee;
+  --mood-masthead: #1c1c1e;
+  --mood-paper: #f6f2ea;
+  --mood-sidebar: oklch(1 0.01 80 / 0.78);
+  --mood-row-hover: oklch(0.4 0.03 70 / 0.06);
+  --mood-row-active: oklch(0.7 0.08 80 / 0.18);
+  --mood-glow-a: oklch(0.9 0.05 85 / 0.5);
+  --mood-glow-b: oklch(0.86 0.03 60 / 0.35);
+  --mood-glass: oklch(1 0.006 80 / 0.72);
+  --mood-glass-border: oklch(0.3 0.02 70 / 0.09);
 }
 
 body {
@@ -385,6 +497,84 @@ html {
   color: #ffffff;
   box-shadow: 0 10px 28px color-mix(in oklab, var(--mood-masthead) 35%, transparent);
   animation: notesMastheadIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── Ember structure ────────────────────────────────────────────────────────
+   Ember is the one mood that changes more than colour. The approved design has
+   no blue bar and a charcoal panel where the rail is, so those are expressed
+   here rather than in the components: every other mood is untouched, and a
+   component never has to branch on which mood is active. */
+
+/* Headings switch from the Fraunces serif to the geometric grotesque. */
+:root[data-mood="ember"] .page-title,
+:root[data-mood="ember"] .note-title {
+  font-family: "Outfit", "Figtree", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variation-settings: normal;
+}
+:root[data-mood="ember"] .note-title {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* The desk has no masthead from lg up — the rail runs the full height and the
+   page starts at the paper. The bar stays on a phone, where it carries the
+   wordmark and the mood picker and there is no rail to carry them. */
+@media (min-width: 1024px) {
+  :root[data-mood="ember"] .notes-masthead {
+    display: none;
+  }
+}
+
+/* The charcoal panel, with the curved outer edge from the reference. */
+:root[data-mood="ember"] .side-nav {
+  background: #1c1c1e;
+  border-right: 0;
+  border-radius: 0 2.75rem 2.75rem 0;
+  padding: 2rem 1rem 1.75rem;
+  margin-right: 1.25rem;
+  color: #8b8780;
+  /* The masthead is gone in this mood, so the panel runs the full height
+     rather than hanging below where the bar used to be. */
+  top: 0;
+  max-height: 100svh;
+  height: 100svh;
+}
+/* The rail is wide enough for the tagline to sit on one line. */
+:root[data-mood="ember"] .side-nav {
+  width: 15.5rem;
+}
+:root[data-mood="ember"] .side-nav .side-nav__wordmark {
+  color: #f7f4ee;
+}
+:root[data-mood="ember"] .side-nav__flourish {
+  display: block;
+}
+:root[data-mood="ember"] .side-nav__tagline {
+  display: block;
+}
+:root[data-mood="ember"] .side-nav a {
+  color: #8b8780;
+}
+:root[data-mood="ember"] .side-nav a:hover {
+  background: rgba(216, 185, 110, 0.08);
+  color: #d8b96e;
+}
+:root[data-mood="ember"] .side-nav a[aria-current="page"] {
+  background: rgba(216, 185, 110, 0.12);
+  color: #d8b96e;
+}
+
+/* Hidden in every other mood: they have no charcoal panel to sit on. */
+.side-nav__flourish,
+.side-nav__tagline {
+  display: none;
+}
+.side-nav__script {
+  font-family: "Sacramento", "Snell Roundhand", cursive;
+  color: #b1904f;
+  line-height: 1.15;
 }
 
 .notes-workspace {
@@ -1277,8 +1467,8 @@ html {
    gradient (player transport, progress fills, secondary actions) now uses a
    solid accent or an accent tint, so this reads as *the* primary action. */
 .btn-primary {
-  background-image: linear-gradient(to right, #fbbf24, #f97316);
-  color: var(--mood-on-accent);
+  background-image: linear-gradient(to right, var(--mood-btn-a), var(--mood-btn-b));
+  color: var(--mood-btn-ink);
   font-weight: 600;
   transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
 }
