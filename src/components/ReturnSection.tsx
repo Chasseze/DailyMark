@@ -13,6 +13,7 @@ import {
   reasonForQueued,
   saveReturnSession,
 } from "../lib/return-queue";
+import { markdownExcerpt } from "../lib/markdown";
 import { dayKey } from "../lib/rhythm";
 import { errorMessage } from "../lib/supabase";
 import type { Note } from "../lib/types";
@@ -164,7 +165,8 @@ export default function ReturnSection() {
             {current.title.trim() || "Untitled"}
           </h2>
           <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-ink-soft">
-            {(current.content.trim() || current.preview).trim() || "No content yet"}
+            {markdownExcerpt(current.content.trim() || current.preview, 320) ||
+              "No content yet"}
           </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -192,7 +194,7 @@ export default function ReturnSection() {
             }}
           >
             <label htmlFor="return-jot" className="sr-only">
-              One line on this note
+              Add a line to this note
             </label>
             <div className="flex gap-2">
               <input
@@ -200,7 +202,7 @@ export default function ReturnSection() {
                 type="text"
                 value={jot}
                 onChange={(event) => setJot(event.target.value)}
-                placeholder="One line, then Keep or push it out…"
+                placeholder="Add a line to this note (optional)…"
                 className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-faint focus:border-accent/50 focus:outline-none"
               />
               <button

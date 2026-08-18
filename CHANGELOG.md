@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Sync and the Return card
+
+- **Quiz progress writes are serialised** — every answer fired an independent upsert, so two in quick succession landed last-*response*-wins rather than last-*state*-wins: a finished round could come back as the state from two questions ago. One request is in flight at a time now, a save arriving mid-flight replaces the queued one, and a failed write is retried on a backoff instead of being swallowed
+- **A failed save is visible** — the quiz card says “Saving…” or “Not saved — will retry” instead of losing the round in silence
+- **The last answer survives closing the tab** — a normal request dies with the document; the final state goes out with `keepalive`
+- **Return card** — the note preview rendered raw Markdown, so a note beginning `# Heading` showed the hashes. It runs through `markdownExcerpt` now, and the jot field's placeholder no longer implies it is a required step before Keep
+- **This device** — Settings can clear the offline copy of your notes, the only app data DailyMark keeps in the browser. It warns first when edits are still queued
+
 ### Desk
 
 - **Desk** — a new landing page at `/desk`: a capture bar, tonight's Return count, the daily quiz, Thought of the week and the notes you last touched. Every card is a doorway to the page that owns the thing, so the desk stays thin. It reads the one pinned thought directly rather than mounting the thoughts catalog, which would put it back on the sign-in path

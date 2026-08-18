@@ -7,6 +7,9 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 export const isSupabaseConfigured = () =>
   supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
 
+/** REST endpoint + anon key, for the one request that must outlive the page. */
+export const supabaseRest = { url: supabaseUrl, anonKey: supabaseAnonKey };
+
 // createClient() throws on empty credentials, so the client is built lazily and
 // App renders a setup screen when it can't be built. Without this, a missing
 // .env.local is a blank white page with a stack trace in the console.

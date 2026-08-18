@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/theme-context";
 import { useMood } from "../context/mood-context";
@@ -31,6 +31,7 @@ import {
   type ReminderPrefs,
 } from "../lib/reminders";
 import { usePrefs } from "../context/prefs-context";
+import { clearDeviceCache, countOutbox } from "../lib/notes-offline";
 import { errorMessage } from "../lib/supabase";
 import type { Theme } from "../lib/types";
 
@@ -72,6 +73,45 @@ export default function Settings() {
     [prefs.reminder]
   );
   const importRef = useRef<HTMLInputElement>(null);
+
+  // The offline copy is the only app data this device holds; the button below
+  // exists so it can be wiped without reaching for browser settings.
+  const [cacheState, setCacheState] = useState({
+    pending: 0,
+    busy: false,
+    message: null as string | null,
+    error: null as string | null,
+  });
+
+  useEffect(() => {
+    let active = true;
+    void countOutbox().then((pending) => {
+      if (active) setCacheState((prev) => ({ ...prev, pending }));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const clearCache = async () => {
+    const warning =
+      cacheState.pending > 0
+        ? `${cacheState.pending} edit${cacheState.pending === 1 ? " has" : "s have"} not reached your account yet and will be lost. Clear anyway?`
+        : "Clear this device's offline copy? Your notes stay in your account.";
+    if (!confirm(warning)) return;
+    setCacheState((prev) => ({ ...prev, busy: true, message: null, error: null }));
+    try {
+      await clearDeviceCache();
+      setCacheState({
+        pending: 0,
+        busy: false,
+        message: "Cleared. Reload to refetch everything from your account.",
+        error: null,
+      });
+    } catch (err) {
+      setCacheState((prev) => ({ ...prev, busy: false, error: errorMessage(err) }));
+    }
+  };
 
   const applyReminder = (next: ReminderPrefs) => {
     void patchPrefs({ reminder: next });
@@ -511,6 +551,33 @@ export default function Settings() {
           disabled={!reminder.enabled}
           className="mt-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink-soft focus:border-accent/50 focus:outline-none disabled:opacity-40"
         />
+      </div>
+
+      <div className="glass mb-4 rounded-2xl p-4">
+        <h2 className="mb-1 text-sm font-semibold text-ink-soft">This device</h2>
+        <p className="text-xs leading-relaxed text-muted">
+          Everything you write lives in your account. The only thing kept on this
+          device is an offline copy of your notes, so you can read and edit them
+          with no connection — it is rebuilt from the account on the next load.
+        </p>
+        {cacheState.pending > 0 && (
+          <p className="mt-2 text-xs text-danger">
+            {cacheState.pending} edit{cacheState.pending === 1 ? "" : "s"} still waiting to
+            sync. Clearing now would discard {cacheState.pending === 1 ? "it" : "them"}.
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => void clearCache()}
+          disabled={cacheState.busy}
+          className="mt-3 w-full rounded-xl bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-50"
+        >
+          {cacheState.busy ? "Clearing…" : "Clear this device's offline copy"}
+        </button>
+        {cacheState.message && (
+          <p className="mt-2 text-xs text-accent-ink">{cacheState.message}</p>
+        )}
+        {cacheState.error && <p className="mt-2 text-xs text-danger">{cacheState.error}</p>}
       </div>
 
       <div className="glass rounded-2xl p-4">

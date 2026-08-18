@@ -130,10 +130,6 @@ export function resolveQuestions(
   return resolved.length === ids.length && ids.length > 0 ? resolved : null;
 }
 
-export function storageKey(key: string): string {
-  return `dailymark.quiz.${key}`;
-}
-
 function normalizeProgress(key: string, parsed: Partial<QuizProgress>): QuizProgress | null {
   if (parsed.dateKey !== key) return null;
   if (!Array.isArray(parsed.questionIds) || parsed.questionIds.length === 0) return null;
@@ -189,28 +185,168 @@ export async function loadProgressSynced(key: string): Promise<QuizProgress | nu
   }
 }
 
-export function saveProgress(progress: QuizProgress): void {
-  void (async () => {
+/**
+ * Writing progress to the account.
+ *
+ * Every answer, every Next, every replay calls this, and the round only exists
+ * in Supabase — there is no device copy to fall back on. So the writes are
+ * serialised rather than fired and forgotten: an unordered pair of upserts
+ * lands last-response-wins, which is how a finished round could come back as
+ * the state from two questions ago.
+ *
+ * One request is in flight at a time. A save that arrives during one replaces
+ * whatever was queued instead of joining a queue — only the newest state is
+ * worth sending, and coalescing keeps a fast run of answers to a couple of
+ * round trips.
+ */
+
+export type ProgressSaveState = "idle" | "saving" | "error";
+
+let pendingSave: QuizProgress | null = null;
+let inFlight: Promise<void> | null = null;
+let saveState: ProgressSaveState = "idle";
+const saveListeners = new Set<(state: ProgressSaveState) => void>();
+
+/**
+ * A failed write is retried on a timer, never in a loop. Re-kicking the queue
+ * the moment a write fails spins as fast as the network answers — a first cut
+ * of this managed several hundred requests a second against a failing endpoint.
+ */
+const RETRY_MIN_MS = 3000;
+const RETRY_MAX_MS = 60_000;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryDelay = RETRY_MIN_MS;
+
+function setSaveState(next: ProgressSaveState) {
+  if (saveState === next) return;
+  saveState = next;
+  for (const listener of saveListeners) listener(next);
+}
+
+/** Subscribe to the save indicator. Returns an unsubscribe. */
+export function onProgressSaveState(
+  listener: (state: ProgressSaveState) => void
+): () => void {
+  saveListeners.add(listener);
+  listener(saveState);
+  return () => {
+    saveListeners.delete(listener);
+  };
+}
+
+function progressRow(progress: QuizProgress, uid: string) {
+  return {
+    user_id: uid,
+    date_key: progress.dateKey,
+    attempt: progress.attempt,
+    question_ids: progress.questionIds,
+    index: progress.index,
+    score: progress.score,
+    selected: progress.selected,
+    phase: progress.phase,
+  };
+}
+
+async function writeProgress(progress: QuizProgress): Promise<void> {
+  const { requireSupabase } = await import("./supabase");
+  const db = requireSupabase();
+  const { data: auth } = await db.auth.getSession();
+  const uid = auth.session?.user.id;
+  if (!uid) return;
+  const { error } = await db.from("quiz_progress").upsert(progressRow(progress, uid));
+  if (error) throw error;
+}
+
+function clearRetry() {
+  if (retryTimer === null) return;
+  clearTimeout(retryTimer);
+  retryTimer = null;
+}
+
+function scheduleRetry() {
+  if (retryTimer !== null) return;
+  const delay = retryDelay;
+  retryDelay = Math.min(retryDelay * 2, RETRY_MAX_MS);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    kickSaves();
+  }, delay);
+}
+
+async function drainSaves(): Promise<void> {
+  while (pendingSave) {
+    const next = pendingSave;
+    pendingSave = null;
+    setSaveState("saving");
     try {
-      const { requireSupabase } = await import("./supabase");
-      const db = requireSupabase();
-      const { data: auth } = await db.auth.getSession();
-      const uid = auth.session?.user.id;
-      if (!uid) return;
-      await db.from("quiz_progress").upsert({
-        user_id: uid,
-        date_key: progress.dateKey,
-        attempt: progress.attempt,
-        question_ids: progress.questionIds,
-        index: progress.index,
-        score: progress.score,
-        selected: progress.selected,
-        phase: progress.phase,
-      });
+      await writeProgress(next);
+      retryDelay = RETRY_MIN_MS;
     } catch {
-      // offline — in-memory quiz state still works for this session
+      // Put it back unless something newer replaced it, then wait — the next
+      // save or the backoff timer picks it up. Never retry straight away.
+      pendingSave = pendingSave ?? next;
+      setSaveState("error");
+      scheduleRetry();
+      return;
     }
-  })();
+  }
+  setSaveState("idle");
+}
+
+function kickSaves() {
+  if (inFlight) return;
+  inFlight = drainSaves().finally(() => {
+    inFlight = null;
+    // Only when the drain ended cleanly: a save that landed in the gap between
+    // the loop's last check and this line would otherwise sit unsent. After a
+    // failure the timer owns the retry.
+    if (pendingSave && saveState !== "error") kickSaves();
+  });
+}
+
+export function saveProgress(progress: QuizProgress): void {
+  pendingSave = { ...progress };
+  // The reader just did something, so try now rather than waiting out a backoff.
+  clearRetry();
+  kickSaves();
+}
+
+/** Resolves once nothing is queued. Used by tests and the unload flush. */
+export async function progressSettled(): Promise<void> {
+  while (inFlight) await inFlight;
+}
+
+/**
+ * Last-gasp write when the page is going away.
+ *
+ * A normal request is cancelled when the tab closes, which is how the final
+ * answer of a round gets lost. `keepalive` lets this one outlive the document,
+ * so it is sent straight to PostgREST rather than through the client.
+ */
+export async function flushProgressOnUnload(): Promise<void> {
+  const queued = pendingSave;
+  if (!queued) return;
+  try {
+    const { requireSupabase, supabaseRest } = await import("./supabase");
+    const { data: auth } = await requireSupabase().auth.getSession();
+    const token = auth.session?.access_token;
+    const uid = auth.session?.user.id;
+    if (!token || !uid || !supabaseRest.url) return;
+    pendingSave = null;
+    await fetch(`${supabaseRest.url}/rest/v1/quiz_progress`, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        apikey: supabaseRest.anonKey,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(progressRow(queued, uid)),
+    });
+  } catch {
+    // The tab is closing; there is nowhere left to report this.
+  }
 }
 
 export function resultMessage(score: number, total: number): string {
