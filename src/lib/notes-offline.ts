@@ -126,6 +126,30 @@ export async function markReminderFired(day: string): Promise<void> {
   await txDone(tx);
 }
 
+/** How many edits are waiting to reach Supabase. */
+export async function countOutbox(): Promise<number> {
+  return (await listOutbox()).length;
+}
+
+/**
+ * Wipe everything this device has cached — the notes snapshot, the outbox and
+ * the reminder latch. Supabase is untouched; the next load refetches.
+ *
+ * Destructive when the outbox is not empty: queued edits have not reached the
+ * account yet and are gone for good. Callers must check countOutbox() first.
+ */
+export async function clearDeviceCache(): Promise<void> {
+  const db = await openDb();
+  db.close();
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error ?? new Error("Could not clear the cache"));
+    // Another tab holding the database open — nothing to do but report it.
+    req.onblocked = () => reject(new Error("Close DailyMark's other tabs and try again."));
+  });
+}
+
 export function newClientId(): string {
   return crypto.randomUUID();
 }

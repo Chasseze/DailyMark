@@ -14,12 +14,15 @@ import {
   QUESTIONS_PER_DAY,
   dateKey,
   daySeed,
+  flushProgressOnUnload,
   loadProgressSynced,
+  onProgressSaveState,
   pickQuestions,
   resolveQuestions,
   resultMessage,
   resultTier,
   saveProgress,
+  type ProgressSaveState,
   type QuizPhase,
   type QuizProgress,
   type QuizQuestion,
@@ -157,6 +160,22 @@ export default function Daily() {
       active = false;
     };
   }, [key, pool]);
+
+  // The round lives only in the account, so a failed write has to be visible
+  // rather than swallowed.
+  const [saveState, setSaveState] = useState<ProgressSaveState>("idle");
+  useEffect(() => onProgressSaveState(setSaveState), []);
+
+  // A normal request dies with the tab, which is how a last answer goes
+  // missing. This one is sent with keepalive on the way out.
+  useEffect(() => {
+    const flush = () => void flushProgressOnUnload();
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
 
   // Load today's mood check-in from Supabase.
   useEffect(() => {
@@ -500,6 +519,16 @@ export default function Daily() {
           )}
           {progress.attempt > 0 && progress.phase === "ready" && (
             <span className="text-xs text-muted">Round {progress.attempt + 1}</span>
+          )}
+          {saveState !== "idle" && (
+            <span
+              className={
+                "text-xs " + (saveState === "error" ? "text-danger" : "text-muted")
+              }
+              role={saveState === "error" ? "status" : undefined}
+            >
+              {saveState === "error" ? "Not saved — will retry" : "Saving…"}
+            </span>
           )}
         </div>
 
