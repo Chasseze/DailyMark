@@ -31,6 +31,8 @@ export default function ReturnSection() {
   const today = useMemo(() => dayKey(new Date()), []);
   const [session, setSession] = useState(() => emptyReturnSession(today));
   const [hydrated, setHydrated] = useState(false);
+  // A failed read must never be written back over — see loadReturnSessionSynced.
+  const [readFailed, setReadFailed] = useState(false);
   const [jot, setJot] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,10 @@ export default function ReturnSection() {
     let active = true;
     void loadReturnSessionSynced(today).then((remote) => {
       if (!active) return;
+      if (!remote) {
+        setReadFailed(true);
+        return;
+      }
       setSession(remote);
       setHydrated(true);
     });
@@ -56,10 +62,10 @@ export default function ReturnSection() {
   }
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || readFailed) return;
     if (loading && pinned.queuedIds.length === 0 && pinned.doneIds.length === 0) return;
     saveReturnSession(pinned);
-  }, [hydrated, loading, pinned]);
+  }, [hydrated, loading, pinned, readFailed]);
 
   const remaining = useMemo(() => {
     return pinned.queuedIds
@@ -133,7 +139,15 @@ export default function ReturnSection() {
         )}
       </div>
 
-      {loading || !hydrated ? (
+      {readFailed ? (
+        <div className="mt-4">
+          <p className="note-title text-xl text-ink">Could not reach your account</p>
+          <p className="mt-2 text-sm text-muted">
+            Tonight's marks are on the account, not this device. Reload once you
+            are back online — nothing has been changed.
+          </p>
+        </div>
+      ) : loading || !hydrated ? (
         <div className="mt-4 space-y-2">
           <div className="skeleton h-6 w-40" />
           <div className="skeleton h-20" />

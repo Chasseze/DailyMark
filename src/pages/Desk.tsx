@@ -52,7 +52,9 @@ export default function Desk() {
     if (loading) return;
     let active = true;
     void loadReturnSessionSynced(today).then((remote) => {
-      if (!active) return;
+      // null means the read failed — leave the count blank rather than
+      // showing a confident zero the account does not agree with.
+      if (!active || !remote) return;
       const session = ensureReturnQueue(remote, notes);
       const left = session.queuedIds.filter((id) => !session.doneIds.includes(id)).length;
       setWaiting(Math.min(left, RETURN_MAX));

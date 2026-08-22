@@ -61,7 +61,15 @@ export function mergePrefs(base: UserPrefs, patch: Partial<UserPrefs>): UserPref
   };
 }
 
-export async function loadUserPrefs(): Promise<UserPrefs> {
+/**
+ * Reads the account's prefs.
+ *
+ * Returns null when the read FAILED, which is not the same as the row being
+ * empty. Collapsing the two is how a second device wiped good settings: a
+ * failed read looked like "no prefs", the provider fell back to defaults, and
+ * the next patch wrote those defaults over the real row.
+ */
+export async function loadUserPrefs(): Promise<UserPrefs | null> {
   try {
     const { requireSupabase } = await import("./supabase");
     const db = requireSupabase();
@@ -72,10 +80,12 @@ export async function loadUserPrefs(): Promise<UserPrefs> {
       .select("prefs")
       .eq("id", auth.session.user.id)
       .maybeSingle();
-    if (error || !data) return { ...DEFAULT_PREFS };
+    if (error) return null;
+    // No row yet is a genuine empty: a new account starts on the defaults.
+    if (!data) return { ...DEFAULT_PREFS };
     return normalizePrefs((data as { prefs?: unknown }).prefs);
   } catch {
-    return { ...DEFAULT_PREFS };
+    return null;
   }
 }
 
