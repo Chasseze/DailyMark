@@ -6,9 +6,14 @@ import { PrefsProvider } from "./context/PrefsContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { MoodProvider } from "./context/MoodContext";
 import { SpeechProvider } from "./context/SpeechContext";
+import { purgeDeviceData } from "./lib/purge-device-data";
 import { startReminderLoop } from "./lib/reminders";
 import App from "./App";
 import "./index.css";
+
+// Before anything renders: bin the IndexedDB copy older builds left behind.
+// Fire-and-forget — nothing in the app waits on or reads local storage now.
+void purgeDeviceData();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

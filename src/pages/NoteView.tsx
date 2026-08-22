@@ -84,6 +84,21 @@ function NoteArticle({ note }: { note: Note }) {
 
   const spoken = [note.title, note.content].filter((part) => part.trim()).join("\n\n");
 
+  /**
+   * Pin / trash / restore / purge all write straight to the account now, so a
+   * refused write rejects instead of being queued on the device. Catch it here:
+   * an uncaught rejection in an onClick is invisible to the person who clicked.
+   */
+  const runAction = async (work: () => Promise<unknown>, after?: () => void) => {
+    setTaskError(null);
+    try {
+      await work();
+      after?.();
+    } catch (err) {
+      setTaskError(errorMessage(err));
+    }
+  };
+
   const handleToggleTask = async (line: number) => {
     if (trashed) return;
     const next = toggleTaskAtLine(note.content, line);
@@ -170,7 +185,7 @@ function NoteArticle({ note }: { note: Note }) {
             </button>
             <button
               type="button"
-              onClick={() => void togglePin(note.id)}
+              onClick={() => void runAction(() => togglePin(note.id))}
               className={
                 iconBtn + " " + (note.is_pinned ? "text-accent-ink hover:text-accent" : "")
               }
@@ -190,10 +205,9 @@ function NoteArticle({ note }: { note: Note }) {
             </button>
             <button
               type="button"
-              onClick={async () => {
+              onClick={() => {
                 if (!confirm("Move this note to Trash?")) return;
-                await deleteNote(note.id);
-                navigate("/notes");
+                void runAction(() => deleteNote(note.id), () => navigate("/notes"));
               }}
               className={iconBtn + " hover:bg-danger-soft hover:text-danger"}
               aria-label="Move to trash"
@@ -207,19 +221,16 @@ function NoteArticle({ note }: { note: Note }) {
           <>
             <button
               type="button"
-              onClick={async () => {
-                await restoreNote(note.id);
-              }}
+              onClick={() => void runAction(() => restoreNote(note.id))}
               className="rounded-xl bg-accent-soft px-3 py-2 text-xs font-semibold text-accent-ink"
             >
               Restore
             </button>
             <button
               type="button"
-              onClick={async () => {
+              onClick={() => {
                 if (!confirm("Delete forever?")) return;
-                await purgeNote(note.id);
-                navigate("/notes");
+                void runAction(() => purgeNote(note.id), () => navigate("/notes"));
               }}
               className={iconBtn + " hover:bg-danger-soft hover:text-danger"}
               aria-label="Delete forever"

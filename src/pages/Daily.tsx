@@ -15,7 +15,7 @@ import {
   dateKey,
   daySeed,
   flushProgressOnUnload,
-  loadProgressSynced,
+  readProgress,
   onProgressSaveState,
   pickQuestions,
   resolveQuestions,
@@ -125,23 +125,37 @@ export default function Daily() {
     };
   }, [user]);
 
+  // Until the account's round has actually been read, writing is forbidden. A
+  // second device used to render a fresh round while the read was still in
+  // flight (or had failed), and the first click wrote that blank over the real
+  // row — the "desktop replaced my synced data" case.
+  const [readState, setReadState] = useState<"reading" | "ready" | "failed">("reading");
+
   // Swap in the account's saved progress for today once it arrives. A saved
   // round drawn from notes has to be rebuilt from the pool before its ids mean
-  // anything, so it waits for the pool rather than silently reverting to the bank.
-  //
-  // This effect re-runs when the pool lands, so it restores at most once: a
-  // second restore would overwrite answers given in the meantime with the
-  // round as it stood when the page opened.
+  // anything, so it waits for the pool rather than silently reverting to the
+  // bank. The effect re-runs when the pool lands, so this latch keeps it to a
+  // single restore: a second one would overwrite answers given in the meantime
+  // with the round as it stood when the page opened.
   const restoredRef = useRef(false);
   useEffect(() => {
     if (restoredRef.current) return;
     let active = true;
-    void loadProgressSynced(key).then((remote) => {
+    void readProgress(key).then((result) => {
       if (!active || restoredRef.current) return;
-      if (!remote) {
-        restoredRef.current = true;
+
+      if (result.status === "failed") {
+        // Leave restoredRef alone so a later pool change retries the read.
+        setReadState("failed");
         return;
       }
+      if (result.status === "empty") {
+        restoredRef.current = true;
+        setReadState("ready");
+        return;
+      }
+
+      const remote = result.progress;
       let resolved: QuizQuestion[] | null;
       if (sourceOf(remote.questionIds) === "notes") {
         // Nothing to rebuild against yet — leave it for the pool's re-run.
@@ -154,6 +168,7 @@ export default function Daily() {
         resolved = resolveQuestions(remote.questionIds);
       }
       restoredRef.current = true;
+      setReadState("ready");
       if (resolved) setState({ progress: remote, questions: resolved });
     });
     return () => {
@@ -201,13 +216,18 @@ export default function Daily() {
     };
   }, [user, key]);
 
-  const update = useCallback((next: QuizProgress, nextQuestions?: QuizQuestion[]) => {
-    setState((prev) => ({
-      progress: next,
-      questions: nextQuestions ?? prev.questions,
-    }));
-    saveProgress(next);
-  }, []);
+  const update = useCallback(
+    (next: QuizProgress, nextQuestions?: QuizQuestion[]) => {
+      setState((prev) => ({
+        progress: next,
+        questions: nextQuestions ?? prev.questions,
+      }));
+      // Only once the account's round is known. Otherwise a local round could
+      // overwrite one this device has not seen yet.
+      if (readState === "ready") saveProgress(next);
+    },
+    [readState]
+  );
 
   const selectMood = async (mood: DailyMood) => {
     if (!user || moodBusy) return;

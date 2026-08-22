@@ -156,22 +156,35 @@ function normalizeProgress(key: string, parsed: Partial<QuizProgress>): QuizProg
   };
 }
 
-/** Load quiz progress from the account (no device cache). */
-export async function loadProgressSynced(key: string): Promise<QuizProgress | null> {
+/**
+ * Today's round from the account.
+ *
+ * Three outcomes, deliberately distinct. "empty" is a day with no round yet;
+ * "failed" is a read that did not come back. Collapsing them is how a second
+ * device replaced a synced round with a blank one: the failure looked like a
+ * fresh day, and the first click wrote that blank over the real row.
+ */
+export type ProgressRead =
+  | { status: "ok"; progress: QuizProgress }
+  | { status: "empty" }
+  | { status: "failed" };
+
+export async function readProgress(key: string): Promise<ProgressRead> {
   try {
     const { requireSupabase } = await import("./supabase");
     const db = requireSupabase();
     const { data: auth } = await db.auth.getSession();
-    if (!auth.session) return null;
+    if (!auth.session) return { status: "empty" };
 
     const { data, error } = await db
       .from("quiz_progress")
       .select("*")
       .eq("date_key", key)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) return { status: "failed" };
+    if (!data) return { status: "empty" };
 
-    return normalizeProgress(key, {
+    const progress = normalizeProgress(key, {
       dateKey: data.date_key,
       attempt: data.attempt,
       questionIds: data.question_ids,
@@ -180,8 +193,9 @@ export async function loadProgressSynced(key: string): Promise<QuizProgress | nu
       selected: data.selected,
       phase: data.phase,
     });
+    return progress ? { status: "ok", progress } : { status: "empty" };
   } catch {
-    return null;
+    return { status: "failed" };
   }
 }
 

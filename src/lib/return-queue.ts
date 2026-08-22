@@ -232,8 +232,16 @@ async function persistRemote(session: ReturnSession): Promise<void> {
   }
 }
 
-/** Load today's Return session from the account. */
-export async function loadReturnSessionSynced(key: string): Promise<ReturnSession> {
+/**
+ * Today's Return session from the account.
+ *
+ * null means the READ FAILED, which is not the same as "no session yet". The
+ * caller must not save on top of a null: a failed read used to come back as an
+ * empty session, which the save effect then wrote over a good row.
+ */
+export async function loadReturnSessionSynced(
+  key: string
+): Promise<ReturnSession | null> {
   try {
     const { requireSupabase } = await import("./supabase");
     const db = requireSupabase();
@@ -245,7 +253,9 @@ export async function loadReturnSessionSynced(key: string): Promise<ReturnSessio
       .select("date_key, queued_ids, done_ids, reasons")
       .eq("date_key", key)
       .maybeSingle();
-    if (error || !data) return emptyReturnSession(key);
+    if (error) return null;
+    // No row is a genuine empty: today's evening has not started.
+    if (!data) return emptyReturnSession(key);
 
     return normalizeSession(key, {
       dateKey: data.date_key,
@@ -254,7 +264,7 @@ export async function loadReturnSessionSynced(key: string): Promise<ReturnSessio
       reasons: data.reasons,
     });
   } catch {
-    return emptyReturnSession(key);
+    return null;
   }
 }
 

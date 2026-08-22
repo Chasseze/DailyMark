@@ -40,6 +40,8 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const [prefs, setPrefs] = useState<UserPrefs>({ ...DEFAULT_PREFS });
   const [loading, setLoading] = useState(true);
+  // True when the last read of profiles.prefs failed; blocks every write.
+  const [readFailed, setReadFailed] = useState(false);
   // patchPrefs merges onto the latest prefs without depending on them, so two
   // patches fired in the same tick don't clobber each other. Writing the ref
   // during render is not allowed, so it is kept current from an effect and
@@ -62,6 +64,14 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
       }
       const remote = await loadUserPrefs();
       if (!active) return;
+      if (!remote) {
+        // The read failed. Show the defaults, but refuse to write: saving now
+        // would replace whatever is actually on the account with them.
+        setReadFailed(true);
+        setLoading(false);
+        return;
+      }
+      setReadFailed(false);
       syncReminderLoop(remote);
       setPrefs(remote);
       setLoading(false);
@@ -93,12 +103,15 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     setPrefs(next);
     if (patch.reminder) syncReminderLoop(next);
     if (!user) return;
+    // Never write on top of a read we never got. The change stays on screen for
+    // this session rather than overwriting the account with a guess.
+    if (readFailed) return;
     try {
       await saveUserPrefs(next);
     } catch {
       // Keep optimistic UI; next successful save will catch up.
     }
-  }, [user]);
+  }, [user, readFailed]);
 
   const value = useMemo(
     () => ({ prefs, loading, patchPrefs, theme, notesMood, focus }),

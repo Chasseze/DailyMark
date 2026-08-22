@@ -1,5 +1,4 @@
 import { dayKey } from "./rhythm";
-import { markReminderFired, reminderFiredToday } from "./notes-offline";
 
 export interface ReminderPrefs {
   enabled: boolean;
@@ -10,6 +9,14 @@ export interface ReminderPrefs {
 export const DEFAULT_REMINDER: ReminderPrefs = { enabled: false, time: "20:00" };
 
 let livePrefs: ReminderPrefs = { ...DEFAULT_REMINDER };
+
+/**
+ * The day this tab last fired the nudge. It is deliberately in memory only:
+ * a reminder is a property of this open tab, not of the account, and storing
+ * it on the device was the last thing keeping IndexedDB alive. Worst case a
+ * reload after the reminder time shows it twice in one day.
+ */
+let firedDay: string | null = null;
 
 export function getReminderPrefs(): ReminderPrefs {
   return { ...livePrefs };
@@ -43,18 +50,16 @@ export function tickReminder(prefs: ReminderPrefs = livePrefs): void {
   if (now.getHours() < h || (now.getHours() === h && now.getMinutes() < m)) return;
 
   const today = dayKey(now);
-  void (async () => {
-    if (await reminderFiredToday(today)) return;
-    try {
-      new Notification("DailyMark", {
-        body: "Time for a quick note or today's quiz.",
-        tag: "dailymark-daily",
-      });
-      await markReminderFired(today);
-    } catch {
-      // Some browsers block constructors outside a service worker.
-    }
-  })();
+  if (firedDay === today) return;
+  try {
+    new Notification("DailyMark", {
+      body: "Time for a quick note or today's quiz.",
+      tag: "dailymark-daily",
+    });
+    firedDay = today;
+  } catch {
+    // Some browsers block constructors outside a service worker.
+  }
 }
 
 /** Start a lightweight poller; returns a cleanup function. */
