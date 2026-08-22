@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { NewNote, Note, Notebook, NoteUpdate } from "../lib/types";
 import type { NoteRow, SearchNoteRow } from "../lib/database.types";
-import {
-  enqueueOutbox,
-  isOnline,
-  listOutbox,
-  loadNotesSnapshot,
-  newClientId,
-  removeOutbox,
-  saveNotesSnapshot,
-  type OutboxOp,
-} from "../lib/notes-offline";
 import { createNotebookShare, createNoteShare } from "../lib/share";
 import { errorMessage, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
@@ -19,7 +9,15 @@ import { NotesContext } from "./notes-context";
 const LIST_COLUMNS =
   "id,user_id,notebook_id,title,preview,is_pinned,tags,deleted_at,revisit_at,revisit_step,created_at,updated_at";
 
-const OFFLINE_ERROR = "Working offline";
+/**
+ * Notes are read from and written to Supabase, and nowhere else.
+ *
+ * There used to be an IndexedDB snapshot and an outbox behind all of this so
+ * edits could queue while offline. It is gone on purpose: a device holding its
+ * own copy of the account is a second source of truth, and a stale one could
+ * be pushed over good data. Every read here is a read of the account, and a
+ * write that cannot reach it fails loudly instead of being stored locally.
+ */
 
 function asListNote(row: Omit<NoteRow, "content"> & { content?: string }): Note {
   return {
@@ -67,26 +65,12 @@ function makePreview(content: string): string {
   return content.replace(/\s+/g, " ").trim().slice(0, 160);
 }
 
-function newOutboxId(): string {
-  return `${Date.now()}-${newClientId()}`;
-}
-
 function mergeById(list: Note[], id: string, patch: Partial<Note>): Note[] {
   const idx = list.findIndex((n) => n.id === id);
   if (idx === -1) return list;
   const next = list.slice();
   next[idx] = { ...next[idx], ...patch };
   return next;
-}
-
-function localSearch(pool: Note[], query: string): Note[] {
-  const q = query.toLowerCase();
-  return pool.filter(
-    (n) =>
-      n.title.toLowerCase().includes(q) ||
-      (n.preview ?? "").toLowerCase().includes(q) ||
-      (n.content ?? "").toLowerCase().includes(q)
-  );
 }
 
 export function NotesProvider({ children }: { children: ReactNode }) {
@@ -98,12 +82,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [offline, setOffline] = useState(() => !isOnline());
   // Avoid depending togglePin on the full notes array identity.
   const notesRef = useRef(notes);
   const trashRef = useRef(trash);
   const notebooksRef = useRef(notebooks);
-  const flushingRef = useRef(false);
   const refreshRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     notesRef.current = notes;
@@ -114,28 +96,6 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     notebooksRef.current = notebooks;
   }, [notebooks]);
-
-  const persistSnapshot = useCallback(
-    async (uid: string, nextNotes: Note[], nextTrash: Note[], nextNotebooks?: Notebook[]) => {
-      await saveNotesSnapshot({
-        userId: uid,
-        notes: nextNotes,
-        trash: nextTrash,
-        notebooks: nextNotebooks ?? notebooksRef.current,
-        savedAt: new Date().toISOString(),
-      });
-    },
-    []
-  );
-
-  const applySnapshot = useCallback(
-    (snap: { notes: Note[]; trash: Note[]; notebooks: Notebook[] }) => {
-      setNotes(snap.notes);
-      setTrash(snap.trash);
-      setNotebooks(snap.notebooks);
-    },
-    []
-  );
 
   const fetchAll = useCallback(async (uid: string | null) => {
     if (!uid) {
@@ -169,21 +129,6 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const flushOutbox = useCallback(async () => {
-    if (!isOnline() || flushingRef.current) return;
-    flushingRef.current = true;
-    try {
-      const db = requireSupabase();
-      const ops = (await listOutbox()).slice().sort((a, b) => a.id.localeCompare(b.id));
-      for (const op of ops) {
-        await applyOutboxOp(db, op);
-        await removeOutbox(op.id);
-      }
-    } finally {
-      flushingRef.current = false;
-    }
-  }, []);
-
   const refresh = useCallback(async () => {
     if (!userId) {
       setNotes([]);
@@ -191,45 +136,23 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       setNotebooks([]);
       setLoading(false);
       setError(null);
-      setOffline(false);
-      return;
-    }
-
-    if (!isOnline()) {
-      const snap = await loadNotesSnapshot(userId);
-      if (snap) {
-        applySnapshot(snap);
-        setError(OFFLINE_ERROR);
-      } else {
-        setError(OFFLINE_ERROR);
-      }
-      setOffline(true);
-      setLoading(false);
       return;
     }
 
     try {
-      await flushOutbox();
       const data = await fetchAll(userId);
       setNotes(data.notes);
       setTrash(data.trash);
       setNotebooks(data.notebooks);
-      await persistSnapshot(userId, data.notes, data.trash, data.notebooks);
       setError(null);
-      setOffline(false);
     } catch (err) {
-      const snap = await loadNotesSnapshot(userId);
-      if (snap) {
-        applySnapshot(snap);
-        setError(OFFLINE_ERROR);
-        setOffline(true);
-      } else {
-        setError(errorMessage(err));
-      }
+      // Keep whatever is on screen and say so. Replacing it with an empty list
+      // would look like the account had been emptied.
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [applySnapshot, fetchAll, flushOutbox, persistSnapshot, userId]);
+  }, [fetchAll, userId]);
 
   useEffect(() => {
     refreshRef.current = refresh;
@@ -245,76 +168,41 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         setTrash([]);
         setNotebooks([]);
         setError(null);
-        setOffline(false);
-        setLoading(false);
-        return;
-      }
-
-      if (!isOnline()) {
-        const snap = await loadNotesSnapshot(userId);
-        if (!active) return;
-        if (snap) applySnapshot(snap);
-        setError(OFFLINE_ERROR);
-        setOffline(true);
         setLoading(false);
         return;
       }
 
       try {
-        await flushOutbox();
-        if (!active) return;
         const data = await fetchAll(userId);
         if (!active) return;
         setNotes(data.notes);
         setTrash(data.trash);
         setNotebooks(data.notebooks);
-        await persistSnapshot(userId, data.notes, data.trash, data.notebooks);
         setError(null);
-        setOffline(false);
       } catch (err) {
-        const snap = await loadNotesSnapshot(userId);
-        if (!active) return;
-        if (snap) {
-          applySnapshot(snap);
-          setError(OFFLINE_ERROR);
-          setOffline(true);
-        } else if (active) {
-          setError(errorMessage(err));
-        }
+        if (active) setError(errorMessage(err));
       } finally {
         if (active) setLoading(false);
       }
     })();
 
+    // Coming back online is the moment to re-read the account.
     const onOnline = () => {
       void refreshRef.current();
     };
-    const onOffline = () => {
-      setOffline(true);
-      setError(OFFLINE_ERROR);
-    };
-
     window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
 
     return () => {
       active = false;
       window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
     };
-  }, [applySnapshot, fetchAll, flushOutbox, persistSnapshot, userId]);
+  }, [fetchAll, userId]);
 
   const ensureNote = useCallback(
     async (id: string) => {
       const existing =
         notesRef.current.find((n) => n.id === id) ?? trashRef.current.find((n) => n.id === id);
       if (existing?.bodyLoaded) return existing;
-
-      if (!isOnline()) {
-        setOffline(true);
-        setError(OFFLINE_ERROR);
-        return null;
-      }
 
       try {
         const db = requireSupabase();
@@ -343,52 +231,18 @@ export function NotesProvider({ children }: { children: ReactNode }) {
           setNotes(nextNotes);
           setTrash(nextTrash);
         }
-        if (userId) {
-          await persistSnapshot(userId, nextNotes, nextTrash);
-        }
         return hydrated;
-      } catch {
-        if (existing?.bodyLoaded) {
-          setOffline(true);
-          setError(OFFLINE_ERROR);
-          return existing;
-        }
-        throw new Error(OFFLINE_ERROR);
+      } catch (err) {
+        setError(errorMessage(err));
+        throw err;
       }
     },
-    [persistSnapshot, userId]
+    []
   );
 
   const addNote = useCallback(
     async (note: NewNote) => {
       if (!userId) throw new Error("You must be signed in to create a note.");
-
-      if (!isOnline()) {
-        const now = new Date().toISOString();
-        const hydrated: Note = {
-          id: newClientId(),
-          user_id: userId,
-          notebook_id: note.notebook_id ?? null,
-          title: note.title ?? "",
-          content: note.content ?? "",
-          preview: makePreview(note.content ?? ""),
-          is_pinned: note.is_pinned ?? false,
-          tags: note.tags ?? [],
-          deleted_at: null,
-          revisit_at: null,
-          revisit_step: 0,
-          created_at: now,
-          updated_at: now,
-          bodyLoaded: true,
-        };
-        const nextNotes = [hydrated, ...notesRef.current];
-        setNotes(nextNotes);
-        await enqueueOutbox({ id: newOutboxId(), type: "insert", note: hydrated });
-        await persistSnapshot(userId, nextNotes, trashRef.current);
-        setOffline(true);
-        setError(OFFLINE_ERROR);
-        return hydrated;
-      }
 
       const db = requireSupabase();
       const { data, error: err } = await db
@@ -399,14 +253,11 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
 
       const hydrated = asHydratedNote(data as NoteRow);
-      const nextNotes = [hydrated, ...notesRef.current];
-      setNotes(nextNotes);
-      await persistSnapshot(userId, nextNotes, trashRef.current);
-      setOffline(false);
+      setNotes([hydrated, ...notesRef.current]);
       setError(null);
       return hydrated;
     },
-    [persistSnapshot, userId]
+    [userId]
   );
 
   /**
@@ -430,22 +281,12 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         localPatch.bodyLoaded = true;
       }
 
-      const nextNotes = mergeById(notesRef.current, id, localPatch);
-      const nextTrash = mergeById(trashRef.current, id, localPatch);
+      const prevNotes = notesRef.current;
+      const prevTrash = trashRef.current;
+      const nextNotes = mergeById(prevNotes, id, localPatch);
+      const nextTrash = mergeById(prevTrash, id, localPatch);
       setNotes(nextNotes);
       setTrash(nextTrash);
-
-      const enqueueAndKeep = async () => {
-        await enqueueOutbox({ id: newOutboxId(), type: "patch", noteId: id, data });
-        if (userId) await persistSnapshot(userId, nextNotes, nextTrash);
-        setOffline(true);
-        setError(OFFLINE_ERROR);
-      };
-
-      if (!isOnline()) {
-        await enqueueAndKeep();
-        return;
-      }
 
       try {
         const db = requireSupabase();
@@ -462,14 +303,19 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         const syncedTrash = mergeById(nextTrash, id, patch);
         setNotes(syncedNotes);
         setTrash(syncedTrash);
-        if (userId) await persistSnapshot(userId, syncedNotes, syncedTrash);
-        setOffline(false);
         setError(null);
-      } catch {
-        await enqueueAndKeep();
+      } catch (err) {
+        // Roll the optimistic edit back to the list as it stood before this
+        // call. Reading the refs here would not do it: they are refreshed from
+        // an effect the moment the optimistic setState commits, so by the time
+        // the write rejects they already hold the edit being undone.
+        setNotes(prevNotes);
+        setTrash(prevTrash);
+        setError(errorMessage(err));
+        throw err;
       }
     },
-    [persistSnapshot, userId]
+    []
   );
 
   const updateNote = useCallback(
@@ -490,8 +336,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       if (!base) return;
 
       const merged: Note = { ...base, ...localPatch };
-      let nextNotes = notesRef.current.filter((n) => n.id !== id);
-      let nextTrash = trashRef.current.filter((n) => n.id !== id);
+      const prevNotes = notesRef.current;
+      const prevTrash = trashRef.current;
+      let nextNotes = prevNotes.filter((n) => n.id !== id);
+      let nextTrash = prevTrash.filter((n) => n.id !== id);
       if (merged.deleted_at) {
         nextTrash = [merged, ...nextTrash];
       } else {
@@ -499,18 +347,6 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       }
       setNotes(nextNotes);
       setTrash(nextTrash);
-
-      const enqueueAndKeep = async () => {
-        await enqueueOutbox({ id: newOutboxId(), type: "update", noteId: id, data });
-        if (userId) await persistSnapshot(userId, nextNotes, nextTrash);
-        setOffline(true);
-        setError(OFFLINE_ERROR);
-      };
-
-      if (!isOnline()) {
-        await enqueueAndKeep();
-        return;
-      }
 
       try {
         const db = requireSupabase();
@@ -538,14 +374,19 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         }
         setNotes(nextNotes);
         setTrash(nextTrash);
-        if (userId) await persistSnapshot(userId, nextNotes, nextTrash);
-        setOffline(false);
         setError(null);
-      } catch {
-        await enqueueAndKeep();
+      } catch (err) {
+        // Roll the optimistic edit back to the list as it stood before this
+        // call. Reading the refs here would not do it: they are refreshed from
+        // an effect the moment the optimistic setState commits, so by the time
+        // the write rejects they already hold the edit being undone.
+        setNotes(prevNotes);
+        setTrash(prevTrash);
+        setError(errorMessage(err));
+        throw err;
       }
     },
-    [persistSnapshot, userId]
+    []
   );
 
   const deleteNote = useCallback(
@@ -564,67 +405,51 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   const purgeNote = useCallback(
     async (id: string) => {
-      const nextNotes = notesRef.current.filter((n) => n.id !== id);
-      const nextTrash = trashRef.current.filter((n) => n.id !== id);
+      const prevNotes = notesRef.current;
+      const prevTrash = trashRef.current;
+      const nextNotes = prevNotes.filter((n) => n.id !== id);
+      const nextTrash = prevTrash.filter((n) => n.id !== id);
       setNotes(nextNotes);
       setTrash(nextTrash);
-
-      const enqueueAndKeep = async () => {
-        await enqueueOutbox({ id: newOutboxId(), type: "purge", noteId: id });
-        if (userId) await persistSnapshot(userId, nextNotes, nextTrash);
-        setOffline(true);
-        setError(OFFLINE_ERROR);
-      };
-
-      if (!isOnline()) {
-        await enqueueAndKeep();
-        return;
-      }
 
       try {
         const db = requireSupabase();
         const { error: err } = await db.from("notes").delete().eq("id", id);
         if (err) throw err;
-        if (userId) await persistSnapshot(userId, nextNotes, nextTrash);
-        setOffline(false);
         setError(null);
-      } catch {
-        await enqueueAndKeep();
+      } catch (err) {
+        // Roll the optimistic edit back to the list as it stood before this
+        // call. Reading the refs here would not do it: they are refreshed from
+        // an effect the moment the optimistic setState commits, so by the time
+        // the write rejects they already hold the edit being undone.
+        setNotes(prevNotes);
+        setTrash(prevTrash);
+        setError(errorMessage(err));
+        throw err;
       }
     },
-    [persistSnapshot, userId]
+    []
   );
 
   const emptyTrash = useCallback(async () => {
-    const ids = trashRef.current.map((n) => n.id);
+    const prevTrash = trashRef.current;
+    const ids = prevTrash.map((n) => n.id);
     if (ids.length === 0) return;
 
-    const nextTrash: Note[] = [];
-    setTrash(nextTrash);
-
-    const enqueueAndKeep = async () => {
-      await enqueueOutbox({ id: newOutboxId(), type: "emptyTrash", noteIds: ids });
-      if (userId) await persistSnapshot(userId, notesRef.current, nextTrash);
-      setOffline(true);
-      setError(OFFLINE_ERROR);
-    };
-
-    if (!isOnline()) {
-      await enqueueAndKeep();
-      return;
-    }
+    setTrash([]);
 
     try {
       const db = requireSupabase();
       const { error: err } = await db.from("notes").delete().in("id", ids);
       if (err) throw err;
-      if (userId) await persistSnapshot(userId, notesRef.current, nextTrash);
-      setOffline(false);
       setError(null);
-    } catch {
-      await enqueueAndKeep();
+    } catch (err) {
+      // Put Trash back exactly as it was — the rows are still on the account.
+      setTrash(prevTrash);
+      setError(errorMessage(err));
+      throw err;
     }
-  }, [persistSnapshot, userId]);
+  }, []);
 
   const togglePin = useCallback(
     async (id: string) => {
@@ -647,12 +472,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         .single();
       if (err) throw err;
 
-      const nextNotebooks = [...notebooksRef.current, data];
-      setNotebooks(nextNotebooks);
-      await persistSnapshot(userId, notesRef.current, trashRef.current, nextNotebooks);
+      setNotebooks([...notebooksRef.current, data]);
       return data;
     },
-    [persistSnapshot, userId]
+    [userId]
   );
 
   const updateNotebook = useCallback(
@@ -665,13 +488,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         .select()
         .single();
       if (err) throw err;
-      const nextNotebooks = notebooksRef.current.map((nb) => (nb.id === id ? row : nb));
-      setNotebooks(nextNotebooks);
-      if (userId) {
-        await persistSnapshot(userId, notesRef.current, trashRef.current, nextNotebooks);
-      }
+      setNotebooks(notebooksRef.current.map((nb) => (nb.id === id ? row : nb)));
     },
-    [persistSnapshot, userId]
+    []
   );
 
   const deleteNotebook = useCallback(
@@ -686,31 +505,22 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       );
       setNotebooks(nextNotebooks);
       setNotes(nextNotes);
-      if (userId) {
-        await persistSnapshot(userId, nextNotes, trashRef.current, nextNotebooks);
-      }
     },
-    [persistSnapshot, userId]
+    []
   );
 
   const searchNotes = useCallback(async (query: string) => {
     const q = query.trim();
     if (!q) return [];
 
-    if (!isOnline()) {
-      setOffline(true);
-      return localSearch([...notesRef.current, ...trashRef.current], q);
-    }
-
     try {
       const db = requireSupabase();
       const { data, error: err } = await db.rpc("search_notes", { q });
       if (err) throw err;
       return ((data ?? []) as SearchNoteRow[]).map(asSearchNote);
-    } catch {
-      setOffline(true);
-      setError(OFFLINE_ERROR);
-      return localSearch([...notesRef.current, ...trashRef.current], q);
+    } catch (err) {
+      setError(errorMessage(err));
+      return [];
     }
   }, []);
 
@@ -753,7 +563,6 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       notebooks,
       loading,
       error,
-      offline,
       addNote,
       updateNote,
       patchNote,
@@ -779,7 +588,6 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       notebooks,
       loading,
       error,
-      offline,
       addNote,
       updateNote,
       patchNote,
@@ -802,45 +610,4 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   );
 
   return <NotesContext.Provider value={value}>{children}</NotesContext.Provider>;
-}
-
-async function applyOutboxOp(
-  db: ReturnType<typeof requireSupabase>,
-  op: OutboxOp
-): Promise<void> {
-  switch (op.type) {
-    case "insert": {
-      const n = op.note;
-      const { error: err } = await db.from("notes").insert({
-        id: n.id,
-        user_id: n.user_id,
-        notebook_id: n.notebook_id,
-        title: n.title,
-        content: n.content,
-        is_pinned: n.is_pinned,
-        tags: n.tags,
-        deleted_at: n.deleted_at,
-        revisit_at: n.revisit_at,
-      });
-      if (err) throw err;
-      return;
-    }
-    case "patch":
-    case "update": {
-      const { error: err } = await db.from("notes").update(op.data).eq("id", op.noteId);
-      if (err) throw err;
-      return;
-    }
-    case "purge": {
-      const { error: err } = await db.from("notes").delete().eq("id", op.noteId);
-      if (err) throw err;
-      return;
-    }
-    case "emptyTrash": {
-      if (op.noteIds.length === 0) return;
-      const { error: err } = await db.from("notes").delete().in("id", op.noteIds);
-      if (err) throw err;
-      return;
-    }
-  }
 }
