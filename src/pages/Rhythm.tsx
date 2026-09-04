@@ -32,7 +32,13 @@ import {
   type RhythmDay,
   type WeekdayCount,
 } from "../lib/rhythm";
-import { listReturnSessions, type ReturnHistoryRow } from "../lib/return-queue";
+import {
+  RETURN_MAX,
+  clearReturnSessionsBefore,
+  listReturnSessions,
+  summarizeReturnEvenings,
+  type ReturnHistoryRow,
+} from "../lib/return-queue";
 import { errorMessage } from "../lib/supabase";
 import { buildWeeklyReviewMarkdown } from "../lib/weekly-review";
 
@@ -184,25 +190,12 @@ export default function Rhythm() {
           {(tags.length > 0 || books.length > 0) && <RankedPanel tags={tags} books={books} />}
 
           {returns.length > 0 && (
-            <section className="rhythm-panel">
-              <PanelTitle>Return evenings</PanelTitle>
-              <p className="mt-1 text-xs text-muted">
-                Keep and In a week marks from Daily — the frozen three, remembered.
-              </p>
-              <ul className="mt-3 space-y-2">
-                {returns.slice(0, 14).map((row) => (
-                  <li
-                    key={row.dateKey}
-                    className="flex items-baseline justify-between gap-3 text-sm text-ink-soft"
-                  >
-                    <span>{row.dateKey}</span>
-                    <span className="text-xs text-muted">
-                      {row.doneIds.length} / {row.queuedIds.length || row.doneIds.length} marks
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <ReturnEveningsPanel
+              rows={returns}
+              onCleared={(cut) =>
+                setReturns((rows) => rows.filter((row) => row.dateKey >= cut))
+              }
+            />
           )}
 
           <section className="rhythm-panel">
@@ -851,3 +844,140 @@ function RankedList({
   );
 }
 
+
+/** “Mon 1 Sep” from a `YYYY-MM-DD` day key, parsed as local, not UTC. */
+function eveningLabel(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  if (!y || !m || !d) return dateKey;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Return evenings, folded to the week you are in.
+ *
+ * The panel used to print every evening the account had ever had, so it grew a
+ * row a day and said no more at 200 rows than at 20. Now the week is the unit:
+ * this week's evenings in full, everything before it as one line you can clear
+ * once the week has been reviewed. Clearing removes the log only — the Keep and
+ * defer marks were written onto the notes when they were made.
+ */
+function ReturnEveningsPanel({
+  rows,
+  onCleared,
+}: {
+  rows: ReturnHistoryRow[];
+  onCleared: (cutKey: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const digest = useMemo(() => summarizeReturnEvenings(rows), [rows]);
+
+  const clearEarlier = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const removed = await clearReturnSessionsBefore(digest.weekStartKey);
+      if (removed === null) {
+        setError("Could not reach your account — nothing was cleared.");
+        return;
+      }
+      onCleared(digest.weekStartKey);
+      setConfirming(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rhythm-panel">
+      <PanelTitle>Return evenings</PanelTitle>
+      <p className="mt-1 text-xs text-muted">
+        Keep and defer marks from Daily — the frozen three, remembered. This week
+        is shown; older evenings are counted.
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+        <span className="rounded-lg bg-surface-2 px-2 py-1">
+          {digest.weekMarks} {digest.weekMarks === 1 ? "mark" : "marks"} this week
+        </span>
+        <span className="rounded-lg bg-surface-2 px-2 py-1">
+          {digest.weekClosed} {digest.weekClosed === 1 ? "evening" : "evenings"} closed
+          at {RETURN_MAX}
+        </span>
+      </div>
+
+      {digest.week.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {digest.week.map((row) => (
+            <li
+              key={row.dateKey}
+              className="flex items-baseline justify-between gap-3 text-sm text-ink-soft"
+            >
+              <span>{eveningLabel(row.dateKey)}</span>
+              <span className="text-xs text-muted">
+                {row.doneIds.length} / {row.queuedIds.length || row.doneIds.length} marks
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-ink-soft">
+          No evening yet this week. Daily has one waiting.
+        </p>
+      )}
+
+      {digest.earlier > 0 && (
+        <div className="mt-4 border-t border-line pt-3">
+          <p className="text-xs text-muted">
+            {digest.earlier} earlier {digest.earlier === 1 ? "evening" : "evenings"} kept,
+            {" "}
+            {digest.earlierMarks} {digest.earlierMarks === 1 ? "mark" : "marks"} in all.
+          </p>
+          {confirming ? (
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => void clearEarlier()}
+                disabled={busy}
+                className="flex-1 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-on-accent disabled:opacity-50"
+              >
+                {busy ? "Clearing…" : `Clear ${digest.earlier}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                disabled={busy}
+                className="flex-1 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft disabled:opacity-50"
+              >
+                Keep them
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setConfirming(true);
+              }}
+              className="mt-2 w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-2"
+            >
+              Clear evenings before this week
+            </button>
+          )}
+          {confirming && !error && (
+            <p className="mt-2 text-xs text-muted">
+              Only the log goes. Your notes and their revisit dates stay as they are.
+            </p>
+          )}
+          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+        </div>
+      )}
+    </section>
+  );
+}

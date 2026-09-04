@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Rhythm
+
+- **Return evenings fold to the week** — the panel printed one row per evening for the whole 84-day window, so it grew a line a day and said no more at 60 rows than at 6. It now shows this week's evenings with the week's marks and how many closed at three, and counts everything older on one line
+- **Clear evenings before this week** — a button on that line drops the older log from the account once the week has been reviewed, behind a confirm. Only the log goes: the Keep and defer marks were written onto the notes when they were made, so the notes and their revisit dates are untouched
+
 ### Sync and the Return card
 
 - **Quiz progress writes are serialised** — every answer fired an independent upsert, so two in quick succession landed last-*response*-wins rather than last-*state*-wins: a finished round could come back as the state from two questions ago. One request is in flight at a time now, a save arriving mid-flight replaces the queued one, and a failed write is retried on a backoff instead of being swallowed

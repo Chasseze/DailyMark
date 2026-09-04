@@ -347,3 +347,86 @@ export async function listReturnSessions(
     return [];
   }
 }
+
+/** Monday-first week start for the day `now` falls in. */
+export function returnWeekStart(now = new Date()): Date {
+  const day = now.getDay();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(now.getDate() + (day === 0 ? -6 : 1 - day));
+  return start;
+}
+
+export interface ReturnDigest {
+  /** Monday of the current week, as a day key — the archive cut. */
+  weekStartKey: string;
+  /** This week's evenings, newest first. */
+  week: ReturnHistoryRow[];
+  /** Marks made this week. */
+  weekMarks: number;
+  /** Evenings this week that reached all three marks. */
+  weekClosed: number;
+  /** Evenings older than this week — what the clear button would remove. */
+  earlier: number;
+  /** Marks made in those older evenings. */
+  earlierMarks: number;
+}
+
+/**
+ * Fold the raw evenings into what the panel actually shows: this week in
+ * detail, everything before it as one number. The list used to be every
+ * evening the account had ever had, which grows without ever saying more.
+ */
+export function summarizeReturnEvenings(
+  rows: readonly ReturnHistoryRow[],
+  now = new Date()
+): ReturnDigest {
+  const weekStartKey = dayKey(returnWeekStart(now));
+  const week: ReturnHistoryRow[] = [];
+  let weekMarks = 0;
+  let weekClosed = 0;
+  let earlier = 0;
+  let earlierMarks = 0;
+
+  for (const row of rows) {
+    if (row.dateKey >= weekStartKey) {
+      week.push(row);
+      weekMarks += row.doneIds.length;
+      if (row.doneIds.length >= RETURN_MAX) weekClosed += 1;
+    } else {
+      earlier += 1;
+      earlierMarks += row.doneIds.length;
+    }
+  }
+  week.sort((a, b) => (a.dateKey < b.dateKey ? 1 : a.dateKey > b.dateKey ? -1 : 0));
+
+  return { weekStartKey, week, weekMarks, weekClosed, earlier, earlierMarks };
+}
+
+/**
+ * Drop every Return evening before `beforeKey` from the account.
+ *
+ * Only the log of which notes were marked goes; the notes themselves and
+ * their revisit dates are untouched, because the marks were written onto the
+ * notes at the time. Returns the number of evenings removed, or null if the
+ * delete could not be made — the caller must not then claim it cleared.
+ */
+export async function clearReturnSessionsBefore(
+  beforeKey: string
+): Promise<number | null> {
+  try {
+    const { requireSupabase } = await import("./supabase");
+    const db = requireSupabase();
+    const { data: auth } = await db.auth.getSession();
+    if (!auth.session) return null;
+    const { data, error } = await db
+      .from("return_sessions")
+      .delete()
+      .lt("date_key", beforeKey)
+      .select("date_key");
+    if (error) return null;
+    return data?.length ?? 0;
+  } catch {
+    return null;
+  }
+}
