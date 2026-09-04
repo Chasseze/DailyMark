@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import ReadAloudButton from "./ReadAloudButton";
 import { useNotes } from "../context/notes-context";
@@ -10,8 +10,10 @@ import {
   nextDeferral,
   loadReturnSessionSynced,
   markReturnDone,
+  mergeReturnSessions,
   reasonForQueued,
   saveReturnSession,
+  type ReturnSession,
 } from "../lib/return-queue";
 import { markdownExcerpt } from "../lib/markdown";
 import { dayKey } from "../lib/rhythm";
@@ -37,21 +39,47 @@ export default function ReturnSection() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const mounted = useRef(true);
+  // A mark in flight must not be read over — the sync would fetch the row as
+  // it was before the write landed.
+  const busyRef = useRef(false);
   useEffect(() => {
-    let active = true;
-    void loadReturnSessionSynced(today).then((remote) => {
-      if (!active) return;
-      if (!remote) {
-        setReadFailed(true);
-        return;
-      }
-      setSession(remote);
-      setHydrated(true);
-    });
-    return () => {
-      active = false;
+    busyRef.current = busy;
+  }, [busy]);
+
+  /**
+   * Fold tonight's row from the account into what this tab already has. The
+   * merge is the point: with the phone and the laptop both open, whichever
+   * marked first has written its ids to the account, and a plain replace would
+   * either lose this tab's marks or hand it back a queue it never showed.
+   */
+  const applyRemote = useCallback((remote: ReturnSession | null) => {
+    if (!mounted.current) return;
+    if (!remote) {
+      setReadFailed(true);
+      return;
+    }
+    setReadFailed(false);
+    setSession((prev) => mergeReturnSessions(prev, remote));
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    void loadReturnSessionSynced(today).then(applyRemote);
+    // Coming back to the tab is the moment the other device's evening may have
+    // moved on. Nothing polls; this is the only refetch, and it stands down
+    // while a mark is in flight so it cannot read the row back pre-write.
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || busyRef.current) return;
+      void loadReturnSessionSynced(today).then(applyRemote);
     };
-  }, [today]);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      mounted.current = false;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [today, applyRemote]);
 
   const pinned = useMemo(
     () => (hydrated ? ensureReturnQueue(session, notes) : session),

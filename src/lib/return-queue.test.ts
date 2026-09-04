@@ -12,6 +12,8 @@ import {
   markReturnDone,
   nextDeferral,
   mergeReturnSessions,
+  summarizeReturnEvenings,
+  type ReturnHistoryRow,
   type ReturnSession,
 } from "./return-queue";
 
@@ -265,5 +267,52 @@ describe("spacing ladder", () => {
 
   it("lands the revisit at midday so a due check cannot miss it", () => {
     expect(new Date(nextDeferral(0, now).revisit_at).getHours()).toBe(12);
+  });
+});
+
+describe("summarizeReturnEvenings", () => {
+  const row = (dateKey: string, done: number, queued = 3): ReturnHistoryRow => ({
+    dateKey,
+    queuedIds: Array.from({ length: queued }, (_, i) => `q${i}`),
+    reasons: [],
+    doneIds: Array.from({ length: done }, (_, i) => `q${i}`),
+  });
+
+  // Wed 2 Sep 2026 — the week starts Mon 31 Aug 2026.
+  const now = new Date(2026, 8, 2, 20, 0, 0);
+
+  it("keeps this week and drops what came before", () => {
+    const digest = summarizeReturnEvenings(
+      [
+        row("2026-09-02", 3),
+        row("2026-08-31", 1),
+        row("2026-08-30", 2),
+        row("2026-08-14", 3),
+      ],
+      now
+    );
+    expect(digest.weekStartKey).toBe("2026-08-31");
+    expect(digest.week.map((r) => r.dateKey)).toEqual(["2026-09-02", "2026-08-31"]);
+    expect(digest.weekMarks).toBe(4);
+    expect(digest.weekClosed).toBe(1);
+  });
+
+  it("treats Sunday as the end of the week it started", () => {
+    const sunday = new Date(2026, 8, 6, 20, 0, 0);
+    const digest = summarizeReturnEvenings([row("2026-08-31", 3)], sunday);
+    expect(digest.weekStartKey).toBe("2026-08-31");
+    expect(digest.week).toHaveLength(1);
+  });
+
+  it("sorts this week's evenings newest first", () => {
+    const digest = summarizeReturnEvenings(
+      [row("2026-08-31", 1), row("2026-09-02", 1), row("2026-09-01", 1)],
+      now
+    );
+    expect(digest.week.map((r) => r.dateKey)).toEqual([
+      "2026-09-02",
+      "2026-09-01",
+      "2026-08-31",
+    ]);
   });
 });
