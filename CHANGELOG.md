@@ -6,6 +6,11 @@
 
 - **Return evenings fold to the week** — the panel printed one row per evening for the whole 84-day window, so it grew a line a day and said no more at 60 rows than at 6. It now shows this week's evenings with the week's marks and how many closed at three, and counts everything older on one line
 - **Clear evenings before this week** — a button on that line drops the older log from the account once the week has been reviewed, behind a confirm. Only the log goes: the Keep and defer marks were written onto the notes when they were made, so the notes and their revisit dates are untouched
+- **Rhythm stops over-reading Return** — it pulled all 84 days of evenings to render fourteen rows and to date-filter the weekly review down to seven; the rest was fetched and never read. It now reads this week's rows and counts the older ones with a `head` query, so the number on the Clear button is the real total on the account rather than however many happened to be in the window
+
+### Daily
+
+- **Return survives two open devices** — the evening card replaced its state with the account's row on load, so `mergeReturnSessions` — written and tested for exactly this — was never reached. The row is now folded in rather than swapped in, and re-read when the tab comes back to the foreground, so a mark made on the phone shows on the laptop instead of the two tabs writing over each other. The refetch stands down while a mark is in flight
 
 ### Sync and the Return card
 

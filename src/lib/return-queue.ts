@@ -366,16 +366,13 @@ export interface ReturnDigest {
   weekMarks: number;
   /** Evenings this week that reached all three marks. */
   weekClosed: number;
-  /** Evenings older than this week — what the clear button would remove. */
-  earlier: number;
-  /** Marks made in those older evenings. */
-  earlierMarks: number;
 }
 
 /**
- * Fold the raw evenings into what the panel actually shows: this week in
- * detail, everything before it as one number. The list used to be every
- * evening the account had ever had, which grows without ever saying more.
+ * Fold the evenings into what the panel shows: this week, newest first, with
+ * the week's totals. Rows from before the week are dropped — they are counted
+ * on the account instead (`loadReturnWeek`), never listed, because listing
+ * them is what made the panel grow a line a day.
  */
 export function summarizeReturnEvenings(
   rows: readonly ReturnHistoryRow[],
@@ -385,22 +382,60 @@ export function summarizeReturnEvenings(
   const week: ReturnHistoryRow[] = [];
   let weekMarks = 0;
   let weekClosed = 0;
-  let earlier = 0;
-  let earlierMarks = 0;
 
   for (const row of rows) {
-    if (row.dateKey >= weekStartKey) {
-      week.push(row);
-      weekMarks += row.doneIds.length;
-      if (row.doneIds.length >= RETURN_MAX) weekClosed += 1;
-    } else {
-      earlier += 1;
-      earlierMarks += row.doneIds.length;
-    }
+    if (row.dateKey < weekStartKey) continue;
+    week.push(row);
+    weekMarks += row.doneIds.length;
+    if (row.doneIds.length >= RETURN_MAX) weekClosed += 1;
   }
   week.sort((a, b) => (a.dateKey < b.dateKey ? 1 : a.dateKey > b.dateKey ? -1 : 0));
 
-  return { weekStartKey, week, weekMarks, weekClosed, earlier, earlierMarks };
+  return { weekStartKey, week, weekMarks, weekClosed };
+}
+
+export interface ReturnWeek {
+  weekStartKey: string;
+  /** This week's evenings, newest first. */
+  rows: ReturnHistoryRow[];
+  /**
+   * Evenings before this week still on the account — what Clear would remove.
+   * Counted, not fetched: the number is what the panel says, and it has to be
+   * the real total or the button would promise to clear more than it named.
+   * null means the count could not be read, so the panel offers nothing.
+   */
+  earlier: number | null;
+}
+
+/**
+ * What Rhythm needs about Return: this week in full, older evenings as a
+ * count. Rhythm used to pull all 84 days of rows to render fourteen and to
+ * date-filter the weekly review down to seven — the rest was never read.
+ */
+export async function loadReturnWeek(now = new Date()): Promise<ReturnWeek> {
+  const weekStartKey = dayKey(returnWeekStart(now));
+  const rows = await listReturnSessions(weekStartKey, dayKey(now));
+  return { weekStartKey, rows, earlier: await countReturnSessionsBefore(weekStartKey) };
+}
+
+/** How many evenings sit before `beforeKey`; null if the count failed. */
+export async function countReturnSessionsBefore(
+  beforeKey: string
+): Promise<number | null> {
+  try {
+    const { requireSupabase } = await import("./supabase");
+    const db = requireSupabase();
+    const { data: auth } = await db.auth.getSession();
+    if (!auth.session) return null;
+    const { count, error } = await db
+      .from("return_sessions")
+      .select("date_key", { count: "exact", head: true })
+      .lt("date_key", beforeKey);
+    if (error) return null;
+    return count ?? 0;
+  } catch {
+    return null;
+  }
 }
 
 /**

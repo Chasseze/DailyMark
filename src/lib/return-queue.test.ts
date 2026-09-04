@@ -281,7 +281,7 @@ describe("summarizeReturnEvenings", () => {
   // Wed 2 Sep 2026 — the week starts Mon 31 Aug 2026.
   const now = new Date(2026, 8, 2, 20, 0, 0);
 
-  it("cuts the week at Monday and counts the rest", () => {
+  it("keeps this week and drops what came before", () => {
     const digest = summarizeReturnEvenings(
       [
         row("2026-09-02", 3),
@@ -295,8 +295,6 @@ describe("summarizeReturnEvenings", () => {
     expect(digest.week.map((r) => r.dateKey)).toEqual(["2026-09-02", "2026-08-31"]);
     expect(digest.weekMarks).toBe(4);
     expect(digest.weekClosed).toBe(1);
-    expect(digest.earlier).toBe(2);
-    expect(digest.earlierMarks).toBe(5);
   });
 
   it("treats Sunday as the end of the week it started", () => {
@@ -304,7 +302,6 @@ describe("summarizeReturnEvenings", () => {
     const digest = summarizeReturnEvenings([row("2026-08-31", 3)], sunday);
     expect(digest.weekStartKey).toBe("2026-08-31");
     expect(digest.week).toHaveLength(1);
-    expect(digest.earlier).toBe(0);
   });
 
   it("sorts this week's evenings newest first", () => {

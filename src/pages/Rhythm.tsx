@@ -14,10 +14,8 @@ import {
 import { QUESTIONS_PER_DAY } from "../lib/quiz";
 import type { Note } from "../lib/types";
 import {
-  addDays,
   buildCalendar,
   buildMonth,
-  dayKey,
   historySpan,
   longestStreak,
   quizWindow,
@@ -35,7 +33,7 @@ import {
 import {
   RETURN_MAX,
   clearReturnSessionsBefore,
-  listReturnSessions,
+  loadReturnWeek,
   summarizeReturnEvenings,
   type ReturnHistoryRow,
 } from "../lib/return-queue";
@@ -57,14 +55,15 @@ export default function Rhythm() {
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [returns, setReturns] = useState<ReturnHistoryRow[]>([]);
+  const [olderEvenings, setOlderEvenings] = useState<number | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     let active = true;
-    const until = dayKey(new Date());
-    const since = dayKey(addDays(new Date(), -83));
-    void listReturnSessions(since, until).then((rows) => {
-      if (active) setReturns(rows);
+    void loadReturnWeek().then((week) => {
+      if (!active) return;
+      setReturns(week.rows);
+      setOlderEvenings(week.earlier);
     });
     return () => {
       active = false;
@@ -189,12 +188,11 @@ export default function Rhythm() {
 
           {(tags.length > 0 || books.length > 0) && <RankedPanel tags={tags} books={books} />}
 
-          {returns.length > 0 && (
+          {(returns.length > 0 || (olderEvenings ?? 0) > 0) && (
             <ReturnEveningsPanel
               rows={returns}
-              onCleared={(cut) =>
-                setReturns((rows) => rows.filter((row) => row.dateKey >= cut))
-              }
+              earlier={olderEvenings}
+              onCleared={() => setOlderEvenings(0)}
             />
           )}
 
@@ -867,10 +865,12 @@ function eveningLabel(dateKey: string): string {
  */
 function ReturnEveningsPanel({
   rows,
+  earlier,
   onCleared,
 }: {
   rows: ReturnHistoryRow[];
-  onCleared: (cutKey: string) => void;
+  earlier: number | null;
+  onCleared: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -887,7 +887,7 @@ function ReturnEveningsPanel({
         setError("Could not reach your account — nothing was cleared.");
         return;
       }
-      onCleared(digest.weekStartKey);
+      onCleared();
       setConfirming(false);
     } finally {
       setBusy(false);
@@ -932,12 +932,10 @@ function ReturnEveningsPanel({
         </p>
       )}
 
-      {digest.earlier > 0 && (
+      {earlier !== null && earlier > 0 && (
         <div className="mt-4 border-t border-line pt-3">
           <p className="text-xs text-muted">
-            {digest.earlier} earlier {digest.earlier === 1 ? "evening" : "evenings"} kept,
-            {" "}
-            {digest.earlierMarks} {digest.earlierMarks === 1 ? "mark" : "marks"} in all.
+            {earlier} earlier {earlier === 1 ? "evening" : "evenings"} kept.
           </p>
           {confirming ? (
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -947,7 +945,7 @@ function ReturnEveningsPanel({
                 disabled={busy}
                 className="flex-1 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-on-accent disabled:opacity-50"
               >
-                {busy ? "Clearing…" : `Clear ${digest.earlier}`}
+                {busy ? "Clearing…" : `Clear ${earlier}`}
               </button>
               <button
                 type="button"
