@@ -103,7 +103,7 @@ export default function Desk() {
       </div>
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Link to="/daily" className="glass rounded-2xl p-5 transition-colors hover:bg-surface">
+        <Link to="/daily" className="feature-card">
           <ClockIcon />
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-accent-ink">
             Return tonight
@@ -118,7 +118,7 @@ export default function Desk() {
           </p>
         </Link>
 
-        <Link to="/daily" className="glass rounded-2xl p-5 transition-colors hover:bg-surface">
+        <Link to="/daily" className="feature-card">
           <CalendarIcon />
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-accent-ink">
             Daily quiz
@@ -132,7 +132,7 @@ export default function Desk() {
         {thought ? (
           <Link
             to={"/thoughts/" + thought.id}
-            className="glass rounded-2xl p-5 transition-colors hover:bg-surface"
+            className="feature-card"
           >
             <SparkIcon />
             <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-accent-ink">
@@ -142,7 +142,7 @@ export default function Desk() {
             <span className="mt-2 inline-block text-sm font-medium text-accent-ink">Open →</span>
           </Link>
         ) : (
-          <Link to="/thoughts" className="glass rounded-2xl p-5 transition-colors hover:bg-surface">
+          <Link to="/thoughts" className="feature-card">
             <SparkIcon />
             <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-accent-ink">
               Thoughts
@@ -155,7 +155,7 @@ export default function Desk() {
         )}
       </div>
 
-      <section className="glass rounded-2xl p-4">
+      <section className="desk-recent-section">
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-ink">
             Picked back up
