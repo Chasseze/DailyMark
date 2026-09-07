@@ -483,24 +483,11 @@ html {
   -webkit-backdrop-filter: blur(16px);
 }
 
-/* Five tabs no longer fit a phone at a readable size, so the row scrolls.
-   The bar is hidden — the row should still read as a tab bar, not a list —
-   and snapping keeps tabs from coming to rest half cut off. */
+/* The compact navigation has five fixed cells. It deliberately allows vertical
+   overflow: the More menu is anchored to this row and must be able to rise
+   above the tab bar instead of being clipped by a scroll container. */
 .app-bottom-nav__track {
-  overflow-x: auto;
-  /* `safe` centring: the row is centred while it fits, and falls back to
-     start-aligned once it overflows — plain `center` would push the first tab
-     off the left edge with no way to scroll back to it. */
-  justify-content: safe center;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-}
-.app-bottom-nav__track::-webkit-scrollbar {
-  display: none;
-}
-.app-bottom-nav__track > * {
-  scroll-snap-align: center;
+  overflow: visible;
 }
 
 .app-bottom-nav__more {
