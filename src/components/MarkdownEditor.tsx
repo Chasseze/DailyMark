@@ -43,8 +43,8 @@ interface Props {
 type View = "live" | "source" | "preview";
 
 const VIEWS: { id: View; label: string }[] = [
-  { id: "live", label: "Live" },
-  { id: "source", label: "Source" },
+  { id: "source", label: "Write" },
+  { id: "live", label: "Split" },
   { id: "preview", label: "Preview" },
 ];
 
@@ -107,7 +107,8 @@ function insertOverSelection(text: string): boolean {
 
 export default function MarkdownEditor({ content, onChange, noteId, notes }: Props) {
   const { user } = useAuth();
-  const [view, setView] = useState<View>("live");
+  // Start in the calmest mode: writing should feel like a page, not a dashboard.
+  const [view, setView] = useState<View>("source");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
@@ -270,7 +271,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
 
   return (
     <div>
-      <div className="mb-2 flex gap-1 rounded-xl bg-surface-2 p-1">
+      <div className="editor-mode-switch mb-3 flex w-fit gap-1 rounded-xl p-1">
         {VIEWS.map((option) => (
           <button
             key={option.id}
@@ -333,7 +334,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
         {showSource && (
           <div className="min-w-0">
             {view === "live" && <PaneLabel>Markdown</PaneLabel>}
-            <div className="md-editor-surface rounded-2xl border border-line bg-surface focus-within:border-accent/50">
+            <div className="md-editor-surface editor-writing-surface rounded-2xl focus-within:border-accent/50">
               <MarkdownHighlight source={content} />
               <textarea
                 ref={areaRef}
@@ -353,7 +354,7 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
         {showRich && (
           <div className="min-w-0">
             {view === "live" && <PaneLabel>Rich text</PaneLabel>}
-            <div className="min-h-[14rem] min-w-0 overflow-x-clip rounded-2xl border border-line bg-surface p-4 text-sm text-ink-soft">
+            <div className="editor-preview-surface min-h-[14rem] min-w-0 overflow-x-clip rounded-2xl p-5 text-sm text-ink-soft">
               {richContent.trim() ? (
                 <Markdown notes={notes} onToggleTask={handleToggleTask}>
                   {richContent}
@@ -366,10 +367,9 @@ export default function MarkdownEditor({ content, onChange, noteId, notes }: Pro
         )}
       </div>
 
-      <p className="mt-2 text-xs leading-relaxed text-muted">
-        Markdown is always on: syntax is styled as you type, pasted rich text is converted, and
-        Enter carries lists forward. Scan or take a photo from the toolbar — images are compressed
-        before they land in the article. Link another note with{" "}
+      <p className="mt-3 text-xs leading-relaxed text-muted">
+        Use Split when you want a live reading view. Markdown is always on: pasted rich text is
+        converted, and Enter carries lists forward. Link another note with{" "}
         <span className="font-mono text-muted">[[Exact title]]</span> (toolbar: Note link) —
         matching titles become clickable in preview and when you open the note.
       </p>

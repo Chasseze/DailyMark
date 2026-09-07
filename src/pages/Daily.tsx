@@ -474,7 +474,7 @@ export default function Daily() {
       {pinned && (
         <Link
           to={"/thoughts/" + pinned.id}
-          className="glass mb-4 block rounded-2xl p-4 transition-colors hover:bg-surface"
+          className="feature-card mb-4"
         >
           <span className="text-xs font-medium uppercase tracking-wider text-accent-ink">
             Thought of the week

@@ -414,6 +414,27 @@ html {
   border: 1px solid var(--mood-glass-border);
 }
 
+/* Only the task currently asking for attention gets a raised surface. The
+   desk's supporting routes are deliberately flatter, which gives the capture
+   bar and the weekly-review area a much clearer visual role. */
+.feature-card {
+  display: block;
+  border-bottom: 1px solid var(--mood-line);
+  padding: 1.1rem 0.25rem 1.2rem;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.feature-card:hover {
+  border-color: var(--mood-line-strong);
+  background: color-mix(in oklab, var(--mood-surface) 65%, transparent);
+}
+
+.desk-recent-section {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--mood-line);
+  padding-top: 1.25rem;
+}
+
 /* Skip expensive blur when the user prefers reduced transparency, or on
    coarse pointers where battery/GPU cost matters more than polish. */
 @media (prefers-reduced-transparency: reduce), (update: slow) {
@@ -480,6 +501,18 @@ html {
 }
 .app-bottom-nav__track > * {
   scroll-snap-align: center;
+}
+
+.app-bottom-nav__more {
+  position: absolute;
+  right: 0.65rem;
+  bottom: calc(100% + 0.65rem);
+  display: grid;
+  width: min(12rem, calc(100vw - 1.5rem));
+  gap: 0.15rem;
+  padding: 0.35rem;
+  border-radius: 1rem;
+  box-shadow: 0 16px 38px oklch(0 0 0 / 0.22);
 }
 
 @media (prefers-reduced-transparency: reduce), (update: slow) {
@@ -1401,7 +1434,22 @@ html {
    here because no italic Figtree face is loaded, so the browser synthesises a
    skew, which keeps advances identical. */
 
-.md-editor-surface { position: relative; min-height: 14rem; }
+.md-editor-surface { position: relative; min-height: 18rem; }
+
+.editor-mode-switch {
+  border: 1px solid var(--mood-line);
+  background: color-mix(in oklab, var(--mood-surface) 80%, transparent);
+}
+
+.editor-writing-surface,
+.editor-preview-surface {
+  border: 1px solid var(--mood-line);
+  background: color-mix(in oklab, var(--mood-paper) 82%, var(--mood-surface));
+}
+
+.editor-preview-surface {
+  min-height: 18rem;
+}
 
 .md-mirror,
 .md-editor-input {
@@ -1438,8 +1486,8 @@ html {
 .md-editor-input::selection { background: oklch(0.75 0.15 85 / 0.32); }
 
 .md-syntax { color: oklch(0.62 0.03 260); }
-.md-heading { color: #fcd34d; text-shadow: 0 0 0.6px currentColor; }
-.md-strong { color: #ffffff; text-shadow: 0 0 0.6px currentColor; }
+.md-heading { color: var(--mood-accent-ink); text-shadow: 0 0 0.6px currentColor; }
+.md-strong { color: var(--mood-ink); text-shadow: 0 0 0.6px currentColor; }
 .md-em { font-style: italic; }
 .md-strike { color: oklch(0.6 0.02 260); text-decoration: line-through; }
 .md-code-span {
@@ -1447,12 +1495,12 @@ html {
   border-radius: 0.25rem;
   color: #fbbf24;
 }
-.md-link-text { color: #f59e0b; text-decoration: underline; text-underline-offset: 2px; }
+.md-link-text { color: var(--mood-accent-ink); text-decoration: underline; text-underline-offset: 2px; }
 .md-url { color: oklch(0.62 0.03 260); text-decoration: underline; }
 .md-quote { color: oklch(0.74 0.04 150); font-style: italic; }
-.md-marker { color: #f59e0b; text-shadow: 0 0 0.6px currentColor; }
-.md-task-done { color: oklch(0.6 0.02 260); text-decoration: line-through; }
-.md-rule { color: #f59e0b; }
+.md-marker { color: var(--mood-accent-ink); text-shadow: 0 0 0.6px currentColor; }
+.md-task-done { color: var(--mood-faint); text-decoration: line-through; }
+.md-rule { color: var(--mood-accent-ink); }
 
 :root.light .md-syntax { color: oklch(0.62 0.02 260); }
 :root.light .md-heading { color: #b45309; }
@@ -1880,4 +1928,3 @@ html.page-hidden .pulse-glow,
 html.page-hidden .quiz-category-emoji {
   animation-play-state: paused;
 }
-
