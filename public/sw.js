@@ -1,7 +1,7 @@
 /* DailyMark service worker — caches the app shell; never caches Supabase API. */
 // Bumped whenever the caching rules change, so activate() drops shells that an
 // older revision may have stored under the previous rules.
-const CACHE = "dailymark-shell-v4";
+const CACHE = "dailymark-shell-v5";
 const SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -85,4 +85,16 @@ self.addEventListener("fetch", (event) => {
       )
     );
   }
+});
+
+self.addEventListener("push", event => {
+  // Notification text is deliberately fixed: never render arbitrary URLs or
+  // note text supplied by a push payload.
+  event.waitUntil(self.registration.showNotification("DailyMark", {
+    body: "Time for a quick note or today's quiz.", tag: "dailymark-daily"
+  }));
+});
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow("/daily"));
 });

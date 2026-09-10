@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/auth-context";
+import { usePrefs } from "../context/prefs-context";
+import { readDraft, writeDraft, removeDraft } from "../lib/drafts";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate, useBlocker } from "react-router-dom";
 import { useFocus } from "../context/focus-context";
 import { useNotes } from "../context/notes-context";
 import { errorMessage } from "../lib/supabase";
@@ -58,7 +61,9 @@ function TrashedNoteNotice({ id }: { id: string }) {
   const navigate = useNavigate();
   return (
     <div className="flex h-full min-h-[16rem] flex-col items-center justify-center px-4">
-      <p className="text-muted">This note is in Trash. Restore it before editing.</p>
+      <p className="text-muted">
+        This note is in Trash. Restore it before editing.
+      </p>
       <button
         type="button"
         onClick={() => navigate("/notes/" + id)}
@@ -79,7 +84,8 @@ function sameTags(a: string[], b: string[]) {
 
 function toDateInput(iso: string | null): string {
   if (!iso) return "";
-  return iso.slice(0, 10);
+  const date = new Date(iso);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function fromDateInput(value: string): string | null {
@@ -92,6 +98,13 @@ function NoteEditor({ note }: { note: Note }) {
   const { notebooks, notes, patchNote } = useNotes();
   const { focus, toggleFocus } = useFocus();
 
+  const { user } = useAuth();
+  const { prefs } = usePrefs();
+  const [recovery, setRecovery] = useState(() =>
+    user ? readDraft(user.id, note.id) : null,
+  );
+  const [reviewRecovery, setReviewRecovery] = useState(false);
+  const [draftError, setDraftError] = useState(false);
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [tagInput, setTagInput] = useState("");
@@ -101,7 +114,8 @@ function NoteEditor({ note }: { note: Note }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [leavePrompt, setLeavePrompt] = useState(false);
+  const inFlight = useRef(false);
+  const allowLeave = useRef(false);
   const [saved, setSaved] = useState({
     title: note.title,
     content: note.content,
@@ -117,12 +131,20 @@ function NoteEditor({ note }: { note: Note }) {
     if (title !== saved.title) patch.title = title;
     if (content !== saved.content) patch.content = content;
     if (notebookId !== saved.notebookId) patch.notebook_id = notebookId;
-    if (revisitAt !== saved.revisitAt) patch.revisit_at = fromDateInput(revisitAt);
+    if (revisitAt !== saved.revisitAt)
+      patch.revisit_at = fromDateInput(revisitAt);
     if (!sameTags(tags, saved.tags)) patch.tags = tags;
     return patch;
   }, [title, content, tags, notebookId, revisitAt, saved]);
 
+  const latestEdit = useRef(changed);
+  useEffect(() => {
+    latestEdit.current = changed;
+  }, [changed]);
   const dirty = Object.keys(changed).length > 0;
+  const blocker = useBlocker(
+    () => !allowLeave.current && (dirty || inFlight.current),
+  );
 
   useEffect(() => {
     if (!dirty) return;
@@ -135,45 +157,95 @@ function NoteEditor({ note }: { note: Note }) {
   }, [dirty]);
 
   const persist = useCallback(async () => {
+    if (inFlight.current) return false;
+    inFlight.current = true;
     setSaving(true);
     setSaveError(null);
     try {
       await patchNote(note.id, changed);
       setSaved({ title, content, tags, notebookId, revisitAt });
       setLastSavedAt(new Date());
+      setReviewRecovery(false);
       return true;
     } catch (err) {
       setSaveError(errorMessage(err));
       return false;
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
-  }, [patchNote, note.id, changed, title, content, tags, notebookId, revisitAt]);
+  }, [
+    patchNote,
+    note.id,
+    changed,
+    title,
+    content,
+    tags,
+    notebookId,
+    revisitAt,
+  ]);
+
+  useEffect(() => {
+    if (!user || !prefs.draftRecovery || recovery) return;
+    if (!dirty) {
+      removeDraft(user.id, note.id);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      try {
+        writeDraft(user.id, note.id, {
+          title,
+          content,
+          updatedAt: note.updated_at,
+        });
+      } catch {
+        setDraftError(true);
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [
+    user,
+    prefs.draftRecovery,
+    recovery,
+    dirty,
+    title,
+    content,
+    note.id,
+    note.updated_at,
+  ]);
 
   // Autosave after a short pause in typing.
   useEffect(() => {
-    if (!dirty) return;
+    if (
+      !dirty ||
+      saving ||
+      saveError ||
+      blocker.state === "blocked" ||
+      reviewRecovery
+    )
+      return;
     const timer = window.setTimeout(() => void persist(), 1200);
     return () => window.clearTimeout(timer);
-  }, [dirty, persist]);
+  }, [dirty, persist, saving, saveError, blocker.state, reviewRecovery]);
 
   const handleSave = async () => {
-    if (saving) return;
+    if (inFlight.current) return;
+    const savingEdit = latestEdit.current;
     if (dirty && !(await persist())) return;
-    navigate("/notes/" + note.id);
-  };
-
-  const handleGoBack = () => {
-    if (!dirty) {
-      navigate("/notes/" + note.id);
+    if (
+      latestEdit.current !== savingEdit &&
+      Object.keys(latestEdit.current).length
+    )
       return;
-    }
-    setLeavePrompt(true);
+    allowLeave.current = true;
+    if (blocker.state === "blocked") blocker.proceed();
+    else navigate("/notes/" + note.id);
   };
-
+  const handleGoBack = () => navigate("/notes/" + note.id);
   const discardAndLeave = () => {
-    setLeavePrompt(false);
-    navigate("/notes/" + note.id);
+    if (inFlight.current) return;
+    if (user) removeDraft(user.id, note.id);
+    if (blocker.state === "blocked") blocker.proceed();
   };
 
   const addTag = () => {
@@ -199,13 +271,28 @@ function NoteEditor({ note }: { note: Note }) {
           aria-label="Back"
           className="rounded-xl p-2 text-muted hover:bg-surface-2 hover:text-ink"
         >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.5 9 12l6.5 6.5" />
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15.5 5.5 9 12l6.5 6.5"
+            />
           </svg>
         </button>
         <div className="flex-1" />
         {statusLabel && (
-          <span className="mr-1 text-xs font-medium uppercase tracking-wider text-accent-ink">
+          <span
+            role="status"
+            aria-live="polite"
+            className="mr-1 text-xs font-medium uppercase tracking-wider text-accent-ink"
+          >
             {statusLabel}
           </span>
         )}
@@ -221,9 +308,19 @@ function NoteEditor({ note }: { note: Note }) {
               : "text-muted hover:text-ink")
           }
         >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            aria-hidden="true"
+          >
             <circle cx="12" cy="12" r="3.25" />
-            <path strokeLinecap="round" d="M12 3.5v2.5M12 18v2.5M3.5 12h2.5M18 12h2.5" />
+            <path
+              strokeLinecap="round"
+              d="M12 3.5v2.5M12 18v2.5M3.5 12h2.5M18 12h2.5"
+            />
           </svg>
         </button>
         <button
@@ -236,11 +333,9 @@ function NoteEditor({ note }: { note: Note }) {
         </button>
       </div>
 
-      {leavePrompt && (
+      {blocker.state === "blocked" && (
         <div className="mb-3 rounded-xl border border-accent/40 bg-accent-soft p-3">
-          <p className="text-sm text-accent-ink">
-            You have unsaved changes.
-          </p>
+          <p className="text-sm text-accent-ink">You have unsaved changes.</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
@@ -253,13 +348,14 @@ function NoteEditor({ note }: { note: Note }) {
             <button
               type="button"
               onClick={discardAndLeave}
+              disabled={saving}
               className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-ink-soft"
             >
               Discard
             </button>
             <button
               type="button"
-              onClick={() => setLeavePrompt(false)}
+              onClick={() => blocker.reset?.()}
               className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted"
             >
               Keep editing
@@ -268,8 +364,48 @@ function NoteEditor({ note }: { note: Note }) {
         </div>
       )}
 
+      {recovery && (
+        <div role="status" className="mb-3 rounded-xl border border-line p-3">
+          <p>
+            A recovery copy is available. Review it before saving; another
+            device may have changed this note.
+          </p>
+          <button
+            onClick={() => {
+              setTitle(recovery.title);
+              setContent(recovery.content);
+              setReviewRecovery(true);
+              setRecovery(null);
+            }}
+          >
+            Recover writing
+          </button>{" "}
+          <button
+            onClick={() => {
+              if (user) removeDraft(user.id, note.id);
+              setRecovery(null);
+            }}
+          >
+            Dismiss copy
+          </button>
+        </div>
+      )}
+      {reviewRecovery && (
+        <p role="status">
+          Review the recovered writing, then choose Save to upload it.
+        </p>
+      )}
+      {draftError && (
+        <p role="alert">
+          Device recovery storage is unavailable. Keep this tab open until
+          saved.
+        </p>
+      )}
       {saveError && (
-        <div className="mb-3 rounded-xl bg-danger-soft p-3 text-xs text-danger">
+        <div
+          role="alert"
+          className="mb-3 rounded-xl bg-danger-soft p-3 text-xs text-danger"
+        >
           {saveError}
         </div>
       )}
@@ -278,6 +414,7 @@ function NoteEditor({ note }: { note: Note }) {
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
+        aria-label="Note title"
         placeholder="Note title..."
         className="note-title mb-3 w-full bg-transparent text-2xl text-ink placeholder-faint focus:outline-none"
       />
@@ -286,13 +423,16 @@ function NoteEditor({ note }: { note: Note }) {
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted">Notebook:</span>
           <select
+            aria-label="Notebook"
             value={notebookId ?? ""}
             onChange={(e) => setNotebookId(e.target.value || null)}
             className="rounded-lg border border-line bg-surface-2 px-2 py-1 text-xs text-ink-soft focus:outline-none"
           >
             <option value="">None</option>
             {notebooks.map((nb) => (
-              <option key={nb.id} value={nb.id}>{nb.name}</option>
+              <option key={nb.id} value={nb.id}>
+                {nb.name}
+              </option>
             ))}
           </select>
         </div>
@@ -322,7 +462,10 @@ function NoteEditor({ note }: { note: Note }) {
       <div className="mb-4">
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-2.5 py-0.5 text-xs text-accent-ink">
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-2.5 py-0.5 text-xs text-accent-ink"
+            >
               {tag}
               <button
                 type="button"
@@ -340,7 +483,10 @@ function NoteEditor({ note }: { note: Note }) {
             type="text"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+            onKeyDown={(e) =>
+              e.key === "Enter" && (e.preventDefault(), addTag())
+            }
+            aria-label="Add tag"
             placeholder="Add tag..."
             className="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-1 text-xs text-ink placeholder-faint focus:outline-none"
           />

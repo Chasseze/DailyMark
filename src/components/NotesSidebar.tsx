@@ -1,3 +1,8 @@
+import { requireSupabase } from "../lib/supabase";
+import { NOTE_TEMPLATES } from "../lib/templates";
+import { usePrefs } from "../context/prefs-context";
+import { downloadText } from "../lib/notes-io";
+import { exportBackup } from "../lib/backup";
 import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
@@ -7,7 +12,14 @@ import { shareUrl } from "../lib/share";
 import { errorMessage } from "../lib/supabase";
 import type { Note } from "../lib/types";
 
-const COLORS = ["#f59e0b", "#3b82f6", "#ef4444", "#10b981", "#8b5cf6", "#ec4899"];
+const COLORS = [
+  "#f59e0b",
+  "#3b82f6",
+  "#ef4444",
+  "#10b981",
+  "#8b5cf6",
+  "#ec4899",
+];
 
 /** Opening preview from the DB snippet, wrapped to ~3 lines via CSS. */
 function openingLines(preview: string): string {
@@ -28,6 +40,8 @@ function matchesSearch(note: Note, q: string): boolean {
 export default function NotesSidebar() {
   const {
     notes,
+    loadTrash,
+    updateNote,
     trash,
     notebooks,
     loading,
@@ -39,10 +53,20 @@ export default function NotesSidebar() {
     restoreNote,
     purgeNote,
     emptyTrash,
-    searchNotes,
     dueNotes,
     createNotebookShare,
   } = useNotes();
+  const { prefs, patchPrefs } = usePrefs();
+  const [selection, setSelection] = useState<string[]>([]);
+  const [visibleCount, setVisibleCount] = useState(50);
+  const [serverPage, setServerPage] = useState<{
+    key: string;
+    rows: Note[];
+    total: number;
+  } | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
   const { streak } = useStreak();
   const { id: selectedId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
@@ -52,7 +76,6 @@ export default function NotesSidebar() {
   const [showTrash, setShowTrash] = useState(false);
   const [showDue, setShowDue] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
-  const [ftsHits, setFtsHits] = useState<Note[] | null>(null);
   const [ftsBusy, setFtsBusy] = useState(false);
   const [showNewNotebook, setShowNewNotebook] = useState(false);
   const [newNbName, setNewNbName] = useState("");
@@ -71,35 +94,73 @@ export default function NotesSidebar() {
   }, [notes]);
 
   const searchQuery = search.trim();
-  // Ignore stale FTS results when the query is cleared or Trash/Due is open.
-  const activeFts = searchQuery && !showTrash && !showDue ? ftsHits : null;
-
+  const filterKey = JSON.stringify([
+    searchQuery,
+    activeNotebook,
+    activeTag,
+    showTrash,
+    showDue,
+  ]);
   useEffect(() => {
-    if (!searchQuery || showTrash || showDue) return;
-
     let active = true;
-    const timer = window.setTimeout(() => {
-      setFtsBusy(true);
-      void searchNotes(searchQuery)
-        .then((hits) => {
-          if (active) setFtsHits(hits);
-        })
-        .catch(() => {
-          // Client filter below still works if FTS is unavailable.
-          if (active) setFtsHits(null);
-        })
-        .finally(() => {
-          if (active) setFtsBusy(false);
-        });
-    }, 280);
-
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const timer = window.setTimeout(
+      () => {
+        setFtsBusy(true);
+        void requireSupabase()
+          .rpc("note_library_page", {
+            p_query: searchQuery,
+            p_notebook: activeNotebook ?? undefined,
+            p_tag: activeTag ?? undefined,
+            p_trash: showTrash,
+            p_due: showDue,
+            p_end: end.toISOString(),
+            p_offset: pageIndex * 50,
+            p_limit: 50,
+          })
+          .then(({ data, error }) => {
+            if (!active) return;
+            setFtsBusy(false);
+            if (error) {
+              setSearchError(
+                "Library search unavailable. Showing local matches.",
+              );
+              setServerPage(null);
+              return;
+            }
+            setSearchError(null);
+            setServerPage({
+              key: filterKey,
+              rows: data.rows.map((row) => ({
+                ...row,
+                content: "",
+                bodyLoaded: false,
+              })),
+              total: data.total,
+            });
+          });
+      },
+      searchQuery ? 280 : 0,
+    );
     return () => {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [searchQuery, showTrash, showDue, searchNotes]);
+  }, [
+    filterKey,
+    searchQuery,
+    activeNotebook,
+    activeTag,
+    showTrash,
+    showDue,
+    pageIndex,
+    retry,
+    notes,
+    trash,
+  ]);
 
-  const filtered = useMemo(() => {
+  const localFiltered = useMemo(() => {
     if (showTrash) {
       let list = trash;
       if (searchQuery) {
@@ -119,17 +180,20 @@ export default function NotesSidebar() {
       return list;
     }
 
-    let list = activeFts ?? notes;
-    if (activeNotebook) list = list.filter((n) => n.notebook_id === activeNotebook);
+    let list = notes;
+    if (activeNotebook)
+      list = list.filter((n) => n.notebook_id === activeNotebook);
     if (activeTag) list = list.filter((n) => n.tags.includes(activeTag));
-    if (!activeFts && searchQuery) {
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
       list = list.filter((n) => matchesSearch(n, q));
     }
     return [...list].sort((a, b) => {
       if (a.is_pinned && !b.is_pinned) return -1;
       if (!a.is_pinned && b.is_pinned) return 1;
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      return (
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
     });
   }, [
     notes,
@@ -140,9 +204,12 @@ export default function NotesSidebar() {
     searchQuery,
     showTrash,
     showDue,
-    activeFts,
   ]);
 
+  const filtered =
+    serverPage?.key === filterKey ? serverPage.rows : localFiltered;
+  const matchingCount =
+    serverPage?.key === filterKey ? serverPage.total : localFiltered.length;
   const handleQuickNote = async () => {
     if (busy || showTrash) return;
     setBusy(true);
@@ -197,7 +264,10 @@ export default function NotesSidebar() {
     setBusy(true);
     setWriteError(null);
     try {
-      await updateNotebook(editingNb, { name: editNbName.trim(), color: editNbColor });
+      await updateNotebook(editingNb, {
+        name: editNbName.trim(),
+        color: editNbColor,
+      });
       setEditingNb(null);
     } catch (err) {
       setWriteError(errorMessage(err));
@@ -207,12 +277,18 @@ export default function NotesSidebar() {
   };
 
   const handleDeleteNotebook = async (id: string, name: string) => {
-    if (!confirm(`Delete notebook “${name}”? Notes stay; they just lose this notebook.`)) return;
+    if (
+      !confirm(
+        `Delete notebook “${name}”? Notes stay; they just lose this notebook.`,
+      )
+    )
+      return;
     setBusy(true);
     setWriteError(null);
     try {
       await deleteNotebook(id);
       if (activeNotebook === id) setActiveNotebook(null);
+      setPageIndex(0);
       if (editingNb === id) setEditingNb(null);
     } catch (err) {
       setWriteError(errorMessage(err));
@@ -231,12 +307,14 @@ export default function NotesSidebar() {
               {loading
                 ? "Loading…"
                 : showTrash
-                  ? `${filtered.length} in trash`
+                  ? `${matchingCount} in trash`
                   : showDue
-                    ? `${filtered.length} due`
-                    : `${filtered.length} note${filtered.length !== 1 ? "s" : ""}`}
+                    ? `${matchingCount} due`
+                    : `${matchingCount} note${matchingCount !== 1 ? "s" : ""}`}
               {!loading && streak != null && !showTrash && (
-                <span className="ml-2 text-accent-ink">· {streak} day streak</span>
+                <span className="ml-2 text-accent-ink">
+                  · {streak} day streak
+                </span>
               )}
             </p>
           </div>
@@ -246,7 +324,10 @@ export default function NotesSidebar() {
             app's primary job deserves the full width. */}
         {!showTrash && (
           <div className="mb-4">
-            <CaptureBar notebookId={activeNotebook} tags={activeTag ? [activeTag] : []} />
+            <CaptureBar
+              notebookId={activeNotebook}
+              tags={activeTag ? [activeTag] : []}
+            />
           </div>
         )}
 
@@ -265,17 +346,94 @@ export default function NotesSidebar() {
           <input
             type="search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setVisibleCount(50);
+              setPageIndex(0);
+            }}
+            aria-label="Search notes"
             placeholder={showTrash ? "Search trash…" : "Search notes…"}
             className="w-full rounded-xl border border-line bg-surface py-2.5 pl-10 pr-4 text-sm text-ink placeholder-faint focus:border-accent/50 focus:outline-none"
           />
-          {ftsBusy && (
+          {ftsBusy && searchQuery && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
               …
             </span>
           )}
         </div>
 
+        {searchError && (
+          <p role="alert" className="text-sm text-danger">
+            {searchError}{" "}
+            <button onClick={() => setRetry((r) => r + 1)}>Retry</button>
+          </p>
+        )}
+        {searchQuery && (
+          <button
+            className="my-2 text-sm text-accent-ink"
+            onClick={() =>
+              void patchPrefs({
+                savedSearches: [
+                  ...new Set([...(prefs.savedSearches ?? []), searchQuery]),
+                ].slice(-20),
+              })
+            }
+          >
+            Save search
+          </button>
+        )}
+        {!!prefs.savedSearches?.length && (
+          <div className="my-2 flex flex-wrap gap-2">
+            {prefs.savedSearches.map((q) => (
+              <span key={q}>
+                <button onClick={() => {setSearch(q);setPageIndex(0);}}>{q}</button>
+                <button
+                  aria-label={`Remove saved search ${q}`}
+                  onClick={() =>
+                    void patchPrefs({
+                      savedSearches: prefs.savedSearches?.filter(
+                        (x) => x !== q,
+                      ),
+                    })
+                  }
+                >
+                  {" "}
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <label className="my-3 block text-sm">
+          New from template{" "}
+          <select
+            aria-label="New from template"
+            value=""
+            onChange={async (e) => {
+              const template = NOTE_TEMPLATES[Number(e.target.value)];
+              if (!template) return;
+              try {
+                const n = await addNote({
+                  title: template.name === "Blank note" ? "" : template.name,
+                  content: template.content,
+                  notebook_id: activeNotebook,
+                  tags: [],
+                  is_pinned: false,
+                });
+                navigate(`/notes/${n.id}/edit`);
+              } catch (err) {
+                setWriteError(errorMessage(err));
+              }
+            }}
+          >
+            <option value="">Choose…</option>
+            {NOTE_TEMPLATES.map((t, i) => (
+              <option key={t.name} value={i}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
         {/* Notebooks and Trash are structure — where a note lives — so they
             stay on their own row, in view. Only the free-form article tags
             (which grow without bound) sit behind a disclosure. */}
@@ -291,6 +449,7 @@ export default function NotesSidebar() {
                 setShowTrash(false);
                 setShowDue(false);
                 setActiveNotebook(null);
+                setPageIndex(0);
               }}
               className={
                 "notes-chip " +
@@ -307,10 +466,13 @@ export default function NotesSidebar() {
                 onClick={() => {
                   setShowTrash(false);
                   setShowDue(true);
+                  setPageIndex(0);
                   setActiveNotebook(null);
+                  setPageIndex(0);
                 }}
                 className={
-                  "notes-chip " + (!showTrash && showDue ? "notes-chip--on" : "notes-chip--off")
+                  "notes-chip " +
+                  (!showTrash && showDue ? "notes-chip--on" : "notes-chip--off")
                 }
               >
                 Due ({dueNotes.length})
@@ -324,6 +486,7 @@ export default function NotesSidebar() {
                   setShowTrash(false);
                   setShowDue(false);
                   setActiveNotebook(nb.id);
+                  setPageIndex(0);
                 }}
                 onDoubleClick={() => {
                   setEditingNb(nb.id);
@@ -333,7 +496,9 @@ export default function NotesSidebar() {
                 }}
                 className={
                   "notes-chip notes-chip--nb " +
-                  (!showTrash && !showDue && activeNotebook === nb.id ? "is-active" : "")
+                  (!showTrash && !showDue && activeNotebook === nb.id
+                    ? "is-active"
+                    : "")
                 }
                 style={{ "--nb-color": nb.color } as CSSProperties}
                 title="Double-click to rename"
@@ -347,13 +512,19 @@ export default function NotesSidebar() {
             <button
               type="button"
               onClick={() => {
+                void loadTrash().catch((err) =>
+                  setWriteError(errorMessage(err)),
+                );
                 setShowTrash(true);
+                setPageIndex(0);
                 setShowDue(false);
                 setActiveNotebook(null);
+                setPageIndex(0);
                 setActiveTag(null);
               }}
               className={
-                "notes-chip " + (showTrash ? "notes-chip--trash" : "notes-chip--off")
+                "notes-chip " +
+                (showTrash ? "notes-chip--trash" : "notes-chip--off")
               }
             >
               Trash{trash.length > 0 ? ` (${trash.length})` : ""}
@@ -361,6 +532,22 @@ export default function NotesSidebar() {
           </div>
         </div>
 
+        {activeNotebook && (
+          <button
+            type="button"
+            className="my-2 text-sm"
+            onClick={() => {
+              const nb = notebooks.find((n) => n.id === activeNotebook);
+              if (nb) {
+                setEditingNb(nb.id);
+                setEditNbName(nb.name);
+                setEditNbColor(nb.color);
+              }
+            }}
+          >
+            Manage notebook
+          </button>
+        )}
         {activeNotebook && !showTrash && !showDue && (
           <div className="mb-3 flex items-center gap-2">
             <button
@@ -371,7 +558,9 @@ export default function NotesSidebar() {
             >
               Share
             </button>
-            {shareStatus && <span className="text-xs text-accent-ink">{shareStatus}</span>}
+            {shareStatus && (
+              <span className="text-xs text-accent-ink">{shareStatus}</span>
+            )}
           </div>
         )}
 
@@ -434,7 +623,10 @@ export default function NotesSidebar() {
                   <button
                     key={tag}
                     type="button"
-                    onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                    onClick={() => {
+                      setActiveTag(activeTag === tag ? null : tag);
+                      setPageIndex(0);
+                    }}
                     className={
                       "shrink-0 rounded-md px-2 py-1 text-xs font-medium " +
                       (activeTag === tag
@@ -456,7 +648,9 @@ export default function NotesSidebar() {
               type="text"
               value={newNbName}
               onChange={(e) => setNewNbName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void handleCreateNotebook()}
+              onKeyDown={(e) =>
+                e.key === "Enter" && void handleCreateNotebook()
+              }
               placeholder="Notebook name…"
               className="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink placeholder-faint focus:outline-none"
             />
@@ -470,7 +664,9 @@ export default function NotesSidebar() {
                     aria-label={`Colour ${c}`}
                     className={
                       "h-5 w-5 rounded-full border-2 transition-transform " +
-                      (newNbColor === c ? "scale-110 border-ink" : "border-transparent")
+                      (newNbColor === c
+                        ? "scale-110 border-ink"
+                        : "border-transparent")
                     }
                     style={{ backgroundColor: c }}
                   />
@@ -506,7 +702,9 @@ export default function NotesSidebar() {
                   aria-label={`Colour ${c}`}
                   className={
                     "h-5 w-5 rounded-full border-2 transition-transform " +
-                    (editNbColor === c ? "scale-110 border-ink" : "border-transparent")
+                    (editNbColor === c
+                      ? "scale-110 border-ink"
+                      : "border-transparent")
                   }
                   style={{ backgroundColor: c }}
                 />
@@ -560,6 +758,108 @@ export default function NotesSidebar() {
         )}
       </div>
 
+      {!!selection.length && (
+        <div className="m-3 rounded-xl border border-line p-3 text-sm">
+          <p>{selection.length} selected</p>
+          <select
+            aria-label="Move selected notes"
+            value=""
+            disabled={busy}
+            onChange={async (e) => {
+              const notebook_id =
+                e.target.value === "none" ? null : e.target.value;
+              setBusy(true);
+              try {
+                for (const id of selection)
+                  await updateNote(id, { notebook_id });
+                setSelection([]);
+              } catch (err) {
+                setWriteError(errorMessage(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <option value="">Move to…</option>
+            <option value="none">No notebook</option>
+            {notebooks.map((n) => (
+              <option value={n.id} key={n.id}>
+                {n.name}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={busy}
+            onClick={async () => {
+              const tag = prompt("Tag for selected notes")
+                ?.trim()
+                .toLowerCase();
+              if (!tag) return;
+              setBusy(true);
+              try {
+                for (const id of selection) {
+                  const n = notes.find((n) => n.id === id);
+                  if (n)
+                    await updateNote(id, {
+                      tags: [...new Set([...n.tags, tag])],
+                    });
+                }
+                setSelection([]);
+              } catch (err) {
+                setWriteError(errorMessage(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Add tag
+          </button>
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const backup = await exportBackup(() => {});
+                backup.notes = backup.notes.filter((n) =>
+                  selection.includes(n.id),
+                );
+                downloadText(
+                  "dailymark-selection.json",
+                  JSON.stringify(backup),
+                  "application/json",
+                );
+              } catch (err) {
+                setWriteError(errorMessage(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Export
+          </button>
+          <button
+            disabled={busy}
+            onClick={async () => {
+              if (!confirm(`Move ${selection.length} notes to Trash?`)) return;
+              setBusy(true);
+              try {
+                for (const id of selection)
+                  await updateNote(id, {
+                    deleted_at: new Date().toISOString(),
+                  });
+                setSelection([]);
+              } catch (err) {
+                setWriteError(errorMessage(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Trash
+          </button>
+          <button onClick={() => setSelection([])}>Clear selection</button>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {(error || writeError) && (
           <div className="mb-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
@@ -596,20 +896,67 @@ export default function NotesSidebar() {
             )}
           </div>
         ) : (
-          <nav className="notes-file-list" aria-label={showTrash ? "Trash" : showDue ? "Due" : "Notes"}>
-            {filtered.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                active={selectedId === note.id}
-                showTrash={showTrash}
-                showDue={showDue}
-                onRestore={restoreNote}
-                onPurge={purgeNote}
-                onWriteError={setWriteError}
-              />
+          <nav
+            className="notes-file-list"
+            aria-label={showTrash ? "Trash" : showDue ? "Due" : "Notes"}
+          >
+            {filtered.slice(0, visibleCount).map((note) => (
+              <div key={note.id}>
+                {!showTrash && (
+                  <label className="text-xs">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${note.title || "Untitled"}`}
+                      checked={selection.includes(note.id)}
+                      onChange={(e) =>
+                        setSelection((prev) =>
+                          e.target.checked
+                            ? [...prev, note.id]
+                            : prev.filter((id) => id !== note.id),
+                        )
+                      }
+                    />{" "}
+                    Select
+                  </label>
+                )}
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  active={selectedId === note.id}
+                  showTrash={showTrash}
+                  showDue={showDue}
+                  onRestore={restoreNote}
+                  onPurge={purgeNote}
+                  onWriteError={setWriteError}
+                />
+              </div>
             ))}
           </nav>
+        )}
+        {serverPage?.key === filterKey && (
+          <div className="my-4 flex gap-3">
+            <button
+              disabled={pageIndex === 0}
+              onClick={() => setPageIndex((p) => p - 1)}
+            >
+              Previous
+            </button>
+            <span>Page {pageIndex + 1}</span>
+            <button
+              disabled={(pageIndex + 1) * 50 >= matchingCount}
+              onClick={() => setPageIndex((p) => p + 1)}
+            >
+              Next
+            </button>
+          </div>
+        )}
+        {serverPage?.key !== filterKey && filtered.length > visibleCount && (
+          <button
+            onClick={() => setVisibleCount((n) => n + 50)}
+            className="my-4"
+          >
+            Show 50 more
+          </button>
         )}
       </div>
     </aside>
@@ -642,7 +989,10 @@ const NoteCard = memo(function NoteCard({
 }) {
   const navigate = useNavigate();
   const preview = openingLines(note.preview);
-  const date = new Date(note.updated_at).toLocaleDateString(undefined, CARD_DATE);
+  const date = new Date(note.updated_at).toLocaleDateString(
+    undefined,
+    CARD_DATE,
+  );
 
   return (
     <div className="relative">
@@ -668,7 +1018,11 @@ const NoteCard = memo(function NoteCard({
           {date}
           {showDue && note.revisit_at && (
             <span className="ml-1.5 normal-case tracking-normal text-accent-ink">
-              · due {new Date(note.revisit_at).toLocaleDateString(undefined, DUE_DATE)}
+              · due{" "}
+              {new Date(note.revisit_at).toLocaleDateString(
+                undefined,
+                DUE_DATE,
+              )}
             </span>
           )}
         </p>
@@ -730,4 +1084,3 @@ const NoteCard = memo(function NoteCard({
     </div>
   );
 });
-

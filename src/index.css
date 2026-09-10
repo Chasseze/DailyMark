@@ -1915,3 +1915,25 @@ html.page-hidden .pulse-glow,
 html.page-hidden .quiz-category-emoji {
   animation-play-state: paused;
 }
+
+/* Shared controls for recovery, history, sharing and diagnostics. */
+.feature-panel h2 { font-size: 1rem; font-weight: 600; }
+.feature-panel button, .feature-panel select, .feature-panel input[type="date"],
+.notes-sidebar select {
+  min-height: 2.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: .65rem;
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  padding: .4rem .7rem;
+  margin: .2rem;
+  font-size: .875rem;
+}
+.feature-panel button:disabled { opacity: .5; cursor: default; }
+:where(button,a,input,select,textarea,summary):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+@media (pointer: coarse) {
+  .notes-chip, .feature-panel button { min-height: 44px; }
+}

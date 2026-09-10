@@ -27,3 +27,13 @@ alter default privileges in schema public
 -- 0010_daily_drops.sql. It is `security definer` and owns the shared daily
 -- feed, so app users must never be able to churn it — locally either.
 revoke all on function public.promote_daily_drops(int, boolean) from anon, authenticated;
+
+-- Preserve least privilege after the compatibility grants above.
+revoke all on function public.note_backlinks(uuid), public.note_quiz_pool(int), public.search_notes(text), public.restore_backup(jsonb) from public, anon;
+revoke all on function public.validate_note_owner(), public.validate_share_owner(), public.capture_note_version(), public.set_updated_at() from public, anon, authenticated;
+revoke all on public.note_versions from anon, authenticated;
+grant select on public.note_versions to authenticated;
+
+revoke all on function public.note_library_page(text,uuid,text,boolean,boolean,timestamptz,integer,integer) from public, anon;
+revoke all on function public.patch_user_prefs(jsonb) from public, anon;
+revoke all on function public.claim_push_reminder(uuid,text) from public, anon, authenticated;

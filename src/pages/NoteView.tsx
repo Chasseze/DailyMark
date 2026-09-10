@@ -1,3 +1,4 @@
+import NoteHistory from "../components/NoteHistory";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useFocus } from "../context/focus-context";
@@ -284,6 +285,7 @@ function NoteArticle({ note }: { note: Note }) {
           )}
         </div>
 
+        <NoteHistory noteId={note.id} onRestore={() => {}} />
         <BacklinksSection
           noteId={note.id}
           content={note.content}

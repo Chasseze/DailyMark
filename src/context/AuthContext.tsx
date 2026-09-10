@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { clearDrafts } from "../lib/drafts";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { Session } from "@supabase/supabase-js";
 import { requireSupabase, supabase } from "../lib/supabase";
 import { AuthContext, type SignUpResult } from "./auth-context";
@@ -29,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === "SIGNED_OUT") clearDrafts();
       setSession(next);
       setLoading(false);
       if (event === "PASSWORD_RECOVERY") {
@@ -50,36 +58,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string): Promise<SignUpResult> => {
-    const { data, error } = await requireSupabase().auth.signUp({
-      email,
-      password,
-      options: {
-        // Must be allowlisted under Authentication → URL Configuration.
-        // Without this, the confirm link falls back to Site URL and often
-        // lands somewhere the SPA never handles.
-        emailRedirectTo: authRedirectTo(),
-      },
-    });
-    if (error) throw error;
+  const signUp = useCallback(
+    async (email: string, password: string): Promise<SignUpResult> => {
+      const { data, error } = await requireSupabase().auth.signUp({
+        email,
+        password,
+        options: {
+          // Must be allowlisted under Authentication → URL Configuration.
+          // Without this, the confirm link falls back to Site URL and often
+          // lands somewhere the SPA never handles.
+          emailRedirectTo: authRedirectTo(),
+        },
+      });
+      if (error) throw error;
 
-    // Supabase returns a user with an empty identities array when the email
-    // is already registered — and it does NOT resend the confirmation mail.
-    // Treat that as "already registered" so the UI can guide the user.
-    const identities = data.user?.identities ?? [];
-    if (data.user && identities.length === 0) {
-      return { status: "already_registered" };
-    }
+      // Supabase returns a user with an empty identities array when the email
+      // is already registered — and it does NOT resend the confirmation mail.
+      // Treat that as "already registered" so the UI can guide the user.
+      const identities = data.user?.identities ?? [];
+      if (data.user && identities.length === 0) {
+        return { status: "already_registered" };
+      }
 
-    if (data.session) {
-      // Confirm email is off on the project — signup signed them in directly.
-      return { status: "signed_in" };
-    }
+      if (data.session) {
+        // Confirm email is off on the project — signup signed them in directly.
+        return { status: "signed_in" };
+      }
 
-    // Confirm email is on: Supabase queued the verification email and there
-    // is no session until they click the link.
-    return { status: "confirm_email" };
-  }, []);
+      // Confirm email is on: Supabase queued the verification email and there
+      // is no session until they click the link.
+      return { status: "confirm_email" };
+    },
+    [],
+  );
 
   const resendConfirmation = useCallback(async (email: string) => {
     const { error } = await requireSupabase().auth.resend({
@@ -91,9 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
-    const { error } = await requireSupabase().auth.resetPasswordForEmail(email, {
-      redirectTo: authRedirectTo(),
-    });
+    const { error } = await requireSupabase().auth.resetPasswordForEmail(
+      email,
+      {
+        redirectTo: authRedirectTo(),
+      },
+    );
     if (error) throw error;
   }, []);
 
@@ -117,6 +131,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    try {
+      const registration =
+        "serviceWorker" in navigator
+          ? await navigator.serviceWorker.getRegistration()
+          : undefined;
+      const subscription = await registration?.pushManager?.getSubscription();
+      if (subscription) {
+        await requireSupabase()
+          .from("push_subscriptions")
+          .delete()
+          .eq("endpoint", subscription.endpoint);
+        await subscription.unsubscribe();
+      }
+    } catch {
+      /* Sign-out must still work when notifications are unavailable. */
+    }
     const { error } = await requireSupabase().auth.signOut();
     if (error) throw error;
     setPasswordRecovery(false);
@@ -149,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearPasswordRecovery,
       signInWithGoogle,
       signOut,
-    ]
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

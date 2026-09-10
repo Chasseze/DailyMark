@@ -1,3 +1,5 @@
+import ConnectionStatus from "./ConnectionStatus";
+import CommandPalette from "./CommandPalette";
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import BottomNav from "./BottomNav";
@@ -49,6 +51,7 @@ export default function Layout() {
         (focus ? "focus-mode" : "")
       }
     >
+      <ConnectionStatus />
       {!focus && (
         <header className="sticky top-0 z-40">
           <div className="app-container">
@@ -74,6 +77,7 @@ export default function Layout() {
                   </div>
                 </div>
               </div>
+              <CommandPalette />
               <MoodPicker />
             </div>
           </div>

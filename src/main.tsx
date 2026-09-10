@@ -1,6 +1,8 @@
+import ErrorBoundary from "./components/ErrorBoundary";
+import { observeInteractions } from "./lib/performance";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { PrefsProvider } from "./context/PrefsContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -15,25 +17,17 @@ import "./index.css";
 // Fire-and-forget — nothing in the app waits on or reads local storage now.
 void purgeDeviceData();
 
+const router = createBrowserRouter([{ path: "*", element: (
+  <AuthProvider><PrefsProvider><ThemeProvider><MoodProvider><SpeechProvider>
+    <App />
+  </SpeechProvider></MoodProvider></ThemeProvider></PrefsProvider></AuthProvider>
+) }]);
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <PrefsProvider>
-          <ThemeProvider>
-            <MoodProvider>
-              <SpeechProvider>
-                <App />
-              </SpeechProvider>
-            </MoodProvider>
-          </ThemeProvider>
-        </PrefsProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </StrictMode>
+  <StrictMode><ErrorBoundary><RouterProvider router={router} /></ErrorBoundary></StrictMode>
 );
 
 startReminderLoop();
+observeInteractions();
 
 function syncPageHidden() {
   document.documentElement.classList.toggle("page-hidden", document.hidden);

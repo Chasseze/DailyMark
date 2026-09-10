@@ -12,7 +12,7 @@ import {
   DEFAULT_PREFS,
   loadUserPrefs,
   mergePrefs,
-  saveUserPrefs,
+  patchUserPrefs,
   type UserPrefs,
 } from "../lib/user-prefs";
 import { DEFAULT_REMINDER, setReminderPrefs } from "../lib/reminders";
@@ -23,15 +23,19 @@ function syncReminderLoop(prefs: UserPrefs) {
   setReminderPrefs({
     enabled: Boolean(prefs.reminder?.enabled),
     time:
-      typeof prefs.reminder?.time === "string" && /^\d{2}:\d{2}$/.test(prefs.reminder.time)
+      typeof prefs.reminder?.time === "string" &&
+      /^\d{2}:\d{2}$/.test(prefs.reminder.time)
         ? prefs.reminder.time
         : DEFAULT_REMINDER.time,
   });
 }
 
 function applyTheme(theme: Theme) {
-  const systemLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-  const resolved = theme === "system" ? (systemLight ? "light" : "dark") : theme;
+  const systemLight = window.matchMedia(
+    "(prefers-color-scheme: light)",
+  ).matches;
+  const resolved =
+    theme === "system" ? (systemLight ? "light" : "dark") : theme;
   document.documentElement.classList.toggle("light", resolved === "light");
   document.documentElement.classList.toggle("dark", resolved === "dark");
 }
@@ -57,6 +61,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     void (async () => {
       if (!user) {
         if (active) {
+          syncReminderLoop(DEFAULT_PREFS);
           setPrefs({ ...DEFAULT_PREFS });
           setLoading(false);
         }
@@ -97,26 +102,39 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
     document.documentElement.dataset.mood = notesMood;
   }, [notesMood]);
 
-  const patchPrefs = useCallback(async (patch: Partial<UserPrefs>) => {
-    const next = mergePrefs(prefsRef.current, patch);
-    prefsRef.current = next;
-    setPrefs(next);
-    if (patch.reminder) syncReminderLoop(next);
-    if (!user) return;
-    // Never write on top of a read we never got. The change stays on screen for
-    // this session rather than overwriting the account with a guess.
-    if (readFailed) return;
-    try {
-      await saveUserPrefs(next);
-    } catch {
-      // Keep optimistic UI; next successful save will catch up.
-    }
-  }, [user, readFailed]);
+  const saveQueue = useRef(Promise.resolve());
+  const patchPrefs = useCallback(
+    async (patch: Partial<UserPrefs>) => {
+      const next = mergePrefs(prefsRef.current, patch);
+      prefsRef.current = next;
+      setPrefs(next);
+      if (patch.reminder) syncReminderLoop(next);
+      if (!user) return;
+      // Never write on top of a read we never got. The change stays on screen for
+      // this session rather than overwriting the account with a guess.
+      if (readFailed) {
+        window.dispatchEvent(new CustomEvent("dailymark-settings-error"));
+        return;
+      }
+      try {
+        const write = saveQueue.current
+          .catch(() => {})
+          .then(() => patchUserPrefs(patch));
+        saveQueue.current = write;
+        await write;
+      } catch {
+        window.dispatchEvent(new CustomEvent("dailymark-settings-error"));
+      }
+    },
+    [user, readFailed],
+  );
 
   const value = useMemo(
     () => ({ prefs, loading, patchPrefs, theme, notesMood, focus }),
-    [prefs, loading, patchPrefs, theme, notesMood, focus]
+    [prefs, loading, patchPrefs, theme, notesMood, focus],
   );
 
-  return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>;
+  return (
+    <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>
+  );
 }
