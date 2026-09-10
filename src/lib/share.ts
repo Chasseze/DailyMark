@@ -12,6 +12,7 @@ export async function createNoteShare(userId: string, noteId: string): Promise<s
   const { error } = await db.from("share_tokens").insert({
     user_id: userId,
     token,
+    expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
     target_type: "note",
     note_id: noteId,
   });
@@ -25,6 +26,7 @@ export async function createNotebookShare(userId: string, notebookId: string): P
   const { error } = await db.from("share_tokens").insert({
     user_id: userId,
     token,
+    expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
     target_type: "notebook",
     notebook_id: notebookId,
   });

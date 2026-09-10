@@ -192,6 +192,39 @@ export type NoteQuizPoolRow = {
 export type Database = {
   public: {
     Tables: {
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          timezone: string;
+          last_sent_day: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id?: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          timezone: string;
+        };
+        Update: { timezone?: string };
+        Relationships: [];
+      };
+      note_versions: {
+        Row: {
+          id: string;
+          note_id: string;
+          user_id: string;
+          snapshot: NoteRow;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       notebooks: {
         Row: NotebookRow;
         Insert: {
@@ -444,6 +477,21 @@ export type Database = {
     };
     Views: Record<never, never>;
     Functions: {
+      patch_user_prefs: { Args: { p_patch: unknown }; Returns: undefined };
+      note_library_page: {
+        Args: {
+          p_query?: string;
+          p_notebook?: string;
+          p_tag?: string;
+          p_trash?: boolean;
+          p_due?: boolean;
+          p_end?: string;
+          p_offset?: number;
+          p_limit?: number;
+        };
+        Returns: { total: number; rows: Omit<NoteRow, "content">[] };
+      };
+      restore_backup: { Args: { p_backup: unknown }; Returns: number };
       // p_local_day is the caller's local calendar day (YYYY-MM-DD); omit to use UTC today.
       touch_streak: {
         Args: { p_local_day?: string };

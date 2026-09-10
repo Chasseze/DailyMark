@@ -58,7 +58,7 @@ export default function SharedView() {
               </div>
             )}
             <div className="text-sm leading-relaxed text-ink-soft">
-              <Markdown>{payload.content}</Markdown>
+              <Markdown shareToken={token}>{payload.content}</Markdown>
             </div>
             <p className="mt-8 text-xs text-muted">
               Read-only shared note.{" "}
@@ -80,7 +80,7 @@ export default function SharedView() {
                 <article key={i} className="note-view__article glass rounded-2xl p-5">
                   <h2 className="note-title mb-2 text-xl">{note.title || "Untitled"}</h2>
                   <div className="text-sm leading-relaxed text-ink-soft">
-                    <Markdown>{note.content}</Markdown>
+                    <Markdown shareToken={token}>{note.content}</Markdown>
                   </div>
                 </article>
               ))

@@ -6,7 +6,10 @@ export interface ReminderPrefs {
   time: string;
 }
 
-export const DEFAULT_REMINDER: ReminderPrefs = { enabled: false, time: "20:00" };
+export const DEFAULT_REMINDER: ReminderPrefs = {
+  enabled: false,
+  time: "20:00",
+};
 
 let livePrefs: ReminderPrefs = { ...DEFAULT_REMINDER };
 
@@ -26,7 +29,8 @@ export function setReminderPrefs(prefs: ReminderPrefs): void {
   livePrefs = {
     enabled: Boolean(prefs.enabled),
     time:
-      typeof prefs.time === "string" && /^\d{2}:\d{2}$/.test(prefs.time)
+      typeof prefs.time === "string" &&
+      /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(prefs.time)
         ? prefs.time
         : DEFAULT_REMINDER.time,
   };
@@ -34,31 +38,56 @@ export function setReminderPrefs(prefs: ReminderPrefs): void {
 
 export async function ensureNotificationPermission(): Promise<NotificationPermission> {
   if (typeof Notification === "undefined") return "denied";
-  if (Notification.permission === "granted" || Notification.permission === "denied") {
+  if (
+    Notification.permission === "granted" ||
+    Notification.permission === "denied"
+  ) {
     return Notification.permission;
   }
   return Notification.requestPermission();
 }
 
 /** Fire a local notification when the preferred time arrives (once per day). */
-export function tickReminder(prefs: ReminderPrefs = livePrefs): void {
+export async function tickReminder(
+  prefs: ReminderPrefs = livePrefs,
+): Promise<void> {
   if (!prefs.enabled) return;
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  if (
+    typeof Notification === "undefined" ||
+    Notification.permission !== "granted"
+  )
+    return;
 
   const [h, m] = prefs.time.split(":").map(Number);
   const now = new Date();
-  if (now.getHours() < h || (now.getHours() === h && now.getMinutes() < m)) return;
+  if (now.getHours() < h || (now.getHours() === h && now.getMinutes() < m))
+    return;
 
   const today = dayKey(now);
   if (firedDay === today) return;
+  firedDay = today;
   try {
+    const registration =
+      "serviceWorker" in navigator
+        ? await navigator.serviceWorker.getRegistration()
+        : undefined;
+    if (registration && (await registration.pushManager?.getSubscription()))
+      return;
+    if (registration) {
+      await registration.showNotification("DailyMark", {
+        body: "Time for a quick note or today’s quiz.",
+        tag: "dailymark-daily",
+      });
+      return;
+    }
     new Notification("DailyMark", {
       body: "Time for a quick note or today's quiz.",
       tag: "dailymark-daily",
     });
     firedDay = today;
   } catch {
-    // Some browsers block constructors outside a service worker.
+    firedDay = null;
+    window.dispatchEvent(new CustomEvent("dailymark-reminder-error"));
   }
 }
 

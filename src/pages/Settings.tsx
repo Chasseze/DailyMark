@@ -1,3 +1,9 @@
+import PushSettings from "../components/PushSettings";
+import PerformanceSettings from "../components/PerformanceSettings";
+import { clearDrafts } from "../lib/drafts";
+import { exportBackup, parseBackup } from "../lib/backup";
+import { requireSupabase } from "../lib/supabase";
+import SharingSettings from "../components/SharingSettings";
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/theme-context";
@@ -34,11 +40,12 @@ import { usePrefs } from "../context/prefs-context";
 import { errorMessage } from "../lib/supabase";
 import type { Theme } from "../lib/types";
 
-const SAMPLE = "This is how DailyMark will sound when it reads your notes aloud.";
+const SAMPLE =
+  "This is how DailyMark will sound when it reads your notes aloud.";
 const APP_VERSION = "2.0.0";
 
 function reminderFromPrefs(
-  reminder: { enabled?: boolean; time?: string } | undefined
+  reminder: { enabled?: boolean; time?: string } | undefined,
 ): ReminderPrefs | null {
   if (!reminder) return null;
   return {
@@ -54,7 +61,16 @@ export default function Settings() {
   const navigate = useNavigate();
   const { theme, resolved, setTheme, toggle } = useTheme();
   const { mood, setMood } = useMood();
-  const { notes, trash, notebooks, addNote, ensureNote, inboxId, dueNotes } = useNotes();
+  const {
+    notes,
+    trash,
+    notebooks,
+    addNote,
+    ensureNote,
+    inboxId,
+    dueNotes,
+    refresh,
+  } = useNotes();
   const { user, signOut } = useAuth();
   const { prefs, patchPrefs } = usePrefs();
   const { streak } = useStreak();
@@ -69,7 +85,7 @@ export default function Settings() {
   // only be a second thing to keep in step.
   const reminder = useMemo(
     () => reminderFromPrefs(prefs.reminder) ?? DEFAULT_REMINDER,
-    [prefs.reminder]
+    [prefs.reminder],
   );
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -77,8 +93,12 @@ export default function Settings() {
     void patchPrefs({ reminder: next });
   };
 
-  const locale = typeof navigator !== "undefined" ? navigator.language : "en-US";
-  const languages = useMemo(() => voiceLanguages(speech.voices, locale), [speech.voices, locale]);
+  const locale =
+    typeof navigator !== "undefined" ? navigator.language : "en-US";
+  const languages = useMemo(
+    () => voiceLanguages(speech.voices, locale),
+    [speech.voices, locale],
+  );
 
   // Voices are picked language-first: a phone exposes a dozen, a Linux box with
   // espeak-ng exposes thousands, and one flat list is unusable at that size.
@@ -88,17 +108,19 @@ export default function Settings() {
     : undefined;
   const language = chosenVoice
     ? normalizeLang(chosenVoice.lang)
-    : pickedLang ?? languages[0] ?? "";
+    : (pickedLang ?? languages[0] ?? "");
   const langVoices = useMemo(
     () => voicesForLanguage(speech.voices, language),
-    [speech.voices, language]
+    [speech.voices, language],
   );
 
   const selectLanguage = (next: string) => {
     setPickedLang(next);
     // Landing on "System default" after choosing a language would ignore it, so
     // the first voice of that language is selected instead.
-    speech.setVoiceURI(voicesForLanguage(speech.voices, next)[0]?.voiceURI ?? null);
+    speech.setVoiceURI(
+      voicesForLanguage(speech.voices, next)[0]?.voiceURI ?? null,
+    );
   };
 
   const handleSignOut = async () => {
@@ -117,18 +139,15 @@ export default function Settings() {
     setIoError(null);
     setIoMessage(null);
     try {
-      const parts: string[] = [];
-      for (const note of notes) {
-        const full = note.bodyLoaded ? note : await ensureNote(note.id);
-        if (!full) continue;
-        parts.push(noteToMarkdown(full));
-        parts.push("\n\n---\n\n");
-      }
+      const backup = await exportBackup(setIoMessage);
       downloadText(
-        `dailymark-notes-${new Date().toISOString().slice(0, 10)}.md`,
-        parts.join("").trim() + "\n"
+        `dailymark-backup-${new Date().toISOString().slice(0, 10)}.json`,
+        JSON.stringify(backup),
+        "application/json",
       );
-      setIoMessage(`Exported ${notes.length} note${notes.length === 1 ? "" : "s"}.`);
+      setIoMessage(
+        `Exported ${backup.notes.length} notes, including Trash, and ${backup.notebooks.length} notebooks. Attachments remain linked to this account.`,
+      );
     } catch (err) {
       setIoError(errorMessage(err));
     } finally {
@@ -144,7 +163,20 @@ export default function Settings() {
     let count = 0;
     try {
       for (const file of [...files]) {
+        if (file.size > 100 * 1024 * 1024)
+          throw new Error("Import files must be smaller than 100 MB.");
         const raw = await file.text();
+        if (file.name.toLowerCase().endsWith(".json")) {
+          const backup = parseBackup(raw);
+          setIoMessage("Restoring backup as new notes…");
+          const { data, error } = await requireSupabase().rpc(
+            "restore_backup",
+            { p_backup: backup },
+          );
+          if (error) throw error;
+          count += data;
+          continue;
+        }
         const fallback = file.name.replace(/\.md$/i, "") || "Imported note";
         const parsed = parseImportedMarkdown(raw, fallback);
         await addNote({
@@ -156,6 +188,7 @@ export default function Settings() {
         });
         count += 1;
       }
+      await refresh();
       setIoMessage(`Imported ${count} note${count === 1 ? "" : "s"}.`);
     } catch (err) {
       setIoError(errorMessage(err));
@@ -179,6 +212,29 @@ export default function Settings() {
   return (
     <div className="animate-in px-4 pt-6">
       <h1 className="page-title mb-6 text-ink">Settings</h1>
+      <SharingSettings />
+      <PerformanceSettings />
+      <PushSettings />
+      <section className="feature-panel glass mb-4 rounded-2xl p-4">
+        <h2>Draft recovery</h2>
+        <p className="my-2 text-sm text-muted">
+          Optional copies of unsaved writing on this device. Copies are cleared
+          on sign-out and never sync automatically. Avoid enabling on shared
+          devices.
+        </p>
+        <label>
+          <input
+            type="checkbox"
+            checked={prefs.draftRecovery ?? false}
+            onChange={(e) => {
+              const enabled = e.target.checked;
+              if (!enabled) clearDrafts();
+              void patchPrefs({ draftRecovery: enabled });
+            }}
+          />{" "}
+          Keep recovery copies
+        </label>
+      </section>
 
       <div className="glass mb-4 rounded-2xl p-4">
         <h2 className="mb-3 text-sm font-semibold text-ink-soft">Account</h2>
@@ -199,24 +255,35 @@ export default function Settings() {
         <h2 className="mb-3 text-sm font-semibold text-ink-soft">Appearance</h2>
         <div className="flex gap-2">
           {(["dark", "light", "system"] as Theme[]).map((t) => (
-            <button key={t} onClick={() => setTheme(t)}
+            <button
+              key={t}
+              onClick={() => setTheme(t)}
               className={
                 "flex-1 rounded-xl px-4 py-3 text-sm font-medium capitalize transition-all " +
                 (theme === t
                   ? "bg-accent-soft text-accent-ink"
                   : "bg-surface text-muted hover:text-ink-soft")
-              }>
+              }
+            >
               {t}
             </button>
           ))}
         </div>
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs text-muted">Quick toggle</span>
-          <button onClick={toggle} className="relative h-7 w-12 rounded-full bg-surface-3 transition-colors">
-            <div className={
-              "absolute top-0.5 h-6 w-6 rounded-full bg-ink shadow transition-all " +
-              (resolved === "dark" ? "left-0.5" : "left-[calc(100%-1.625rem)]")
-            } />
+          <button
+            aria-label="Toggle light and dark theme"
+            onClick={toggle}
+            className="relative h-7 w-12 rounded-full bg-surface-3 transition-colors"
+          >
+            <div
+              className={
+                "absolute top-0.5 h-6 w-6 rounded-full bg-ink shadow transition-all " +
+                (resolved === "dark"
+                  ? "left-0.5"
+                  : "left-[calc(100%-1.625rem)]")
+              }
+            />
           </button>
         </div>
 
@@ -224,7 +291,8 @@ export default function Settings() {
           Notes mood
         </h3>
         <p className="mb-2 text-xs leading-relaxed text-muted">
-          Compare three palette directions — amber accent and glass stay in all of them.
+          Compare three palette directions — amber accent and glass stay in all
+          of them.
         </p>
         <div className="space-y-2">
           {NOTES_MOODS.map((option) => (
@@ -259,8 +327,8 @@ export default function Settings() {
         <h2 className="mb-1 text-sm font-semibold text-ink-soft">Read aloud</h2>
         {!speech.supported ? (
           <p className="text-xs leading-relaxed text-muted">
-            This browser has no speech synthesis, so the listen buttons are hidden. Chrome, Edge and
-            Safari can read notes aloud.
+            This browser has no speech synthesis, so the listen buttons are
+            hidden. Chrome, Edge and Safari can read notes aloud.
           </p>
         ) : (
           <>
@@ -270,12 +338,16 @@ export default function Settings() {
 
             {speech.voices.length === 0 ? (
               <p className="text-xs text-muted">
-                No voices are installed on this device yet — the system default is used.
+                No voices are installed on this device yet — the system default
+                is used.
               </p>
             ) : (
               <div className="flex gap-2">
                 <div className="min-w-0 flex-1">
-                  <label className="block text-xs text-muted" htmlFor="speech-language">
+                  <label
+                    className="block text-xs text-muted"
+                    htmlFor="speech-language"
+                  >
                     Language
                   </label>
                   <select
@@ -292,7 +364,10 @@ export default function Settings() {
                   </select>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <label className="block text-xs text-muted" htmlFor="speech-voice">
+                  <label
+                    className="block text-xs text-muted"
+                    htmlFor="speech-voice"
+                  >
                     Voice
                   </label>
                   <select
@@ -314,7 +389,9 @@ export default function Settings() {
 
             <div className="mt-3 flex items-center justify-between text-xs text-muted">
               <label htmlFor="rate">Speed</label>
-              <span className="text-accent-ink">{speech.prefs.rate.toFixed(2)}×</span>
+              <span className="text-accent-ink">
+                {speech.prefs.rate.toFixed(2)}×
+              </span>
             </div>
             <input
               id="rate"
@@ -329,7 +406,9 @@ export default function Settings() {
 
             <div className="mt-3 flex items-center justify-between text-xs text-muted">
               <label htmlFor="pitch">Pitch</label>
-              <span className="text-accent-ink">{speech.prefs.pitch.toFixed(2)}</span>
+              <span className="text-accent-ink">
+                {speech.prefs.pitch.toFixed(2)}
+              </span>
             </div>
             <input
               id="pitch"
@@ -377,11 +456,14 @@ export default function Settings() {
           </div>
         </div>
         {trash.length > 0 && (
-          <p className="mt-3 text-xs text-muted">{trash.length} note{trash.length === 1 ? "" : "s"} in Trash</p>
+          <p className="mt-3 text-xs text-muted">
+            {trash.length} note{trash.length === 1 ? "" : "s"} in Trash
+          </p>
         )}
         {dueNotes.length > 0 && (
           <p className="mt-2 text-xs text-accent-ink">
-            {dueNotes.length} note{dueNotes.length === 1 ? "" : "s"} waiting for a revisit
+            {dueNotes.length} note{dueNotes.length === 1 ? "" : "s"} waiting for
+            a revisit
           </p>
         )}
         <button
@@ -419,7 +501,9 @@ export default function Settings() {
           Export &amp; import
         </h2>
         <p className="mb-3 text-xs text-muted">
-          Download your notes as Markdown, or import `.md` files into DailyMark.
+          Back up notes, notebooks, tags, and Trash as JSON. Restore creates new
+          copies. Image attachments remain linked to this account; Markdown
+          import and single-note export are also available.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
@@ -428,7 +512,7 @@ export default function Settings() {
             disabled={ioBusy || notes.length === 0}
             className="flex-1 rounded-xl bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
           >
-            Export all Markdown
+            Export backup
           </button>
           <button
             type="button"
@@ -436,13 +520,13 @@ export default function Settings() {
             disabled={ioBusy}
             className="flex-1 rounded-xl bg-surface px-4 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
           >
-            Import Markdown
+            Import Markdown or backup
           </button>
         </div>
         <input
           ref={importRef}
           type="file"
-          accept=".md,text/markdown,text/plain"
+          accept=".md,.json,text/markdown,text/plain,application/json"
           multiple
           className="hidden"
           onChange={(e) => {
@@ -455,7 +539,9 @@ export default function Settings() {
           <button
             type="button"
             onClick={async () => {
-              const full = notes[0].bodyLoaded ? notes[0] : await ensureNote(notes[0].id);
+              const full = notes[0].bodyLoaded
+                ? notes[0]
+                : await ensureNote(notes[0].id);
               if (!full) return;
               downloadText(safeFilename(full.title), noteToMarkdown(full));
             }}
@@ -464,7 +550,9 @@ export default function Settings() {
             Or export the newest note only
           </button>
         )}
-        {ioMessage && <p className="mt-2 text-xs text-accent-ink">{ioMessage}</p>}
+        {ioMessage && (
+          <p className="mt-2 text-xs text-accent-ink">{ioMessage}</p>
+        )}
         {ioError && <p className="mt-2 text-xs text-danger">{ioError}</p>}
       </div>
 
@@ -473,7 +561,8 @@ export default function Settings() {
           Daily reminder
         </h2>
         <p className="mb-3 text-xs text-muted">
-          Settings sync with your account; the notification still fires on this device.
+          Reminders require DailyMark to stay open on this device. Browser
+          background limits may delay delivery. Settings sync with your account.
         </p>
         <div className="flex items-center justify-between gap-3">
           <label htmlFor="reminder-enabled" className="text-sm text-ink-soft">
@@ -498,7 +587,10 @@ export default function Settings() {
             />
           </button>
         </div>
-        <label htmlFor="reminder-time" className="mt-3 block text-xs text-muted">
+        <label
+          htmlFor="reminder-time"
+          className="mt-3 block text-xs text-muted"
+        >
           Time
         </label>
         <input
@@ -506,7 +598,10 @@ export default function Settings() {
           type="time"
           value={reminder.time}
           onChange={(e) =>
-            applyReminder({ ...reminder, time: e.target.value || DEFAULT_REMINDER.time })
+            applyReminder({
+              ...reminder,
+              time: e.target.value || DEFAULT_REMINDER.time,
+            })
           }
           disabled={!reminder.enabled}
           className="mt-1 rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-ink-soft focus:border-accent/50 focus:outline-none disabled:opacity-40"
@@ -514,16 +609,15 @@ export default function Settings() {
       </div>
 
       <div className="glass mb-4 rounded-2xl p-4">
-        <h2 className="mb-1 text-sm font-semibold text-ink-soft">This device</h2>
+        <h2 className="mb-1 text-sm font-semibold text-ink-soft">
+          This device
+        </h2>
         <p className="text-xs leading-relaxed text-muted">
-          Nothing you write is stored on this device. Notes, prefs, quiz results
-          and Return marks are read from and written to your account every time,
-          so every browser you sign in on sees the same desk — and a device that
-          has been away cannot push an old copy over the current one.
-        </p>
-        <p className="mt-2 text-xs text-muted">
-          The only thing kept here is your sign-in, and the app's own files so it
-          opens quickly.
+          Your account is the source of truth. Unsaved writing stays in the
+          editor; optional recovery copies are stored on this device until
+          saved, dismissed, or signed out. Your sign-in and app files are also
+          kept here. Recovery copies are never applied to your account without
+          your review.
         </p>
       </div>
 

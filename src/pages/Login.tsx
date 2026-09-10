@@ -26,6 +26,7 @@ export default function Login() {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword,setShowPassword]=useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export default function Login() {
     params.get("error_description") || hash.get("error_description");
   const confirmType = params.get("type") || hash.get("type");
   const urlBannerError = urlError
-    ? decodeURIComponent(urlError.replace(/\+/g, " "))
+    ? urlError
     : null;
   const urlBannerNotice =
     !urlBannerError && (confirmType === "signup" || confirmType === "email")
@@ -186,6 +187,7 @@ export default function Login() {
         <div className="login-hero__copy animate-in">
           <h1 className="login-brand">DailyMark</h1>
           <p className="login-lede">{lede}</p>
+          <details className="mt-4 text-sm text-white"><summary>See how DailyMark works</summary><ol className="mt-3 space-y-2"><li>Capture: write a quick note or start with a template.</li><li>Organize: group notes in notebooks and add tags.</li><li>Revisit: return to ideas with reminders and recall practice.</li></ol></details>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form animate-in-delay">
@@ -214,9 +216,9 @@ export default function Login() {
               </label>
               <input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
-                minLength={6}
+                minLength={effectiveMode === "signin" ? 1 : 12}
                 autoComplete={
                   effectiveMode === "signup" || effectiveMode === "recovery"
                     ? "new-password"
@@ -230,8 +232,9 @@ export default function Login() {
             </div>
           )}
 
-          {displayError && <p className="login-alert login-alert--error">{displayError}</p>}
-          {displayNotice && <p className="login-alert login-alert--ok">{displayNotice}</p>}
+          {effectiveMode !== "forgot" && <button type="button" className="login-resend" onClick={()=>setShowPassword(v=>!v)}>{showPassword ? "Hide password" : "Show password"}</button>}
+          {displayError && <p role="alert" className="login-alert login-alert--error">{displayError}</p>}
+          {displayNotice && <p role="status" className="login-alert login-alert--ok">{displayNotice}</p>}
 
           <button type="submit" disabled={busy} className="login-submit">
             {busy ? "Working…" : submitLabel}

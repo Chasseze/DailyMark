@@ -4,9 +4,12 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { expandWikiLinks, isInternalNoteHref } from "../lib/wiki-links";
 
+import PrivateImage from "./PrivateImage";
+
 const REMARK_PLUGINS = [remarkGfm];
 
 interface Props {
+  shareToken?: string;
   children: string;
   /** Tighter spacing, for note cards and other previews. */
   compact?: boolean;
@@ -36,6 +39,7 @@ function Markdown({
   className = "",
   onToggleTask,
   notes,
+  shareToken,
 }: Props) {
   const source = notes ? expandWikiLinks(children, notes) : children;
 
@@ -71,15 +75,7 @@ function Markdown({
       },
       img({ src, alt, title }) {
         if (!src) return null;
-        return (
-          <img
-            src={src}
-            alt={alt ?? ""}
-            title={title}
-            loading="lazy"
-            decoding="async"
-          />
-        );
+        return <PrivateImage src={src} alt={alt ?? ""} title={title} shareToken={shareToken} />;
       },
       li({ node, className: liClass, children: items }) {
         const line = node?.position?.start.line ?? null;
@@ -98,7 +94,7 @@ function Markdown({
         return <TaskCheckbox checked={Boolean(checked)} onToggle={onToggleTask} />;
       },
     }),
-    [onToggleTask]
+    [onToggleTask, shareToken]
   );
 
   return (

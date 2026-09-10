@@ -38,6 +38,7 @@ export interface NotesContextType {
   createNoteShare: (noteId: string) => Promise<string>;
   createNotebookShare: (notebookId: string) => Promise<string>;
   refresh: () => Promise<void>;
+  loadTrash: () => Promise<void>;
 }
 
 // Kept out of NotesContext.tsx so that file only exports a component, which is

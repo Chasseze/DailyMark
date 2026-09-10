@@ -7,6 +7,8 @@ import type { Theme } from "./types";
 
 export type UserPrefs = {
   version: 1;
+  savedSearches?: string[];
+  draftRecovery?: boolean;
   theme?: Theme;
   notesMood?: NotesMood;
   focus?: boolean;
@@ -42,6 +44,8 @@ export function normalizePrefs(raw: unknown): UserPrefs {
       : undefined;
   return {
     version: 1,
+    savedSearches: Array.isArray(o.savedSearches) ? o.savedSearches.filter((q): q is string => typeof q === "string" && q.length <= 200).slice(0,20) : [],
+    draftRecovery: o.draftRecovery === true,
     theme,
     notesMood,
     focus: typeof o.focus === "boolean" ? o.focus : undefined,
@@ -53,6 +57,8 @@ export function normalizePrefs(raw: unknown): UserPrefs {
 export function mergePrefs(base: UserPrefs, patch: Partial<UserPrefs>): UserPrefs {
   return {
     version: 1,
+    savedSearches: patch.savedSearches ?? base.savedSearches,
+    draftRecovery: patch.draftRecovery ?? base.draftRecovery,
     theme: patch.theme ?? base.theme,
     notesMood: patch.notesMood ?? base.notesMood,
     focus: patch.focus ?? base.focus,
@@ -110,4 +116,10 @@ export async function saveUserPrefs(prefs: UserPrefs): Promise<void> {
     prefs: prefsJson,
   });
   if (insertError) throw insertError;
+}
+
+export async function patchUserPrefs(patch: Partial<UserPrefs>): Promise<void> {
+  const { requireSupabase } = await import("./supabase");
+  const { error } = await requireSupabase().rpc("patch_user_prefs", {p_patch:patch});
+  if(error)throw error;
 }

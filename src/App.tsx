@@ -1,3 +1,4 @@
+import { useAuth } from "./context/auth-context";
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
@@ -41,6 +42,7 @@ function RouteFallback() {
 }
 
 export default function App() {
+  const { user } = useAuth();
   if (!isSupabaseConfigured()) return <SetupNotice />;
 
   return (
@@ -54,7 +56,7 @@ export default function App() {
         <Route element={<RequireAuth />}>
           <Route
             element={
-              <NotesProvider>
+              <NotesProvider key={user?.id}>
                 <FocusProvider>
                   <Layout />
                 </FocusProvider>

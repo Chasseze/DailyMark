@@ -31,3 +31,7 @@ pnpm-debug.log*
 
 # Vercel CLI project link
 .vercel
+
+work/
+playwright-report/
+test-results/
