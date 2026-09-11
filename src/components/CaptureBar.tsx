@@ -89,7 +89,7 @@ export default function CaptureBar({
     <div>
       <form
         onSubmit={submit}
-        className="glass flex items-stretch gap-1.5 rounded-2xl p-0.5 pl-3 transition-colors focus-within:border-accent/50"
+        className="capture-bar glass flex items-stretch gap-1.5 rounded-xl p-0.5 pl-3 transition-colors focus-within:border-accent/50"
       >
         <PenIcon />
         <label htmlFor="capture-input" className="sr-only">

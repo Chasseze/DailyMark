@@ -462,6 +462,16 @@ html {
   --app-max: 72rem;
 }
 
+/* One height for every row you type into. The capture bar and the search box
+   sit directly above each other, so any drift between them reads as a
+   mistake — and they drifted invisibly: both measured 39px, but the capture
+   bar wore a 16px radius against the search box's 12px, and a rounder bar of
+   the same height reads as the fatter one. Same radius, same height, one
+   token, so a later padding change to either cannot separate them again. */
+:root {
+  --field-h: 2.625rem;
+}
+
 .app-container {
   width: 100%;
   max-width: 42rem;
@@ -662,6 +672,7 @@ html {
 
 .notes-search__input {
   width: 100%;
+  min-height: var(--field-h);
   border: 1px solid var(--mood-line);
   border-radius: 0.75rem;
   background: var(--mood-surface);
@@ -687,6 +698,10 @@ html {
   transform: translateY(-50%);
   font-size: var(--text-xs);
   color: var(--mood-muted);
+}
+
+.capture-bar {
+  min-height: var(--field-h);
 }
 
 /* ── Templates pull-down ──────────────────────────────────────────────────
@@ -1314,6 +1329,34 @@ html {
   flex: 1;
   overflow-y: auto;
   padding: 0.35rem;
+  /* No `scrollbar-width` / `scrollbar-color` here: in Chrome the standard
+     properties take precedence over the ::-webkit-scrollbar rules below, so
+     `thin` would quietly undo the wider bar. Firefox ignores the pseudo
+     elements and keeps its own default bar, which is already wider than the
+     4px sliver this replaces. */
+}
+
+/* The app-wide bar is 4px — fine as a hint beside a page, invisible as the
+   only sign that a dropdown holds more than it shows. The transparent border
+   plus content-box clip keeps the thumb clear of the rounded panel edge. */
+.cmdk__results::-webkit-scrollbar {
+  width: 12px;
+}
+
+.cmdk__results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cmdk__results::-webkit-scrollbar-thumb {
+  background: var(--mood-line-strong);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+.cmdk__results::-webkit-scrollbar-thumb:hover {
+  background: var(--mood-muted);
+  background-clip: content-box;
 }
 
 .cmdk__group {
