@@ -607,11 +607,226 @@ html {
 }
 
 .notes-sidebar {
+  /* One gutter for the header and the list below it, so the search box, the
+     scope chips and the note cards all line up on the same edge. Tightened
+     from the old px-4/pt-6: on a phone every 4px of chrome is a line of note
+     the list doesn't get to show. */
+  --notes-gutter: 0.85rem;
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: transparent;
   animation: notesSidebarIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (width >= 30rem) {
+  .notes-sidebar {
+    --notes-gutter: 1rem;
+  }
+}
+
+.notes-sidebar__head {
+  padding: 1rem var(--notes-gutter) 0;
+}
+
+.notes-sidebar__list {
+  padding: 0 var(--notes-gutter) 0.75rem;
+}
+
+/* ── Search row ───────────────────────────────────────────────────────────
+   The search field and the templates pull-down share one line. The field
+   takes whatever the trigger doesn't; below 24rem the trigger drops its
+   label to the icon so the field never shrinks under a usable width. */
+.notes-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.notes-search {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+}
+
+.notes-search__icon {
+  position: absolute;
+  left: 0.7rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--mood-muted);
+}
+
+.notes-search__input {
+  width: 100%;
+  border: 1px solid var(--mood-line);
+  border-radius: 0.75rem;
+  background: var(--mood-surface);
+  padding: 0.5rem 0.85rem 0.5rem 2.1rem;
+  font-size: var(--text-sm);
+  color: var(--mood-ink);
+}
+
+.notes-search__input::placeholder {
+  color: var(--mood-faint);
+}
+
+.notes-search__input:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--mood-accent) 50%, transparent);
+  background: var(--mood-surface-2);
+}
+
+.notes-search__busy {
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--text-xs);
+  color: var(--mood-muted);
+}
+
+/* ── Templates pull-down ──────────────────────────────────────────────────
+   Same menu language as the mood picker: a bordered trigger, an opaque panel
+   under it. It was a bare <select> with a text label on its own row, which
+   both cost a line and was the only piece of browser chrome in the list. */
+.template-picker {
+  position: relative;
+  flex: none;
+}
+
+.template-picker__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--mood-line);
+  border-radius: 0.75rem;
+  background: var(--mood-surface);
+  padding: 0.5rem 0.6rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--mood-ink-soft);
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.template-picker__trigger:hover:not(:disabled) {
+  background: var(--mood-surface-2);
+  border-color: var(--mood-line-strong);
+  color: var(--mood-ink);
+}
+
+.template-picker__trigger[aria-expanded="true"] {
+  background: var(--mood-accent-soft);
+  border-color: color-mix(in oklab, var(--mood-accent) 45%, transparent);
+  color: var(--mood-accent-ink);
+}
+
+.template-picker__trigger:disabled {
+  opacity: 0.5;
+}
+
+/* Icon-only where the row is tightest, so the search field keeps its width. */
+@media (width < 24rem) {
+  .template-picker__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.template-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 50;
+  width: min(19rem, calc(100vw - 1.5rem));
+  padding: 0.35rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--mood-glass-border);
+  background: color-mix(in oklab, var(--mood-paper) 82%, black);
+  box-shadow: 0 16px 40px oklch(0 0 0 / 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: templateMenuIn 0.16s ease-out both;
+}
+
+:root.light .template-menu {
+  background: oklch(1 0 0 / 0.97);
+  color: var(--mood-ink);
+}
+
+@keyframes templateMenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-menu { animation: none; }
+}
+
+.template-menu__head {
+  padding: 0.4rem 0.6rem 0.35rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mood-muted);
+}
+
+.template-menu__option {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border-radius: 0.65rem;
+  padding: 0.5rem 0.6rem;
+  color: inherit;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.template-menu__option:hover:not(:disabled),
+.template-menu__option:focus-visible {
+  background: var(--mood-row-hover);
+}
+
+.template-menu__option:disabled {
+  opacity: 0.6;
+}
+
+.template-menu__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.5rem;
+  background: var(--mood-surface-2);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.template-menu__name {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--mood-ink);
+}
+
+.template-menu__blurb {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--mood-muted);
 }
 
 /* Scope row chips. Metrics live here rather than at seven call sites, and in
@@ -724,7 +939,7 @@ html {
 .notes-file-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 /* Flat translucent fill, no per-row backdrop-filter. One blurred layer per
@@ -738,14 +953,53 @@ html {
   border-radius: 1.25rem;
   border: 1px solid var(--mood-line);
   background: var(--mood-surface);
-  padding: 1rem 1.1rem;
+  padding: 0.75rem 0.9rem;
   text-align: left;
   content-visibility: auto;
-  contain-intrinsic-size: auto 7.5rem;
+  contain-intrinsic-size: auto 6.5rem;
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
     box-shadow 0.18s ease;
+}
+
+/* Bulk-select used to be a checkbox and the word "Select" on their own row
+   above every card — one line of chrome per note. The corner slot costs
+   nothing, so the card keeps the padding it saves. */
+.notes-file-card[data-selectable="true"] {
+  padding-right: 2.25rem;
+}
+
+.notes-file-card__select {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.4rem;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.notes-file-card__select:hover,
+.notes-file-card__select:focus-within,
+.notes-file-card__select:has(:checked) {
+  opacity: 1;
+  background: var(--mood-surface-2);
+}
+
+.notes-file-card__select input {
+  accent-color: var(--mood-accent);
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  /* Touch needs the whole target, so it never fades out. */
+  .notes-file-card__select { opacity: 1; }
 }
 
 .notes-file-card:hover {
@@ -840,7 +1094,7 @@ html {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1.5rem;
+  padding: 1.5rem 1.25rem;
   text-align: center;
 }
 
@@ -908,6 +1162,199 @@ html {
   background: var(--mood-row-active);
 }
 
+/* ── Search & commands ────────────────────────────────────────────────────
+   The palette used to be a `bg-surface` panel — a 6% white wash — over a
+   plain 50% backdrop, so the desktop behind the browser read straight through
+   the results. Both halves are fixed here: an opaque panel on its own token,
+   and a dimmed, blurred overlay that puts the page behind it out of play.
+   The trigger in the masthead gets the same treatment: a legible pill on the
+   blue bar instead of an unbounded run of white text. */
+.cmdk-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid oklch(1 0 0 / 0.2);
+  background: oklch(0 0 0 / 0.2);
+  padding: 0.4rem 0.7rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cmdk-trigger:hover {
+  background: oklch(0 0 0 / 0.3);
+  border-color: oklch(1 0 0 / 0.3);
+}
+
+.cmdk-trigger__kbd {
+  display: none;
+  border-radius: 0.35rem;
+  border: 1px solid oklch(1 0 0 / 0.25);
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: oklch(1 0 0 / 0.85);
+}
+
+@media (width >= 40rem) {
+  .cmdk-trigger__kbd { display: inline-block; }
+}
+
+.cmdk {
+  width: min(36rem, calc(100vw - 1.5rem));
+  max-height: min(34rem, calc(100svh - 6rem));
+  margin: 4.5rem auto auto;
+  padding: 0;
+  overflow: hidden;
+  flex-direction: column;
+  border-radius: 1.1rem;
+  border: 1px solid var(--mood-line-strong);
+  /* Opaque on purpose: a translucent panel over a translucent backdrop is how
+     the desktop showed through. */
+  background: color-mix(in oklab, var(--mood-paper) 88%, black);
+  color: var(--mood-ink);
+  box-shadow: 0 24px 60px oklch(0 0 0 / 0.5);
+}
+
+:root.light .cmdk {
+  background: #fff;
+  box-shadow: 0 24px 60px oklch(0 0 0 / 0.25);
+}
+
+.cmdk::backdrop {
+  background: oklch(0 0 0 / 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+:root.light .cmdk::backdrop {
+  background: oklch(0.2 0.02 260 / 0.45);
+}
+
+@media (prefers-reduced-transparency: reduce), (update: slow) {
+  .cmdk::backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: oklch(0 0 0 / 0.75);
+  }
+}
+
+.cmdk[open] {
+  display: flex;
+  animation: cmdkIn 0.16s ease-out both;
+}
+
+@keyframes cmdkIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmdk[open] { animation: none; }
+}
+
+.cmdk__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: none;
+  border-bottom: 1px solid var(--mood-line);
+  padding: 0.75rem 0.9rem;
+}
+
+.cmdk__input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-size: var(--text-base);
+  color: var(--mood-ink);
+}
+
+.cmdk__input:focus { outline: none; }
+.cmdk__input::placeholder { color: var(--mood-faint); }
+
+.cmdk__close {
+  flex: none;
+  border-radius: 0.6rem;
+  background: var(--mood-surface-2);
+  padding: 0.3rem 0.6rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--mood-ink-soft);
+}
+
+.cmdk__error {
+  border-bottom: 1px solid var(--mood-line);
+  padding: 0.5rem 0.9rem;
+  font-size: var(--text-xs);
+  color: var(--mood-danger);
+  background: var(--mood-danger-soft);
+}
+
+.cmdk__results {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.35rem;
+}
+
+.cmdk__group {
+  padding: 0.55rem 0.6rem 0.3rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mood-muted);
+}
+
+.cmdk__row {
+  display: block;
+  width: 100%;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.cmdk__row:hover:not(:disabled),
+.cmdk__row:focus-visible {
+  background: var(--mood-row-hover);
+}
+
+.cmdk__row:disabled { opacity: 0.5; }
+
+.cmdk__row-title {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--mood-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmdk__row-meta {
+  display: block;
+  margin-top: 0.05rem;
+  font-size: var(--text-xs);
+  color: var(--mood-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmdk__empty {
+  padding: 1.5rem 0.6rem;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--mood-muted);
+}
+
 /* Below lg the list and preview take turns in one column, matching Daily /
    Settings. The grid was always here — it just never got a second column. */
 @media (width < 64rem) {
@@ -937,6 +1384,7 @@ html {
   }
 
   .notes-sidebar {
+    --notes-gutter: 0.75rem;
     border-right: 1px solid var(--mood-line);
     padding-right: 0.25rem;
   }

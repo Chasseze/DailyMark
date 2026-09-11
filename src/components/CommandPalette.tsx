@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import { NAV_ITEMS } from "./nav-items";
+
 export default function CommandPalette() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState("");
@@ -25,39 +26,85 @@ export default function CommandPalette() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
+  const open = () => {
+    setQuery("");
+    setError("");
+    dialog.current?.showModal();
+  };
   const go = (to: string) => {
     dialog.current?.close();
     navigate(to);
   };
+  const q = query.trim().toLowerCase();
+  const places = useMemo(
+    () => NAV_ITEMS.filter((n) => n.label.toLowerCase().includes(q)),
+    [q],
+  );
+  const hits = useMemo(
+    () =>
+      notes
+        .filter((n) => (n.title + " " + n.preview).toLowerCase().includes(q))
+        .slice(0, 30),
+    [notes, q],
+  );
   return (
     <>
-      <button
-        type="button"
-        onClick={() => dialog.current?.showModal()}
-        className="rounded-lg px-3 py-2 text-sm"
-      >
-        <span className="sm:hidden">Search</span><span className="hidden sm:inline">Search & commands · ⌘/Ctrl K</span>
+      <button type="button" onClick={open} className="cmdk-trigger">
+        <svg
+          viewBox="0 0 24 24"
+          className="h-4 w-4 shrink-0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path strokeLinecap="round" d="m16.5 16.5 3 3" />
+        </svg>
+        <span className="sm:hidden">Search</span>
+        <span className="hidden sm:inline">Search &amp; commands</span>
+        <kbd className="cmdk-trigger__kbd">⌘K</kbd>
       </button>
-      <dialog
-        ref={dialog}
-        aria-label="Search and commands"
-        className="w-full max-w-lg rounded-2xl border border-line bg-surface p-5 text-ink backdrop:bg-black/50"
-      >
-        <div className="flex gap-3">
+      <dialog ref={dialog} aria-label="Search and commands" className="cmdk">
+        <div className="cmdk__bar">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4 shrink-0 text-muted"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="6.5" />
+            <path strokeLinecap="round" d="m16.5 16.5 3 3" />
+          </svg>
           <input
             aria-label="Find notes or commands"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Find notes or commands…"
-            className="min-w-0 flex-1 bg-surface-2 p-3"
+            className="cmdk__input"
           />
-          <button onClick={() => dialog.current?.close()}>Close</button>
-        </div>
-        {error && <p role="alert">{error}</p>}
-        <div className="mt-4 max-h-96 space-y-2 overflow-auto">
           <button
+            type="button"
+            onClick={() => dialog.current?.close()}
+            className="cmdk__close"
+          >
+            Close
+          </button>
+        </div>
+        {error && (
+          <p role="alert" className="cmdk__error">
+            {error}
+          </p>
+        )}
+        <div className="cmdk__results">
+          <p className="cmdk__group">Actions</p>
+          <button
+            type="button"
             disabled={busy}
+            className="cmdk__row"
             onClick={async () => {
               setBusy(true);
               try {
@@ -76,35 +123,41 @@ export default function CommandPalette() {
               }
             }}
           >
-            + New note
+            <span className="cmdk__row-title">New note</span>
+            <span className="cmdk__row-meta">Blank page</span>
           </button>
-          {NAV_ITEMS.filter((n) =>
-            n.label.toLowerCase().includes(query.toLowerCase()),
-          ).map((n) => (
+
+          {places.length > 0 && <p className="cmdk__group">Go to</p>}
+          {places.map((n) => (
             <button
-              className="block w-full p-2 text-left"
+              type="button"
+              className="cmdk__row"
               key={n.to}
               onClick={() => go(n.to)}
             >
-              Go to {n.label}
+              <span className="cmdk__row-title">{n.label}</span>
+              <span className="cmdk__row-meta">{n.to}</span>
             </button>
           ))}
-          {notes
-            .filter((n) =>
-              (n.title + " " + n.preview)
-                .toLowerCase()
-                .includes(query.toLowerCase()),
-            )
-            .slice(0, 30)
-            .map((n) => (
-              <button
-                className="block w-full p-2 text-left"
-                key={n.id}
-                onClick={() => go(`/notes/${n.id}`)}
-              >
-                {n.title || "Untitled"}
-              </button>
-            ))}
+
+          {hits.length > 0 && <p className="cmdk__group">Notes</p>}
+          {hits.map((n) => (
+            <button
+              type="button"
+              className="cmdk__row"
+              key={n.id}
+              onClick={() => go(`/notes/${n.id}`)}
+            >
+              <span className="cmdk__row-title">{n.title || "Untitled"}</span>
+              {n.preview && (
+                <span className="cmdk__row-meta">{n.preview.slice(0, 80)}</span>
+              )}
+            </button>
+          ))}
+
+          {q && places.length === 0 && hits.length === 0 && (
+            <p className="cmdk__empty">Nothing matched “{query.trim()}”.</p>
+          )}
         </div>
       </dialog>
     </>

@@ -27,9 +27,8 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/desk$/);
   await page.getByRole("link", { name: "Notes", exact: true }).first().click();
-  await page
-    .getByLabel("New from template")
-    .selectOption({ label: "Meeting notes" });
+  await page.getByRole("button", { name: "New from template" }).click();
+  await page.getByRole("menuitem", { name: "Meeting notes" }).click();
   await expect(page.getByLabel("Note title", { exact: true })).toBeVisible();
 });
 test("navigation blocks unsaved writing and Save continues", async ({
