@@ -4,6 +4,9 @@
 
 ### Notes
 
+- **The capture bar and the search box are one height** — they already measured the same 39px, but the capture bar wore a 16px corner radius against the search box's 12px, and a rounder bar of the same height reads as the fatter one. Same radius now, both on a single `--field-h` token (42px, a hair more than the 39px they were) so a later padding change to either cannot separate them again. The mic and New note buttons come back up to 36px from 33px
+- **The search palette's scrollbar is visible** — the results list is the only place in the app where the 4px app-wide bar is load-bearing: it is the sole cue that the dropdown holds more than it shows. It is 12px there. Deliberately no `scrollbar-width` / `scrollbar-color` alongside it — in Chrome the standard properties take precedence over `::-webkit-scrollbar` and would quietly undo the wider bar
+
 - **The capture bar is as slim as the search box** — "Jot something down", the mic and New note sat in a 55px bar above a 39px search field, so the two rows that do the same job looked like different components. Padding only: the bar is 39px now, exactly the search box, and the buttons stretch to fill it rather than carrying their own padding
 - **Mobile search finds notes, like the desktop does** — the palette listed all seven nav destinations before the first note, which put the Notes group below the panel's own scroll fold (y=628 in a panel ending at y=616). On a phone the keyboard takes about half the screen, so what was left looked like a list of tabs with no notes in it. Notes now come straight after Actions and above Go to, and the panel sizes itself to the *visual* viewport — the keyboard shrinks that but not the layout viewport, which is why the old panel kept its full height and hid behind it. The drop from the top goes 4.5rem → 1rem under 40rem
 
