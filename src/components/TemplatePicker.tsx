@@ -51,10 +51,10 @@ export default function TemplatePicker({ onPick, disabled = false }: Props) {
   };
 
   return (
-    <div className="template-picker" ref={rootRef}>
+    <div className="pop-picker" ref={rootRef}>
       <button
         type="button"
-        className="template-picker__trigger"
+        className="pop-trigger"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -76,7 +76,7 @@ export default function TemplatePicker({ onPick, disabled = false }: Props) {
             d="M4.75 6.75h14.5M4.75 11.25h8M4.75 15.75h8M16.5 12.5v7M13 16h7"
           />
         </svg>
-        <span className="template-picker__label">Templates</span>
+        <span className="pop-trigger__label">Templates</span>
         <svg
           viewBox="0 0 20 20"
           className={
@@ -97,23 +97,23 @@ export default function TemplatePicker({ onPick, disabled = false }: Props) {
       </button>
 
       {open && (
-        <div id={menuId} role="menu" aria-label="Note templates" className="template-menu">
-          <p className="template-menu__head">Start from a template</p>
+        <div id={menuId} role="menu" aria-label="Note templates" className="pop-menu">
+          <p className="pop-menu__head">Start from a template</p>
           {NOTE_TEMPLATES.map((template) => (
             <button
               key={template.name}
               type="button"
               role="menuitem"
               disabled={busy}
-              className="template-menu__option"
+              className="pop-menu__option"
               onClick={() => void choose(template)}
             >
-              <span className="template-menu__icon" aria-hidden="true">
+              <span className="pop-menu__icon" aria-hidden="true">
                 {template.icon}
               </span>
               <span className="min-w-0 text-left">
-                <span className="template-menu__name">{template.name}</span>
-                <span className="template-menu__blurb">{template.blurb}</span>
+                <span className="pop-menu__name">{template.name}</span>
+                <span className="pop-menu__blurb">{template.blurb}</span>
               </span>
             </button>
           ))}
