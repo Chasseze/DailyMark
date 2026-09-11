@@ -754,105 +754,131 @@ export default function NotesSidebar() {
       </div>
 
       {!!selection.length && (
-        <div className="m-3 rounded-xl border border-line p-3 text-sm">
-          <p>{selection.length} selected</p>
-          <select
-            aria-label="Move selected notes"
-            value=""
-            disabled={busy}
-            onChange={async (e) => {
-              const notebook_id =
-                e.target.value === "none" ? null : e.target.value;
-              setBusy(true);
-              try {
-                for (const id of selection)
-                  await updateNote(id, { notebook_id });
-                setSelection([]);
-              } catch (err) {
-                setWriteError(errorMessage(err));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <option value="">Move to…</option>
-            <option value="none">No notebook</option>
-            {notebooks.map((n) => (
-              <option value={n.id} key={n.id}>
-                {n.name}
-              </option>
-            ))}
-          </select>
-          <button
-            disabled={busy}
-            onClick={async () => {
-              const tag = prompt("Tag for selected notes")
-                ?.trim()
-                .toLowerCase();
-              if (!tag) return;
-              setBusy(true);
-              try {
-                for (const id of selection) {
-                  const n = notes.find((n) => n.id === id);
-                  if (n)
-                    await updateNote(id, {
-                      tags: [...new Set([...n.tags, tag])],
-                    });
+        <div className="notes-bulkbar">
+          <div className="notes-bulkbar__head">
+            <p className="notes-bulkbar__count">
+              {selection.length} selected
+            </p>
+            <button
+              type="button"
+              className="notes-bulkbar__clear"
+              onClick={() => setSelection([])}
+            >
+              Clear selection
+            </button>
+          </div>
+
+          {/* Five controls need 344px of natural width in a bar that has about
+              330px, so they used to wrap into three ragged rows with nothing
+              marking where one action ended and the next began. Trash rides in
+              the destination picker instead — trashing a note is moving it to
+              Trash — which leaves room to rule the rest apart. */}
+          <div className="notes-bulkbar__row">
+            <select
+              aria-label="Move selected notes"
+              className="notes-bulkbar__move"
+              value=""
+              disabled={busy}
+              onChange={async (e) => {
+                const choice = e.target.value;
+                if (!choice) return;
+                if (
+                  choice === "trash" &&
+                  !confirm(
+                    `Move ${selection.length} note${
+                      selection.length === 1 ? "" : "s"
+                    } to Trash?`,
+                  )
+                )
+                  return;
+                setBusy(true);
+                setWriteError(null);
+                try {
+                  for (const id of selection)
+                    await updateNote(
+                      id,
+                      choice === "trash"
+                        ? { deleted_at: new Date().toISOString() }
+                        : { notebook_id: choice === "none" ? null : choice },
+                    );
+                  setSelection([]);
+                } catch (err) {
+                  setWriteError(errorMessage(err));
+                } finally {
+                  setBusy(false);
                 }
-                setSelection([]);
-              } catch (err) {
-                setWriteError(errorMessage(err));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Add tag
-          </button>
-          <button
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                const backup = await exportBackup(() => {});
-                backup.notes = backup.notes.filter((n) =>
-                  selection.includes(n.id),
-                );
-                downloadText(
-                  "dailymark-selection.json",
-                  JSON.stringify(backup),
-                  "application/json",
-                );
-              } catch (err) {
-                setWriteError(errorMessage(err));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Export
-          </button>
-          <button
-            disabled={busy}
-            onClick={async () => {
-              if (!confirm(`Move ${selection.length} notes to Trash?`)) return;
-              setBusy(true);
-              try {
-                for (const id of selection)
-                  await updateNote(id, {
-                    deleted_at: new Date().toISOString(),
-                  });
-                setSelection([]);
-              } catch (err) {
-                setWriteError(errorMessage(err));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Trash
-          </button>
-          <button onClick={() => setSelection([])}>Clear selection</button>
+              }}
+            >
+              <option value="">Move to…</option>
+              <optgroup label="Notebook">
+                <option value="none">No notebook</option>
+                {notebooks.map((n) => (
+                  <option value={n.id} key={n.id}>
+                    {n.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Remove">
+                <option value="trash">Trash</option>
+              </optgroup>
+            </select>
+
+            <div className="notes-bulkbar__actions">
+              <button
+                type="button"
+                className="notes-bulkbar__action"
+                disabled={busy}
+                onClick={async () => {
+                  const tag = prompt("Tag for selected notes")
+                    ?.trim()
+                    .toLowerCase();
+                  if (!tag) return;
+                  setBusy(true);
+                  try {
+                    for (const id of selection) {
+                      const n = notes.find((n) => n.id === id);
+                      if (n)
+                        await updateNote(id, {
+                          tags: [...new Set([...n.tags, tag])],
+                        });
+                    }
+                    setSelection([]);
+                  } catch (err) {
+                    setWriteError(errorMessage(err));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Add tag
+              </button>
+              <button
+                type="button"
+                className="notes-bulkbar__action"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const backup = await exportBackup(() => {});
+                    backup.notes = backup.notes.filter((n) =>
+                      selection.includes(n.id),
+                    );
+                    downloadText(
+                      "dailymark-selection.json",
+                      JSON.stringify(backup),
+                      "application/json",
+                    );
+                  } catch (err) {
+                    setWriteError(errorMessage(err));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Export
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <div className="notes-sidebar__list min-h-0 flex-1 overflow-y-auto">
