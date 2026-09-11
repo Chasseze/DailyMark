@@ -4,6 +4,8 @@
 
 ### Notes
 
+- **The bulk-selection bar reads as separate actions** — "Add tag", "Export", "Trash" and "Clear selection" were unstyled buttons in a row with no gap and no rule, so they ran together as one grey line of words. There is no room to rule all five apart: they need 344px of natural width in a bar that has about 330px, which is why they wrapped onto three ragged rows. Trash moved into the destination picker — trashing a note is moving it to Trash, and it sits in its own "Remove" group under the notebooks — and Clear selection went up beside the count, where dismissing a selection belongs. What is left is ruled apart with a real border rather than a typed pipe, so it takes its colour from the theme and can never land on a line of its own. The Trash confirm also stops saying "1 notes"
+
 - **The capture bar and the search box are one height** — they already measured the same 39px, but the capture bar wore a 16px corner radius against the search box's 12px, and a rounder bar of the same height reads as the fatter one. Same radius now, both on a single `--field-h` token (42px, a hair more than the 39px they were) so a later padding change to either cannot separate them again. The mic and New note buttons come back up to 36px from 33px
 - **The search palette's scrollbar is visible** — the results list is the only place in the app where the 4px app-wide bar is load-bearing: it is the sole cue that the dropdown holds more than it shows. It is 12px there. Deliberately no `scrollbar-width` / `scrollbar-color` alongside it — in Chrome the standard properties take precedence over `::-webkit-scrollbar` and would quietly undo the wider bar
 
