@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Notes
+
+- **The notes list gives its space back to the notes** — the header, search row and list shared a loose 16px gutter and a 24px top pad, each block sat on its own row with 12–20px between, and every card carried a checkbox and the word "Select" on a line above it. The gutter is one variable now (13.6px on a small phone, 12px in the desktop list pane), the blocks sit closer, the cards are tighter and closer together, and bulk-select moved into the card's top-right corner. Roughly a card and a half more of the list is in view on a phone, with nothing removed
+- **Templates are a styled menu beside the search box** — "Choose from the template" was a bare `<select>` and a text label on their own row: the only piece of browser chrome in the list, and a whole line spent on a control that showed five names and nothing about them. It is now a "Templates" pull-down sharing the search row, and each entry says what you get — the pinned dot moved to the front of a card's title so the corner it vacated could take the checkbox
+- **Search and commands is opaque** — the palette panel was `bg-surface`, a 6% white wash, over a plain 50% backdrop, so on a desktop you read your own wallpaper through the results. The panel is opaque, the overlay dims and blurs what is behind it (dropping the blur under `prefers-reduced-transparency`), and results are grouped into Actions / Go to / Notes with an empty state. The masthead trigger is a search pill rather than a run of white text
+
 ### Rhythm
 
 - **Return evenings fold to the week** — the panel printed one row per evening for the whole 84-day window, so it grew a line a day and said no more at 60 rows than at 6. It now shows this week's evenings with the week's marks and how many closed at three, and counts everything older on one line

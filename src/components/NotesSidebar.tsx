@@ -1,5 +1,4 @@
 import { requireSupabase } from "../lib/supabase";
-import { NOTE_TEMPLATES } from "../lib/templates";
 import { usePrefs } from "../context/prefs-context";
 import { downloadText } from "../lib/notes-io";
 import { exportBackup } from "../lib/backup";
@@ -7,9 +6,11 @@ import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import CaptureBar from "./CaptureBar";
+import TemplatePicker from "./TemplatePicker";
 import { useStreak } from "../hooks/useStreak";
 import { shareUrl } from "../lib/share";
 import { errorMessage } from "../lib/supabase";
+import type { NoteTemplate } from "../lib/templates";
 import type { Note } from "../lib/types";
 
 const COLORS = [
@@ -230,6 +231,22 @@ export default function NotesSidebar() {
     }
   };
 
+  const handleTemplate = async (template: NoteTemplate) => {
+    setWriteError(null);
+    try {
+      const note = await addNote({
+        title: template.name === "Blank note" ? "" : template.name,
+        content: template.content,
+        notebook_id: activeNotebook,
+        tags: activeTag ? [activeTag] : [],
+        is_pinned: false,
+      });
+      navigate(`/notes/${note.id}/edit`);
+    } catch (err) {
+      setWriteError(errorMessage(err));
+    }
+  };
+
   const handleShareNotebook = async () => {
     if (!activeNotebook || busy) return;
     setShareStatus(null);
@@ -299,11 +316,11 @@ export default function NotesSidebar() {
 
   return (
     <aside className="notes-sidebar">
-      <div className="px-4 pt-6">
-        <div className="mb-5 flex items-end justify-between gap-3">
+      <div className="notes-sidebar__head">
+        <div className="mb-3 flex items-end justify-between gap-3">
           <div>
             <h1 className="page-title text-ink">My notes</h1>
-            <p className="mt-2 text-sm text-muted">
+            <p className="mt-1 text-sm text-muted">
               {loading
                 ? "Loading…"
                 : showTrash
@@ -323,7 +340,7 @@ export default function NotesSidebar() {
         {/* The fast path. Was a pair of small buttons up in the header; a note
             app's primary job deserves the full width. */}
         {!showTrash && (
-          <div className="mb-4">
+          <div className="mb-2.5">
             <CaptureBar
               notebookId={activeNotebook}
               tags={activeTag ? [activeTag] : []}
@@ -331,34 +348,42 @@ export default function NotesSidebar() {
           </div>
         )}
 
-        <div className="relative mb-3">
-          <svg
-            viewBox="0 0 24 24"
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="6.5" />
-            <path strokeLinecap="round" d="m16.5 16.5 3 3" />
-          </svg>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setVisibleCount(50);
-              setPageIndex(0);
-            }}
-            aria-label="Search notes"
-            placeholder={showTrash ? "Search trash…" : "Search notes…"}
-            className="w-full rounded-xl border border-line bg-surface py-2.5 pl-10 pr-4 text-sm text-ink placeholder-faint focus:border-accent/50 focus:outline-none"
-          />
-          {ftsBusy && searchQuery && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
-              …
-            </span>
+        {/* Search and templates share one row: both answer "what am I opening
+            next", and the templates menu used to spend a whole line on a bare
+            <select> and its label. */}
+        <div className="notes-search-row mb-2.5">
+          <div className="notes-search">
+            <svg
+              viewBox="0 0 24 24"
+              className="notes-search__icon"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="6.5" />
+              <path strokeLinecap="round" d="m16.5 16.5 3 3" />
+            </svg>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setVisibleCount(50);
+                setPageIndex(0);
+              }}
+              aria-label="Search notes"
+              placeholder={showTrash ? "Search trash…" : "Search notes…"}
+              className="notes-search__input"
+            />
+            {ftsBusy && searchQuery && (
+              <span className="notes-search__busy" aria-hidden="true">
+                …
+              </span>
+            )}
+          </div>
+          {!showTrash && (
+            <TemplatePicker disabled={busy} onPick={handleTemplate} />
           )}
         </div>
 
@@ -383,7 +408,7 @@ export default function NotesSidebar() {
           </button>
         )}
         {!!prefs.savedSearches?.length && (
-          <div className="my-2 flex flex-wrap gap-2">
+          <div className="mb-2 flex flex-wrap gap-2">
             {prefs.savedSearches.map((q) => (
               <span key={q}>
                 <button onClick={() => {setSearch(q);setPageIndex(0);}}>{q}</button>
@@ -404,36 +429,6 @@ export default function NotesSidebar() {
             ))}
           </div>
         )}
-        <label className="my-3 block text-sm">
-          New from template{" "}
-          <select
-            aria-label="New from template"
-            value=""
-            onChange={async (e) => {
-              const template = NOTE_TEMPLATES[Number(e.target.value)];
-              if (!template) return;
-              try {
-                const n = await addNote({
-                  title: template.name === "Blank note" ? "" : template.name,
-                  content: template.content,
-                  notebook_id: activeNotebook,
-                  tags: [],
-                  is_pinned: false,
-                });
-                navigate(`/notes/${n.id}/edit`);
-              } catch (err) {
-                setWriteError(errorMessage(err));
-              }
-            }}
-          >
-            <option value="">Choose…</option>
-            {NOTE_TEMPLATES.map((t, i) => (
-              <option key={t.name} value={i}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
         {/* Notebooks and Trash are structure — where a note lives — so they
             stay on their own row, in view. Only the free-form article tags
             (which grow without bound) sit behind a disclosure. */}
@@ -441,7 +436,7 @@ export default function NotesSidebar() {
             long notebook list can never push anything onto a second row, and
             "+" / Trash are pinned outside that track so they stay in view no
             matter how many notebooks there are. */}
-        <div className="notes-scope mb-3 flex items-center">
+        <div className="notes-scope mb-2.5 flex items-center">
           <div className="notes-scope__track flex min-w-0 flex-1 items-center overflow-x-auto">
             <button
               type="button"
@@ -860,7 +855,7 @@ export default function NotesSidebar() {
           <button onClick={() => setSelection([])}>Clear selection</button>
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+      <div className="notes-sidebar__list min-h-0 flex-1 overflow-y-auto">
         {(error || writeError) && (
           <div className="mb-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
             {error ?? writeError}
@@ -874,7 +869,7 @@ export default function NotesSidebar() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="glass mt-6 rounded-3xl px-4 py-10 text-center">
+          <div className="glass mt-3 rounded-3xl px-4 py-8 text-center">
             <p className="text-sm font-semibold text-muted">
               {showTrash
                 ? "Trash is empty"
@@ -901,35 +896,24 @@ export default function NotesSidebar() {
             aria-label={showTrash ? "Trash" : showDue ? "Due" : "Notes"}
           >
             {filtered.slice(0, visibleCount).map((note) => (
-              <div key={note.id}>
-                {!showTrash && (
-                  <label className="text-xs">
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${note.title || "Untitled"}`}
-                      checked={selection.includes(note.id)}
-                      onChange={(e) =>
-                        setSelection((prev) =>
-                          e.target.checked
-                            ? [...prev, note.id]
-                            : prev.filter((id) => id !== note.id),
-                        )
-                      }
-                    />{" "}
-                    Select
-                  </label>
-                )}
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  active={selectedId === note.id}
-                  showTrash={showTrash}
-                  showDue={showDue}
-                  onRestore={restoreNote}
-                  onPurge={purgeNote}
-                  onWriteError={setWriteError}
-                />
-              </div>
+              <NoteCard
+                key={note.id}
+                note={note}
+                active={selectedId === note.id}
+                showTrash={showTrash}
+                showDue={showDue}
+                selected={selection.includes(note.id)}
+                onSelect={(checked) =>
+                  setSelection((prev) =>
+                    checked
+                      ? [...prev, note.id]
+                      : prev.filter((id) => id !== note.id),
+                  )
+                }
+                onRestore={restoreNote}
+                onPurge={purgeNote}
+                onWriteError={setWriteError}
+              />
             ))}
           </nav>
         )}
@@ -975,6 +959,8 @@ const NoteCard = memo(function NoteCard({
   active,
   showTrash,
   showDue,
+  selected,
+  onSelect,
   onRestore,
   onPurge,
   onWriteError,
@@ -983,6 +969,8 @@ const NoteCard = memo(function NoteCard({
   active: boolean;
   showTrash: boolean;
   showDue: boolean;
+  selected: boolean;
+  onSelect: (checked: boolean) => void;
   onRestore: (id: string) => Promise<void>;
   onPurge: (id: string) => Promise<void>;
   onWriteError: (message: string | null) => void;
@@ -996,15 +984,23 @@ const NoteCard = memo(function NoteCard({
 
   return (
     <div className="relative">
+      {!showTrash && (
+        <label className="notes-file-card__select">
+          <input
+            type="checkbox"
+            aria-label={`Select ${note.title || "Untitled"}`}
+            checked={selected}
+            onChange={(e) => onSelect(e.target.checked)}
+          />
+        </label>
+      )}
       <NavLink
         to={"/notes/" + note.id}
         className="notes-file-card"
         data-active={active ? "true" : "false"}
+        data-selectable={!showTrash ? "true" : "false"}
       >
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-ink">
-            {note.title || "Untitled"}
-          </h3>
+        <div className="flex items-start gap-2">
           {note.is_pinned && !showTrash && (
             <span
               className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
@@ -1012,6 +1008,9 @@ const NoteCard = memo(function NoteCard({
               aria-label="Pinned"
             />
           )}
+          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-ink">
+            {note.title || "Untitled"}
+          </h3>
         </div>
 
         <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-muted">
