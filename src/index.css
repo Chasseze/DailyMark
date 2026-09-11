@@ -899,7 +899,9 @@ html {
 }
 
 :root.light .pop-menu {
-  background: oklch(1 0 0 / 0.97);
+  /* Fully opaque, not 0.97: a dropdown sitting over a list of notes should
+     never let any of them read through it. */
+  background: #fff;
   color: var(--mood-ink);
 }
 
@@ -1367,6 +1369,15 @@ html {
     0 6px 22px color-mix(in oklab, var(--mood-accent) 22%, transparent);
   padding: 0.6rem 0.7rem;
   animation: bulkbarIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* The entrance below runs with fill-mode `both`, so the bar keeps the final
+     keyframe's transform forever — and a non-none transform makes this a
+     stacking context, which trapped the Move-to menu's z-index inside a
+     static, z-auto element and let the note cards after it paint straight
+     over the open dropdown. A dropdown's container has to own a layer above
+     its siblings; this says so explicitly rather than relying on the absence
+     of a transform somewhere up the tree. */
+  position: relative;
+  z-index: 20;
 }
 
 @keyframes bulkbarIn {
