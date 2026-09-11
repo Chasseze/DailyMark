@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../context/auth-context";
 import { errorMessage } from "../lib/supabase";
 
@@ -322,6 +322,13 @@ export default function Login() {
               )}
             </p>
           )}
+
+          {/* Before an account exists, not buried in Settings after one does. */}
+          <p className="legal-links mt-4 text-center">
+            <Link to="/privacy">Privacy Notice</Link>
+            <span aria-hidden="true"> · </span>
+            <Link to="/terms">Terms of Use</Link>
+          </p>
         </form>
       </div>
     </section>

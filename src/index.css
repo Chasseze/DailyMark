@@ -704,6 +704,130 @@ html {
   min-height: var(--field-h);
 }
 
+.notes-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.9rem 0 0.4rem;
+}
+
+.notes-pager__label {
+  font-size: var(--text-xs);
+  color: var(--mood-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.notes-pager__btn {
+  border: 1px solid var(--mood-line);
+  border-radius: 0.6rem;
+  padding: 0.3rem 0.7rem;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--mood-ink-soft);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.notes-pager__btn:hover:not(:disabled) {
+  background: var(--mood-surface-2);
+  border-color: var(--mood-line-strong);
+}
+
+.notes-pager__btn:disabled {
+  opacity: 0.4;
+}
+
+/* ── Legal pages ──────────────────────────────────────────────────────────
+   Public, unauthenticated, and read rather than used: a single measured
+   column, generous line height, nothing competing for attention. */
+.legal {
+  padding: 2rem 1.1rem 4rem;
+  max-width: 44rem;
+}
+
+.legal__back {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--mood-accent-ink);
+}
+
+.legal__head {
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--mood-line);
+  padding-bottom: 1.25rem;
+}
+
+.legal__updated {
+  margin-top: 0.5rem;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mood-muted);
+}
+
+.legal__lede {
+  font-size: var(--text-base);
+  color: var(--mood-ink-soft);
+}
+
+.legal__body h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 2rem 0 0.6rem;
+  color: var(--mood-ink);
+}
+
+.legal__body p {
+  margin: 0.7rem 0;
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  color: var(--mood-ink-soft);
+}
+
+.legal__body ul {
+  margin: 0.7rem 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+
+.legal__body li {
+  margin: 0.45rem 0;
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  color: var(--mood-ink-soft);
+}
+
+.legal__body strong {
+  color: var(--mood-ink);
+  font-weight: 600;
+}
+
+.legal__foot {
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--mood-line);
+  padding-top: 1.25rem;
+  font-size: var(--text-sm);
+  color: var(--mood-muted);
+}
+
+.legal__link {
+  color: var(--mood-accent-ink);
+  font-weight: 500;
+}
+
+/* Inline links to the legal pages, in Settings and under the sign-in form. */
+.legal-links {
+  font-size: var(--text-xs);
+  color: var(--mood-muted);
+}
+
+.legal-links a {
+  color: var(--mood-accent-ink);
+  font-weight: 500;
+}
+
 /* ── Popup menus (templates, move-to) ───────────────────────────────────
    Shared shell. Original note below is the templates case that introduced it.
    ── Templates pull-down ──────────────────────────────────────────────────
@@ -1226,10 +1350,32 @@ html {
    belongs anyway. */
 .notes-bulkbar {
   margin: 0 var(--notes-gutter) 0.6rem;
-  border: 1px solid var(--mood-line);
+  border: 1px solid color-mix(in oklab, var(--mood-accent) 50%, transparent);
   border-radius: 0.85rem;
-  background: var(--mood-surface);
+  /* Selection is a mode, not a resting state: the bar wears the accent and a
+     soft glow so it is obvious the list is holding a selection, rather than
+     being one more grey panel among the grey panels. */
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--mood-accent) 16%, transparent),
+      color-mix(in oklab, var(--mood-accent) 7%, transparent)
+    ),
+    var(--mood-surface-2);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--mood-accent) 12%, transparent),
+    0 6px 22px color-mix(in oklab, var(--mood-accent) 22%, transparent);
   padding: 0.6rem 0.7rem;
+  animation: bulkbarIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes bulkbarIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-bulkbar { animation: none; }
 }
 
 .notes-bulkbar__head {
@@ -1242,8 +1388,9 @@ html {
 
 .notes-bulkbar__count {
   font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--mood-ink);
+  font-weight: 700;
+  color: var(--mood-accent-ink);
+  letter-spacing: -0.01em;
 }
 
 .notes-bulkbar__clear {
@@ -1281,7 +1428,7 @@ html {
 /* The demarcator: a real rule between neighbours rather than a typed "|",
    so it takes its colour from the theme and never lands on its own line. */
 .notes-bulkbar__action + .notes-bulkbar__action {
-  border-left: 1px solid var(--mood-line-strong);
+  border-left: 1px solid color-mix(in oklab, var(--mood-accent) 40%, transparent);
 }
 
 .notes-bulkbar__action:hover:not(:disabled) {

@@ -28,6 +28,8 @@ const Desk = lazy(() => import("./pages/Desk"));
 const Rhythm = lazy(() => import("./pages/Rhythm"));
 const Settings = lazy(() => import("./pages/Settings"));
 const SharedView = lazy(() => import("./pages/SharedView"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
 
 function RouteFallback() {
   return (
@@ -50,6 +52,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/s/:token" element={<SharedView />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
 
         {/* Providers sit inside the guard so they only fetch with a session,
             and unmount (dropping data) on sign-out. */}

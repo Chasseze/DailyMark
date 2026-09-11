@@ -5,7 +5,7 @@ import { exportBackup, parseBackup } from "../lib/backup";
 import { requireSupabase } from "../lib/supabase";
 import SharingSettings from "../components/SharingSettings";
 import { useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useTheme } from "../context/theme-context";
 import { useMood } from "../context/mood-context";
 import { useNotes } from "../context/notes-context";
@@ -627,6 +627,11 @@ export default function Settings() {
           DailyMark v{APP_VERSION}
         </p>
         <p className="mt-2 text-xs text-muted">Account-synced desk</p>
+        <p className="legal-links mt-3">
+          <Link to="/privacy">Privacy Notice</Link>
+          <span aria-hidden="true"> · </span>
+          <Link to="/terms">Terms of Use</Link>
+        </p>
       </div>
     </div>
   );
