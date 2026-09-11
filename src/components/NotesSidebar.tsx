@@ -14,6 +14,9 @@ import { errorMessage } from "../lib/supabase";
 import type { NoteTemplate } from "../lib/templates";
 import type { Note } from "../lib/types";
 
+/** Notes per page — the boundary for both the server pager and "Show more". */
+const PAGE_SIZE = 50;
+
 const COLORS = [
   "#f59e0b",
   "#3b82f6",
@@ -60,7 +63,7 @@ export default function NotesSidebar() {
   } = useNotes();
   const { prefs, patchPrefs } = usePrefs();
   const [selection, setSelection] = useState<string[]>([]);
-  const [visibleCount, setVisibleCount] = useState(50);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [serverPage, setServerPage] = useState<{
     key: string;
     rows: Note[];
@@ -118,8 +121,8 @@ export default function NotesSidebar() {
             p_trash: showTrash,
             p_due: showDue,
             p_end: end.toISOString(),
-            p_offset: pageIndex * 50,
-            p_limit: 50,
+            p_offset: pageIndex * PAGE_SIZE,
+            p_limit: PAGE_SIZE,
           })
           .then(({ data, error }) => {
             if (!active) return;
@@ -370,7 +373,7 @@ export default function NotesSidebar() {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setVisibleCount(50);
+                setVisibleCount(PAGE_SIZE);
                 setPageIndex(0);
               }}
               aria-label="Search notes"
@@ -920,17 +923,25 @@ export default function NotesSidebar() {
           </nav>
         )}
         {serverPage?.key === filterKey && (
-          <div className="my-4 flex gap-3">
+          <div className="notes-pager">
             <button
+              type="button"
+              className="notes-pager__btn"
               disabled={pageIndex === 0}
               onClick={() => setPageIndex((p) => p - 1)}
             >
               Previous
             </button>
-            <span>Page {pageIndex + 1}</span>
+            <span className="notes-pager__label">
+              {pageIndex * PAGE_SIZE + 1}–
+              {Math.min((pageIndex + 1) * PAGE_SIZE, matchingCount)} of{" "}
+              {matchingCount}
+            </span>
             <button
-              disabled={(pageIndex + 1) * 50 >= matchingCount}
+              disabled={(pageIndex + 1) * PAGE_SIZE >= matchingCount}
               onClick={() => setPageIndex((p) => p + 1)}
+              type="button"
+              className="notes-pager__btn"
             >
               Next
             </button>
@@ -938,10 +949,11 @@ export default function NotesSidebar() {
         )}
         {serverPage?.key !== filterKey && filtered.length > visibleCount && (
           <button
-            onClick={() => setVisibleCount((n) => n + 50)}
-            className="my-4"
+            onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+            type="button"
+            className="notes-pager__btn my-4"
           >
-            Show 50 more
+            Show {PAGE_SIZE} more
           </button>
         )}
       </div>
