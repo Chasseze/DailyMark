@@ -7,6 +7,7 @@ import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { useNotes } from "../context/notes-context";
 import CaptureBar from "./CaptureBar";
 import TemplatePicker from "./TemplatePicker";
+import MoveToMenu from "./MoveToMenu";
 import { useStreak } from "../hooks/useStreak";
 import { shareUrl } from "../lib/share";
 import { errorMessage } from "../lib/supabase";
@@ -774,32 +775,20 @@ export default function NotesSidebar() {
               the destination picker instead — trashing a note is moving it to
               Trash — which leaves room to rule the rest apart. */}
           <div className="notes-bulkbar__row">
-            <select
-              aria-label="Move selected notes"
-              className="notes-bulkbar__move"
-              value=""
+            <MoveToMenu
+              notebooks={notebooks}
+              count={selection.length}
               disabled={busy}
-              onChange={async (e) => {
-                const choice = e.target.value;
-                if (!choice) return;
-                if (
-                  choice === "trash" &&
-                  !confirm(
-                    `Move ${selection.length} note${
-                      selection.length === 1 ? "" : "s"
-                    } to Trash?`,
-                  )
-                )
-                  return;
+              onMove={async (target) => {
                 setBusy(true);
                 setWriteError(null);
                 try {
                   for (const id of selection)
                     await updateNote(
                       id,
-                      choice === "trash"
+                      target === "trash"
                         ? { deleted_at: new Date().toISOString() }
-                        : { notebook_id: choice === "none" ? null : choice },
+                        : { notebook_id: target },
                     );
                   setSelection([]);
                 } catch (err) {
@@ -808,20 +797,7 @@ export default function NotesSidebar() {
                   setBusy(false);
                 }
               }}
-            >
-              <option value="">Move to…</option>
-              <optgroup label="Notebook">
-                <option value="none">No notebook</option>
-                {notebooks.map((n) => (
-                  <option value={n.id} key={n.id}>
-                    {n.name}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Remove">
-                <option value="trash">Trash</option>
-              </optgroup>
-            </select>
+            />
 
             <div className="notes-bulkbar__actions">
               <button
