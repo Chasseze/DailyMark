@@ -26,6 +26,18 @@ export default function CommandPalette() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () =>
+      document.documentElement.style.setProperty(
+        "--cmdk-vh",
+        `${Math.round(vv.height)}px`,
+      );
+    sync();
+    vv.addEventListener("resize", sync);
+    return () => vv.removeEventListener("resize", sync);
+  }, []);
   const open = () => {
     setQuery("");
     setError("");
@@ -127,19 +139,6 @@ export default function CommandPalette() {
             <span className="cmdk__row-meta">Blank page</span>
           </button>
 
-          {places.length > 0 && <p className="cmdk__group">Go to</p>}
-          {places.map((n) => (
-            <button
-              type="button"
-              className="cmdk__row"
-              key={n.to}
-              onClick={() => go(n.to)}
-            >
-              <span className="cmdk__row-title">{n.label}</span>
-              <span className="cmdk__row-meta">{n.to}</span>
-            </button>
-          ))}
-
           {hits.length > 0 && <p className="cmdk__group">Notes</p>}
           {hits.map((n) => (
             <button
@@ -152,6 +151,19 @@ export default function CommandPalette() {
               {n.preview && (
                 <span className="cmdk__row-meta">{n.preview.slice(0, 80)}</span>
               )}
+            </button>
+          ))}
+
+          {places.length > 0 && <p className="cmdk__group">Go to</p>}
+          {places.map((n) => (
+            <button
+              type="button"
+              className="cmdk__row"
+              key={n.to}
+              onClick={() => go(n.to)}
+            >
+              <span className="cmdk__row-title">{n.label}</span>
+              <span className="cmdk__row-meta">{n.to}</span>
             </button>
           ))}
 

@@ -1205,9 +1205,17 @@ html {
 }
 
 .cmdk {
+  /* `--cmdk-vh` is the visual viewport height, set by the component. The
+     on-screen keyboard shrinks that but not the layout viewport, so sizing
+     off `svh` left most of the panel behind the keyboard on a phone — which
+     is what made mobile search feel like it only knew about the tabs. */
+  --cmdk-top: 4.5rem;
   width: min(36rem, calc(100vw - 1.5rem));
-  max-height: min(34rem, calc(100svh - 6rem));
-  margin: 4.5rem auto auto;
+  max-height: min(
+    34rem,
+    calc(var(--cmdk-vh, 100svh) - var(--cmdk-top) - 1rem)
+  );
+  margin: var(--cmdk-top) auto auto;
   padding: 0;
   overflow: hidden;
   flex-direction: column;
@@ -1255,6 +1263,11 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .cmdk[open] { animation: none; }
+}
+
+/* A phone has no room for a 4.5rem drop, least of all with the keyboard up. */
+@media (width < 40rem) {
+  .cmdk { --cmdk-top: 1rem; }
 }
 
 .cmdk__bar {

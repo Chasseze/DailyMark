@@ -89,7 +89,7 @@ export default function CaptureBar({
     <div>
       <form
         onSubmit={submit}
-        className="glass flex items-center gap-2 rounded-2xl p-1.5 pl-4 transition-colors focus-within:border-accent/50"
+        className="glass flex items-stretch gap-1.5 rounded-2xl p-0.5 pl-3 transition-colors focus-within:border-accent/50"
       >
         <PenIcon />
         <label htmlFor="capture-input" className="sr-only">
@@ -102,7 +102,7 @@ export default function CaptureBar({
           onChange={(event) => setText(event.target.value)}
           readOnly={dictation.listening}
           placeholder={dictation.listening ? "Listening…" : "Jot something down…"}
-          className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-ink placeholder-faint focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-ink placeholder-faint focus:outline-none"
         />
         <button
           type="button"
@@ -112,7 +112,7 @@ export default function CaptureBar({
           aria-label={dictation.listening ? "Stop listening and save" : "Dictate a note"}
           title={dictation.listening ? "Tap to stop and save" : "Dictate a note"}
           className={
-            "shrink-0 rounded-xl border p-2.5 transition-colors disabled:opacity-50 " +
+            "flex shrink-0 items-center rounded-xl border px-2 transition-colors disabled:opacity-50 " +
             (dictation.listening
               ? "border-accent/50 bg-accent-soft text-accent-ink ring-2 ring-accent/40"
               : "border-line text-accent-ink hover:bg-surface-2 hover:text-accent")
@@ -123,7 +123,7 @@ export default function CaptureBar({
         <button
           type="submit"
           disabled={busy}
-          className="btn-primary shrink-0 rounded-xl px-4 py-2.5 text-sm"
+          className="btn-primary shrink-0 rounded-xl px-3 text-sm"
         >
           {busy ? "Saving…" : "New note"}
         </button>
@@ -140,7 +140,7 @@ function PenIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5 shrink-0 text-muted"
+      className="h-5 w-5 shrink-0 self-center text-muted"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.6"
