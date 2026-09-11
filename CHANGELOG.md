@@ -4,6 +4,8 @@
 
 ### Notes
 
+- **The Move to menu is not painted over by the notes behind it** — the selection bar's new entrance animation runs with fill-mode `both`, so the bar keeps the final keyframe's transform forever, and a non-none transform makes an element a stacking context. That trapped the dropdown's `z-index: 50` inside a `position: static` bar, letting the note cards after it in the DOM paint straight over the open menu — which reads as the menu having gone transparent. The bar now owns an explicit layer (`position: relative; z-index: 20`) instead of depending on there being no transform anywhere up the tree. The menu panel itself was never transparent; in the light theme it was 3% translucent and is now fully opaque
+
 - **The selection bar wears the accent** — when notes are selected the bar was one more grey panel among grey panels. It now carries an accent tint, an accent border and a soft glow, with the count in the accent ink and a short entrance, so it is obvious at a glance that the list is holding a selection. Reduced motion drops the entrance
 - **The pager says where the page breaks** — a page is 50 notes. That number was written into five separate places; it is one `PAGE_SIZE` constant now, and the pager reads "51–100 of 120" rather than just "Page 2", so the boundary is visible rather than something to infer. The buttons are styled instead of bare
 
