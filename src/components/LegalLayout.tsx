@@ -44,8 +44,3 @@ export default function LegalLayout({
     </div>
   );
 }
-
-/** Marks a clause that still needs a real value before anyone relies on it. */
-export function Todo({ children }: { children: ReactNode }) {
-  return <mark className="legal__todo">{children}</mark>;
-}

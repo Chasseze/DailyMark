@@ -804,16 +804,6 @@ html {
   font-weight: 600;
 }
 
-/* Deliberately loud. A clause that still needs a real value must not be able
-   to ship unnoticed. */
-.legal__todo {
-  background: var(--mood-danger-soft);
-  color: var(--mood-danger);
-  border-radius: 0.3rem;
-  padding: 0.05rem 0.35rem;
-  font-weight: 600;
-}
-
 .legal__foot {
   margin-top: 2.5rem;
   border-top: 1px solid var(--mood-line);

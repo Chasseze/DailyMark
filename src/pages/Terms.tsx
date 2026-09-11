@@ -1,11 +1,12 @@
-import LegalLayout, { Todo } from "../components/LegalLayout";
+import LegalLayout from "../components/LegalLayout";
+import { CONTACT_EMAIL, GOVERNING_LAW, OPERATOR_NAME } from "../lib/legal";
 
 export default function Terms() {
   return (
     <LegalLayout title="Terms of Use" updated="11 September 2026">
       <p className="legal__lede">
         These terms cover your use of DailyMark, a personal notes app run by an
-        individual developer, <Todo>[OPERATOR NAME]</Todo>. Using the app means
+        individual developer, <strong>{OPERATOR_NAME}</strong>. Using the app means
         you accept them.
       </p>
 
@@ -72,12 +73,13 @@ export default function Terms() {
 
       <h2>Governing law</h2>
       <p>
-        These terms are governed by the laws of{" "}
-        <Todo>[GOVERNING JURISDICTION — one country or state must be named here]</Todo>.
-        Whichever is chosen, this does not take away the protections you have
-        under the mandatory consumer and data-protection laws of the country you
-        actually live in — including, where they apply to you, the laws of
-        Nigeria or of your state in the United States.
+        These terms are governed by the laws of {GOVERNING_LAW}, and the courts
+        there have jurisdiction over any dispute. This does not take away the
+        protections you have under the mandatory consumer and data-protection
+        laws of the country you actually live in — including, where they apply
+        to you, the laws of your state in the United States. Where those laws
+        give you a right that these terms would otherwise remove, those laws
+        win.
       </p>
 
       <h2>Changes to these terms</h2>
@@ -89,7 +91,7 @@ export default function Terms() {
 
       <h2>Contact</h2>
       <p>
-        Questions about these terms: <Todo>[CONTACT EMAIL]</Todo>.
+        Questions about these terms: <a className="legal__link" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </p>
     </LegalLayout>
   );

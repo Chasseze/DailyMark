@@ -1,11 +1,12 @@
-import LegalLayout, { Todo } from "../components/LegalLayout";
+import LegalLayout from "../components/LegalLayout";
+import { CONTACT_EMAIL, OPERATOR_NAME } from "../lib/legal";
 
 export default function Privacy() {
   return (
     <LegalLayout title="Privacy Notice" updated="11 September 2026">
       <p className="legal__lede">
         DailyMark is a personal notes app run by an individual developer,{" "}
-        <Todo>[OPERATOR NAME]</Todo>. This notice describes exactly what the app
+        <strong>{OPERATOR_NAME}</strong>. This notice describes exactly what the app
         stores, where it stores it, and how to get it back or delete it. It
         describes the app as actually built — not as an aspiration.
       </p>
@@ -90,7 +91,7 @@ export default function Privacy() {
         <li><strong>Export</strong> — Settings has a full backup export, and you can export a selection of notes.</li>
         <li><strong>Delete</strong> — Trash, then Empty trash, removes notes permanently.</li>
         <li><strong>Erase this device</strong> — Settings → This device.</li>
-        <li><strong>Delete the whole account</strong> — email <Todo>[CONTACT EMAIL]</Todo> and it will be removed.</li>
+        <li><strong>Delete the whole account</strong> — email <a className="legal__link" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> and it will be removed.</li>
       </ul>
       <p>
         Depending on where you live these may be legal rights rather than
@@ -121,7 +122,7 @@ export default function Privacy() {
 
       <h2>Contact</h2>
       <p>
-        Questions, requests, or complaints: <Todo>[CONTACT EMAIL]</Todo>.
+        Questions, requests, or complaints: <a className="legal__link" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </p>
     </LegalLayout>
   );
