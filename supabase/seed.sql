@@ -37,3 +37,9 @@ grant select on public.note_versions to authenticated;
 revoke all on function public.note_library_page(text,uuid,text,boolean,boolean,timestamptz,integer,integer) from public, anon;
 revoke all on function public.patch_user_prefs(jsonb) from public, anon;
 revoke all on function public.claim_push_reminder(uuid,text) from public, anon, authenticated;
+
+-- Source records are readable only by their owner and writable only through
+-- the controlled bookmark/version/restore operations, even in a fresh local DB.
+revoke all on public.thought_sources from public, anon, authenticated;
+grant select on public.thought_sources to authenticated;
+revoke all on function public.create_thought_version(uuid) from public, anon;
