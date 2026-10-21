@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Markdown from "../components/Markdown";
+import ThoughtSourcePanel from "../components/ThoughtSourcePanel";
 import { fetchSharedContent, type SharedPayload } from "../lib/share";
 import { errorMessage } from "../lib/supabase";
 
@@ -45,6 +46,7 @@ export default function SharedView() {
         {payload?.type === "note" && (
           <article className="note-view__article glass mt-4 rounded-2xl p-5">
             <h1 className="note-title mb-2 text-2xl">{payload.title || "Untitled"}</h1>
+            {payload.thought_source && <ThoughtSourcePanel shared source={payload.thought_source} title={payload.title} content={payload.content} />}
             {payload.tags?.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-1.5">
                 {payload.tags.map((tag) => (
@@ -79,6 +81,7 @@ export default function SharedView() {
               payload.notes.map((note, i) => (
                 <article key={i} className="note-view__article glass rounded-2xl p-5">
                   <h2 className="note-title mb-2 text-xl">{note.title || "Untitled"}</h2>
+                  {note.thought_source && <ThoughtSourcePanel shared source={note.thought_source} title={note.title} content={note.content} />}
                   <div className="text-sm leading-relaxed text-ink-soft">
                     <Markdown shareToken={token}>{note.content}</Markdown>
                   </div>

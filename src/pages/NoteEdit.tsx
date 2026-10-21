@@ -8,6 +8,7 @@ import { useNotes } from "../context/notes-context";
 import { errorMessage } from "../lib/supabase";
 import type { Note, NoteUpdate } from "../lib/types";
 import MarkdownEditor from "../components/MarkdownEditor";
+import ThoughtSourcePanel from "../components/ThoughtSourcePanel";
 
 export default function NoteEdit() {
   const { id } = useParams<{ id: string }>();
@@ -408,6 +409,10 @@ function NoteEditor({ note }: { note: Note }) {
         >
           {saveError}
         </div>
+      )}
+
+      {note.thoughtSource && (
+        <ThoughtSourcePanel source={note.thoughtSource} title={title} content={content} />
       )}
 
       <input

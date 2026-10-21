@@ -21,6 +21,7 @@ jobs:
           version: 2.110.0
       - run: supabase start -x studio,imgproxy,logflare,vector,supavisor
       - run: docker exec -i supabase_db_workspace psql -U postgres -d postgres < tests/security.sql
+      - run: docker exec -i supabase_db_workspace psql -U postgres -d postgres < tests/thought-sources.sql
       - run: mkdir -p work && supabase status -o json > work/local-status.json
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser

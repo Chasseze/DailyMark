@@ -1,4 +1,5 @@
 import NoteHistory from "../components/NoteHistory";
+import ThoughtSourcePanel from "../components/ThoughtSourcePanel";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useFocus } from "../context/focus-context";
@@ -258,6 +259,9 @@ function NoteArticle({ note }: { note: Note }) {
           {note.title || "Untitled"}
         </h1>
         <p className={"text-xs text-muted " + (revisitLabel ? "mb-1" : "mb-4")}>{date}</p>
+        {note.thoughtSource && (
+          <ThoughtSourcePanel source={note.thoughtSource} title={note.title} content={note.content} />
+        )}
         {revisitLabel && (
           <p className="mb-4 text-xs text-accent-ink">Revisit by {revisitLabel}</p>
         )}

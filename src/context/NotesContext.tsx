@@ -216,16 +216,18 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     try {
       const started = performance.now();
       const db = requireSupabase();
-      const { data, error: err } = await db
-        .from("notes")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      const [noteResult, sourceResult] = await Promise.all([
+        db.from("notes").select("*").eq("id", id).maybeSingle(),
+        db.from("thought_sources").select("snapshot,captured_at,origin").eq("note_id", id).maybeSingle(),
+      ]);
+      const { data, error: err } = noteResult;
       recordTiming("note-open", performance.now() - started);
       if (err) throw err;
       if (!data) return null;
 
-      const hydrated = asHydratedNote(data as NoteRow);
+      const { data: source, error: sourceError } = sourceResult;
+      if (sourceError) throw sourceError;
+      const hydrated = { ...asHydratedNote(data as NoteRow), thoughtSource: source };
       const already =
         notesRef.current.find((n) => n.id === id) ??
         trashRef.current.find((n) => n.id === id);

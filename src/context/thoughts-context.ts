@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import type { Thought } from "../lib/types";
+import type { ThoughtSourceRow } from "../lib/database.types";
 
 export type ThoughtsShelf = "live" | "saved" | "library";
 
@@ -13,6 +14,8 @@ export interface ThoughtsContextType {
   /** User’s pinned Thought of the week, if any. */
   pinned: Thought | null;
   bookmarkIds: ReadonlySet<string>;
+  sources: ReadonlyMap<string, ThoughtSourceRow>;
+  createPersonalVersion: (id: string) => Promise<string>;
   loading: boolean;
   error: string | null;
   /** e.g. "Live up to 2 days" */

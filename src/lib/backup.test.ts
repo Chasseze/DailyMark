@@ -22,7 +22,7 @@ describe("backup format", () => {
   });
   it("rejects unsupported versions", () => {
     expect(() =>
-      parseBackup(JSON.stringify({ ...backup, version: 2 })),
+      parseBackup(JSON.stringify({ ...backup, version: 3 })),
     ).toThrow();
   });
   it("rejects duplicate notes before creating data", () => {
