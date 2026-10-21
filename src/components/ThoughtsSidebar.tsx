@@ -3,6 +3,7 @@ import { NavLink, useParams } from "react-router-dom";
 import { useThoughts, type ThoughtsShelf } from "../context/thoughts-context";
 import { isWithinLiveWindow } from "../lib/thoughts-rotation";
 import type { Thought } from "../lib/types";
+import ThoughtsLoadError from "./ThoughtsLoadError";
 
 function openingLines(preview: string): string {
   const plain = preview.trim();
@@ -195,11 +196,7 @@ export default function ThoughtsSidebar() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        {error && featured.length === 0 && (
-          <div className="mb-3 rounded-xl bg-danger-soft px-3 py-2 text-xs text-danger">
-            {error}
-          </div>
-        )}
+        <ThoughtsLoadError />
 
         {loading ? (
           <div className="space-y-3">
@@ -210,13 +207,13 @@ export default function ThoughtsSidebar() {
         ) : !hasContent ? (
           <div className="glass mt-6 rounded-3xl px-4 py-10 text-center">
             <p className="text-sm font-semibold text-muted">
-              {search || activeCollection
+              {error ? "Could not load this shelf" : search || activeCollection
                 ? "Nothing matched"
                 : shelf === "saved"
                   ? "Nothing saved yet"
                   : "No live drops right now"}
             </p>
-            {shelf === "saved" && !search && !activeCollection && (
+            {shelf === "saved" && !error && !search && !activeCollection && (
               <p className="mt-2 text-xs text-muted">
                 Open a live piece and tap Save — it leaves Live and stays here.
               </p>

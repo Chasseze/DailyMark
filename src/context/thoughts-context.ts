@@ -17,6 +17,8 @@ export interface ThoughtsContextType {
   sources: ReadonlyMap<string, ThoughtSourceRow>;
   createPersonalVersion: (id: string) => Promise<string>;
   loading: boolean;
+  refreshing: boolean;
+  personalReady: boolean;
   error: string | null;
   /** e.g. "Live up to 2 days" */
   rotationHint: string;

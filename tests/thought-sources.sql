@@ -58,8 +58,35 @@ do $$ declare nid uuid; begin
  if not exists(select 1 from public.notes where id=nid and user_id=auth.uid() and content='Changed catalog body') then raise exception 'Wrong owner or snapshot'; end if;
 end $$;
 reset role;
+-- Catalog removal must not remove saved membership or the source. A user can
+-- still unsave/re-save and recreate a purged version from the owned capture.
+delete from public.thoughts where id='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+set local role authenticated;
+do $$ declare nid uuid; backup jsonb; item jsonb; begin
+ if not exists(select 1 from public.thought_bookmarks where thought_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd') then raise exception 'Catalog deletion removed saved membership'; end if;
+ delete from public.notes where id=(select note_id from public.thought_sources where thought_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd' and origin='catalog');
+ delete from public.thought_bookmarks where thought_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+ insert into public.thought_bookmarks(user_id,thought_id) values(auth.uid(),'dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+ nid := public.create_thought_version('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+ if not exists(select 1 from public.notes where id=nid and content='Changed catalog body') then raise exception 'Removed catalog source could not be personalized'; end if;
+ begin
+   insert into public.thought_bookmarks(user_id,thought_id) values(auth.uid(),'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+   raise exception 'Unknown bookmark accepted';
+ exception when foreign_key_violation then null; end;
+ backup := public.export_backup();
+ if backup->>'version'<>'2' or jsonb_array_length(backup->'notes')<>1 then raise exception 'Wrong backup payload'; end if;
+ for item in select * from jsonb_array_elements(backup->'notes') loop
+   if item->>'user_id'<>auth.uid()::text then raise exception 'Backup crossed account boundary'; end if;
+ end loop;
+ for item in select * from jsonb_array_elements(backup->'thoughtSources') loop
+   if item->>'user_id'<>auth.uid()::text or
+     (item->>'note_id' is not null and not exists(select 1 from jsonb_array_elements(backup->'notes') n where n->>'id'=item->>'note_id')) then raise exception 'Backup contains a disconnected source'; end if;
+ end loop;
+end $$;
+reset role;
 do $$ begin
  if has_function_privilege('anon','public.create_thought_version(uuid)','execute') then raise exception 'Anonymous adaptation grant'; end if;
  if has_table_privilege('authenticated','public.thought_sources','update') then raise exception 'Client can erase attribution'; end if;
+ if has_function_privilege('anon','public.export_backup()','execute') then raise exception 'Anonymous export grant'; end if;
 end $$;
 rollback;

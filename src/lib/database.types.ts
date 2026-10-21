@@ -496,6 +496,7 @@ export type Database = {
     };
     Views: Record<never, never>;
     Functions: {
+      export_backup: { Args: Record<string, never>; Returns: unknown };
       create_thought_version: { Args: { p_thought_id: string }; Returns: string };
       patch_user_prefs: { Args: { p_patch: unknown }; Returns: undefined };
       note_library_page: {
