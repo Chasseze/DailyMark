@@ -1,4 +1,5 @@
 import { requireSupabase } from "./supabase";
+import type { ThoughtSource } from "./database.types";
 
 function randomToken(): string {
   const bytes = new Uint8Array(18);
@@ -51,6 +52,7 @@ export type SharedPayload =
       content: string;
       tags: string[];
       shared_at: string;
+      thought_source?: ThoughtSource | null;
     }
   | {
       type: "notebook";
@@ -61,6 +63,7 @@ export type SharedPayload =
         content: string;
         tags: string[];
         updated_at: string;
+        thought_source?: ThoughtSource | null;
       }>;
     };
 

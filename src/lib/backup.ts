@@ -1,18 +1,19 @@
 import { requireSupabase } from "./supabase";
 import { readAllPages } from "./pagination";
-import type { NoteRow, NotebookRow } from "./database.types";
+import type { NoteRow, NotebookRow, ThoughtSourceRow } from "./database.types";
 export type Backup = {
   format: "dailymark";
-  version: 1;
+  version: 1 | 2;
   createdAt: string;
   notebooks: NotebookRow[];
   notes: NoteRow[];
+  thoughtSources?: ThoughtSourceRow[];
 };
 export function parseBackup(raw: string): Backup {
   const data = JSON.parse(raw) as Backup;
   if (
     data?.format !== "dailymark" ||
-    data.version !== 1 ||
+    ![1, 2].includes(data.version) ||
     !Array.isArray(data.notes) ||
     !Array.isArray(data.notebooks) ||
     data.notes.length > 100000
@@ -54,6 +55,45 @@ export function parseBackup(raw: string): Backup {
     )
   )
     throw new Error("A notebook is missing from this backup.");
+  if (data.version === 2) {
+    if (
+      !Array.isArray(data.thoughtSources) ||
+      data.thoughtSources.length > 100000
+    )
+      throw new Error("Missing or invalid thought sources.");
+    const linkedNotes = new Set<string>();
+    for (const s of data.thoughtSources) {
+      const t = s?.snapshot;
+      if (
+        !s ||
+        typeof s.thought_id !== "string" ||
+        !/^[0-9a-f-]{36}$/i.test(s.thought_id) ||
+        typeof s.captured_at !== "string" ||
+        !Number.isFinite(Date.parse(s.captured_at)) ||
+        !t ||
+        t.id !== s.thought_id ||
+        [
+          t.title,
+          t.content,
+          t.author,
+          t.source_name,
+          t.source_url,
+          t.preview,
+          t.collection,
+          t.published_at,
+          t.created_at,
+        ].some((v) => typeof v !== "string") ||
+        !Array.isArray(t.tags) ||
+        t.tags.some((v) => typeof v !== "string") ||
+        (s.note_id !== null &&
+          (typeof s.note_id !== "string" ||
+            !data.notes.some((n) => n.id === s.note_id) ||
+            linkedNotes.has(s.note_id)))
+      )
+        throw new Error("Invalid thought source or missing personal note.");
+      if (s.note_id) linkedNotes.add(s.note_id);
+    }
+  }
   return data;
 }
 export async function exportBackup(
@@ -73,11 +113,17 @@ export async function exportBackup(
     return r;
   }, 100);
   if (notes.error) throw notes.error;
+  progress("Reading preserved thought sources…");
+  const sources = await readAllPages((a, b) =>
+    db.from("thought_sources").select("*").order("id").range(a, b),
+  );
+  if (sources.error) throw sources.error;
   return {
     format: "dailymark",
-    version: 1,
+    version: 2,
     createdAt: new Date().toISOString(),
     notebooks: books.data,
     notes: notes.data,
+    thoughtSources: sources.data,
   };
 }

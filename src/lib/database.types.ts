@@ -128,6 +128,19 @@ export type ThoughtBookmarkRow = {
   created_at: string;
 };
 
+export type ThoughtSource = {
+  snapshot: ThoughtRow;
+  captured_at: string;
+  origin: "catalog" | "backup";
+};
+
+export type ThoughtSourceRow = ThoughtSource & {
+  id: string;
+  user_id: string;
+  thought_id: string;
+  note_id: string | null;
+};
+
 /** Curated picture stories gathered from around the web — read-only for signed-in users. */
 export type VisualRow = {
   id: string;
@@ -192,6 +205,12 @@ export type NoteQuizPoolRow = {
 export type Database = {
   public: {
     Tables: {
+      thought_sources: {
+        Row: ThoughtSourceRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       push_subscriptions: {
         Row: {
           id: string;
@@ -477,6 +496,7 @@ export type Database = {
     };
     Views: Record<never, never>;
     Functions: {
+      create_thought_version: { Args: { p_thought_id: string }; Returns: string };
       patch_user_prefs: { Args: { p_patch: unknown }; Returns: undefined };
       note_library_page: {
         Args: {

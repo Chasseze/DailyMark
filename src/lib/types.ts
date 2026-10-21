@@ -1,4 +1,4 @@
-import type { Database } from "./database.types";
+import type { Database, ThoughtSource } from "./database.types";
 
 type Tables = Database["public"]["Tables"];
 
@@ -6,7 +6,10 @@ type Tables = Database["public"]["Tables"];
 // isn't reflected in the UI becomes a compile error rather than a runtime one.
 export type Notebook = Tables["notebooks"]["Row"];
 /** List rows omit full content until `ensureNote` hydrates them. */
-export type Note = Tables["notes"]["Row"] & { bodyLoaded: boolean };
+export type Note = Tables["notes"]["Row"] & {
+  bodyLoaded: boolean;
+  thoughtSource?: ThoughtSource | null;
+};
 export type Profile = Tables["profiles"]["Row"];
 export type Thought = Tables["thoughts"]["Row"];
 export type Visual = Tables["visuals"]["Row"];

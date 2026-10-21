@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
 import LibraryCollectionBar from "../components/LibraryCollectionBar";
+import ThoughtSourcePanel from "../components/ThoughtSourcePanel";
+import type { Note } from "../lib/types";
+import { shareUrl } from "../lib/share";
 import { useNotes } from "../context/notes-context";
 import { useThoughts } from "../context/thoughts-context";
 import { errorMessage } from "../lib/supabase";
@@ -38,7 +41,7 @@ export default function ThoughtView() {
     );
   }
 
-  return <ThoughtArticle thought={thought} />;
+  return <ThoughtArticle key={thought.id} thought={thought} />;
 }
 
 function ThoughtArticle({ thought }: { thought: Thought }) {
@@ -52,8 +55,12 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
     saved: savedList,
     catalog,
     rotationHint,
+    sources,
+    createPersonalVersion,
   } = useThoughts();
-  const { addNote, inboxId } = useNotes();
+  const { ensureNote, createNoteShare } = useNotes();
+  const source = sources.get(thought.id);
+  const [version, setVersion] = useState<"source" | "mine">("source");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [shareState, setShareState] = useState<"idle" | "copied">("idle");
@@ -81,14 +88,15 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
     (target?: Thought) => {
       if (target) navigate("/thoughts/" + target.id);
     },
-    [navigate]
+    [navigate],
   );
 
   // Arrow-key browsing. Ignore it while typing (the desktop list pane keeps a
   // search box mounted alongside this view) or when a modifier is held.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
+        return;
       const target = event.target as HTMLElement | null;
       if (
         target &&
@@ -116,16 +124,27 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
     month: "long",
     day: "numeric",
   });
-  const spoken = [thought.title, thought.content].filter((part) => part.trim()).join("\n\n");
+  const spoken = [thought.title, thought.content]
+    .filter((part) => part.trim())
+    .join("\n\n");
 
   const iconBtn =
     "rounded-xl p-2 text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted";
 
   const handleShare = async () => {
-    const credit = [thought.author, thought.source_name].filter(Boolean).join(" · ");
-    const url = thought.source_url || window.location.href;
-    const text = credit ? `${thought.title} — ${credit}` : thought.title;
+    const credit = [thought.author, thought.source_name]
+      .filter(Boolean)
+      .join(" · ");
     try {
+      const personal = version === "mine" && source?.note_id;
+      const url = personal
+        ? shareUrl(await createNoteShare(personal))
+        : thought.source_url || window.location.href;
+      const text = personal
+        ? `Personal version of ${thought.title} — based on ${credit || "a DailyMark curated reflection"}`
+        : credit
+          ? `${thought.title} — ${credit}`
+          : thought.title;
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ title: thought.title, text, url });
       } else if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -134,7 +153,8 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
         window.setTimeout(() => setShareState("idle"), 1800);
       }
     } catch (err) {
-      if ((err as Error)?.name !== "AbortError") setActionError(errorMessage(err));
+      if ((err as Error)?.name !== "AbortError")
+        setActionError(errorMessage(err));
     }
   };
 
@@ -169,23 +189,10 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
     setBusy(true);
     setActionError(null);
     try {
-      const quoted = thought.content.trim()
-        ? thought.content
-            .trim()
-            .split("\n")
-            .map((line) => `> ${line}`)
-            .join("\n")
-        : `> ${thought.title}`;
-      const credit = thought.author || thought.source_name;
-      const content = credit ? `${quoted}\n>\n> — ${credit}\n\n` : `${quoted}\n\n`;
-      const note = await addNote({
-        title: `Reflection · ${thought.title}`,
-        content,
-        notebook_id: inboxId,
-        is_pinned: false,
-        tags: ["from-thought", ...thought.tags.slice(0, 2)],
-      });
-      navigate("/notes/" + note.id + "/edit");
+      const noteId =
+        source?.note_id ?? (await createPersonalVersion(thought.id));
+      await ensureNote(noteId);
+      navigate("/notes/" + noteId + "/edit");
     } catch (err) {
       setActionError(errorMessage(err));
     } finally {
@@ -210,7 +217,11 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
             strokeWidth="1.75"
             aria-hidden="true"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.5 9 12l6.5 6.5" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15.5 5.5 9 12l6.5 6.5"
+            />
           </svg>
         </button>
         <button
@@ -219,7 +230,11 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           disabled={!prevThought}
           className={iconBtn}
           aria-label="Previous thought"
-          title={prevThought ? `Previous · ${prevThought.title}` : "No previous thought"}
+          title={
+            prevThought
+              ? `Previous · ${prevThought.title}`
+              : "No previous thought"
+          }
         >
           <ChevronIcon direction="left" />
         </button>
@@ -229,14 +244,22 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           disabled={!nextThought}
           className={iconBtn}
           aria-label="Next thought"
-          title={nextThought ? `Next · ${nextThought.title}` : "No next thought"}
+          title={
+            nextThought ? `Next · ${nextThought.title}` : "No next thought"
+          }
         >
           <ChevronIcon direction="right" />
         </button>
         <div className="min-w-0 flex-1" />
-        <ReadAloudButton
-          request={{ id: "thought:" + thought.id, label: thought.title, text: spoken }}
-        />
+        {version === "source" && (
+          <ReadAloudButton
+            request={{
+              id: "thought:" + thought.id,
+              label: thought.title,
+              text: spoken,
+            }}
+          />
+        )}
         <button
           type="button"
           onClick={() => void handleShare()}
@@ -245,13 +268,39 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           title={shareState === "copied" ? "Link copied" : "Share"}
         >
           {shareState === "copied" ? (
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m5 13 4 4L19 7"
+              />
             </svg>
           ) : (
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="m16 6-4-4-4 4M12 2v14" />
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m16 6-4-4-4 4M12 2v14"
+              />
             </svg>
           )}
         </button>
@@ -280,94 +329,208 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
             (isPinned ? "text-accent-ink hover:text-accent" : "") +
             " disabled:opacity-50"
           }
-          aria-label={isPinned ? "Unpin Thought of the week" : "Pin as Thought of the week"}
+          aria-label={
+            isPinned
+              ? "Unpin Thought of the week"
+              : "Pin as Thought of the week"
+          }
           title={isPinned ? "Unpin Thought of the week" : "Thought of the week"}
         >
           <PinIcon filled={isPinned} />
         </button>
-        <button
-          type="button"
-          onClick={() => void handleWriteNote()}
-          disabled={busy}
-          className="rounded-xl px-3 py-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
-        >
-          Write a note
-        </button>
+        {version === "source" && (
+          <button
+            type="button"
+            onClick={() => void handleWriteNote()}
+            disabled={busy}
+            className="rounded-xl px-3 py-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
+          >
+            {source?.note_id ? "Edit my version" : "Create my version"}
+          </button>
+        )}
       </div>
 
       {actionError && (
-        <div className="mb-3 rounded-xl bg-danger-soft p-3 text-xs text-danger">{actionError}</div>
+        <div className="mb-3 rounded-xl bg-danger-soft p-3 text-xs text-danger">
+          {actionError}
+        </div>
       )}
 
-      <article className="note-view__article glass rounded-2xl p-5">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          {saved ? (
-            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
-              Saved
-            </span>
-          ) : onLiveShelf ? (
-            <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-accent-ink">
-              Live · {rotationHint}
-            </span>
-          ) : (
-            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted">
-              Off the live feed
-            </span>
-          )}
-          {isPinned && (
-            <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-accent-ink">
-              Thought of the week
-            </span>
-          )}
-          {thought.collection ? (
-            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
-              {thought.collection}
-            </span>
-          ) : null}
-        </div>
-        {onLiveShelf && (
-          <p className="mb-3 text-xs text-muted">
-            Chosen for today’s drop · rotates off{" "}
-            {liveExpiresAt(thought).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-            })}
-          </p>
+      <div className="mb-4 flex flex-wrap gap-2" aria-label="Thought versions">
+        <button
+          type="button"
+          onClick={() => setVersion("source")}
+          aria-pressed={version === "source"}
+          className={`min-h-11 rounded-xl px-4 text-sm font-medium ${version === "source" ? "bg-accent-soft text-accent-ink" : "bg-surface-2 text-muted"}`}
+        >
+          {source ? "Saved source" : "Curated thought"}
+        </button>
+        {source?.note_id && (
+          <button
+            type="button"
+            onClick={() => setVersion("mine")}
+            aria-pressed={version === "mine"}
+            className={`min-h-11 rounded-xl px-4 text-sm font-medium ${version === "mine" ? "bg-accent-soft text-accent-ink" : "bg-surface-2 text-muted"}`}
+          >
+            My version
+          </button>
         )}
+      </div>
 
-        <h1 className="note-title mb-1 break-words text-2xl text-ink">
-          {thought.title}
-        </h1>
-        <p className="mb-4 text-xs text-muted">
-          {date}
-          {thought.author ? ` · ${thought.author}` : ""}
-        </p>
-
-        {thought.tags.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-1.5">
-            {thought.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-md bg-accent-soft px-2.5 py-0.5 text-xs text-accent-ink"
-              >
-                {tag}
+      {version === "mine" && source?.note_id ? (
+        <PersonalThoughtVersion key={source.note_id} noteId={source.note_id} />
+      ) : (
+        <article className="note-view__article glass rounded-2xl p-5">
+          {source && (
+            <p className="mb-3 text-xs text-muted">
+              Source copy captured{" "}
+              {new Date(source.captured_at).toLocaleDateString()}
+              {source.origin === "backup" ? " · Restored from backup" : ""}.
+              Preserved separately from your writing.
+            </p>
+          )}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {saved ? (
+              <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
+                Saved
               </span>
-            ))}
+            ) : onLiveShelf ? (
+              <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-accent-ink">
+                Live · {rotationHint}
+              </span>
+            ) : (
+              <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted">
+                Off the live feed
+              </span>
+            )}
+            {isPinned && (
+              <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-accent-ink">
+                Thought of the week
+              </span>
+            )}
+            {thought.collection ? (
+              <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
+                {thought.collection}
+              </span>
+            ) : null}
           </div>
-        )}
-
-        <div className="mt-2 min-w-0 text-sm leading-relaxed text-ink-soft">
-          {thought.content.trim() ? (
-            <Markdown notes={[]}>{thought.content}</Markdown>
-          ) : (
-            <p className="italic text-muted">This thought is empty.</p>
+          {onLiveShelf && (
+            <p className="mb-3 text-xs text-muted">
+              Chosen for today’s drop · rotates off{" "}
+              {liveExpiresAt(thought).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}
+            </p>
           )}
-        </div>
 
-        <ThoughtAttribution thought={thought} />
-        <LibraryCollectionBar kind="thought" itemId={thought.id} />
-      </article>
+          <h1 className="note-title mb-1 break-words text-2xl text-ink">
+            {thought.title}
+          </h1>
+          <p className="mb-4 text-xs text-muted">
+            {date}
+            {thought.author ? ` · ${thought.author}` : ""}
+          </p>
+
+          {thought.tags.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {thought.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-md bg-accent-soft px-2.5 py-0.5 text-xs text-accent-ink"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-2 min-w-0 text-sm leading-relaxed text-ink-soft">
+            {thought.content.trim() ? (
+              <Markdown notes={[]}>{thought.content}</Markdown>
+            ) : (
+              <p className="italic text-muted">This thought is empty.</p>
+            )}
+          </div>
+
+          <ThoughtAttribution thought={thought} />
+          <LibraryCollectionBar kind="thought" itemId={thought.id} />
+        </article>
+      )}
     </div>
+  );
+}
+
+function PersonalThoughtVersion({ noteId }: { noteId: string }) {
+  const { ensureNote, notes, trash } = useNotes();
+  const [result, setResult] = useState<Note | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const current =
+    notes.find((n) => n.id === noteId) ?? trash.find((n) => n.id === noteId);
+  const note = current?.bodyLoaded ? current : result;
+  useEffect(() => {
+    let active = true;
+    void ensureNote(noteId)
+      .then((row) => {
+        if (!active) return;
+        if (!row) setError("Personal version not found.");
+        else setResult(row);
+      })
+      .catch((err) => {
+        if (active) setError(errorMessage(err));
+      });
+    return () => {
+      active = false;
+    };
+  }, [ensureNote, noteId]);
+  if (error)
+    return (
+      <p role="alert" className="text-sm text-danger">
+        {error}
+      </p>
+    );
+  if (!note)
+    return (
+      <p role="status" className="text-sm text-muted">
+        Loading your version…
+      </p>
+    );
+  return (
+    <article className="note-view__article glass rounded-2xl p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="note-title text-2xl text-ink">
+          {note.title || "Untitled"}
+        </h1>
+        <ReadAloudButton
+          request={{
+            id: "note:" + noteId,
+            label: note.title || "Untitled",
+            text: [note.title, note.content].join("\n\n"),
+          }}
+        />
+        <Link
+          to={`/notes/${noteId}${note.deleted_at ? "" : "/edit"}`}
+          className="min-h-11 rounded-xl bg-accent-soft px-4 py-3 text-sm font-medium text-accent-ink"
+        >
+          {note.deleted_at ? "Restore from Trash" : "Edit my version"}
+        </Link>
+      </div>
+      {note.deleted_at && (
+        <p className="text-sm text-muted">
+          Your version is in Trash. Restore it to continue editing.
+        </p>
+      )}
+      {note.thoughtSource && (
+        <ThoughtSourcePanel
+          source={note.thoughtSource}
+          title={note.title}
+          content={note.content}
+        />
+      )}
+      <div className="text-sm leading-relaxed text-ink-soft">
+        <Markdown>{note.content}</Markdown>
+      </div>
+    </article>
   );
 }
 
@@ -384,7 +547,11 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d={direction === "left" ? "M15 5.5 8.5 12l6.5 6.5" : "M9 5.5 15.5 12 9 18.5"}
+        d={
+          direction === "left"
+            ? "M15 5.5 8.5 12l6.5 6.5"
+            : "M9 5.5 15.5 12 9 18.5"
+        }
       />
     </svg>
   );
@@ -444,8 +611,8 @@ function ThoughtAttribution({ thought }: { thought: Thought }) {
         Caveat
       </p>
       <p className="mt-2 text-xs leading-relaxed text-muted">
-        This is a curated reflection for DailyMark readers — not a reprint of the original
-        work. Ideas and guidance belong to their authors. Credit:{" "}
+        This is a curated reflection for DailyMark readers — not a reprint of
+        the original work. Ideas and guidance belong to their authors. Credit:{" "}
         <span className="text-ink-soft">{byline}</span>.
         {thought.source_url ? " Please read and support the source." : ""}
       </p>

@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { Thought } from "../lib/types";
+import type { ThoughtSourceRow } from "../lib/database.types";
+import { readAllPages } from "../lib/pagination";
 import { THOUGHTS_BANK } from "../lib/thoughts-bank";
 import {
   liveFeedLabel,
@@ -40,6 +48,9 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
 
   const [catalog, setCatalog] = useState<Thought[]>([]);
   const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(() => new Set());
+  const [sources, setSources] = useState<Map<string, ThoughtSourceRow>>(
+    () => new Map(),
+  );
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +65,10 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
     const boundary = nextLiveBoundary(catalog, now);
     if (!boundary) return;
     // setTimeout saturates past ~24.8 days; re-arm rather than fire instantly.
-    const delay = Math.min(Math.max(boundary.getTime() - Date.now(), 1_000), 2_147_483_000);
+    const delay = Math.min(
+      Math.max(boundary.getTime() - Date.now(), 1_000),
+      2_147_483_000,
+    );
     const id = window.setTimeout(() => setNow(new Date()), delay);
     return () => window.clearTimeout(id);
   }, [catalog, now]);
@@ -70,7 +84,8 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
         .select("*")
         .order("published_at", { ascending: false });
       if (err) throw err;
-      if (data && data.length > 0) nextCatalog = fromDatabase(data as Thought[]);
+      if (data && data.length > 0)
+        nextCatalog = fromDatabase(data as Thought[]);
       setError(null);
     } catch (err) {
       setError(THOUGHTS_BANK.length ? null : errorMessage(err));
@@ -81,6 +96,7 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
 
     if (!userId) {
       setBookmarkIds(new Set());
+      setSources(new Map());
       setPinnedId(null);
       setLoading(false);
       return;
@@ -92,18 +108,38 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
     // than resurrecting stale local data.
     try {
       const db = requireSupabase();
-      const [bookmarksRes, profileRes] = await Promise.all([
+      const [bookmarksRes, profileRes, sourcesRes] = await Promise.all([
         db
           .from("thought_bookmarks")
           .select("thought_id, created_at")
           .order("created_at", { ascending: false }),
-        db.from("profiles").select("pinned_thought_id").eq("id", userId).maybeSingle(),
+        db
+          .from("profiles")
+          .select("pinned_thought_id")
+          .eq("id", userId)
+          .maybeSingle(),
+        readAllPages((from, to) =>
+          db.from("thought_sources").select("*").order("id").range(from, to),
+        ),
       ]);
       if (bookmarksRes.error) throw bookmarksRes.error;
-      setBookmarkIds(new Set((bookmarksRes.data ?? []).map((row) => row.thought_id)));
-      setPinnedId(profileRes.error ? null : profileRes.data?.pinned_thought_id ?? null);
-    } catch {
+      if (sourcesRes.error) throw sourcesRes.error;
+      const byThought = new Map<string, ThoughtSourceRow>();
+      for (const row of sourcesRes.data ?? []) {
+        if (!byThought.has(row.thought_id) || row.origin === "catalog")
+          byThought.set(row.thought_id, row);
+      }
+      setSources(byThought);
+      setBookmarkIds(
+        new Set((bookmarksRes.data ?? []).map((row) => row.thought_id)),
+      );
+      setPinnedId(
+        profileRes.error ? null : (profileRes.data?.pinned_thought_id ?? null),
+      );
+    } catch (err) {
+      setError(errorMessage(err));
       setBookmarkIds(new Set());
+      setSources(new Map());
       setPinnedId(null);
     } finally {
       setLoading(false);
@@ -123,26 +159,30 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
 
   const featured = useMemo(
     () => pickLiveThoughts(catalog, now, bookmarkIds),
-    [catalog, now, bookmarkIds]
+    [catalog, now, bookmarkIds],
   );
 
   const saved = useMemo(() => {
     const byId = new Map(catalog.map((t) => [t.id, t]));
     return [...bookmarkIds]
-      .map((id) => byId.get(id))
+      .map((id) => sources.get(id)?.snapshot ?? byId.get(id))
       .filter((t): t is Thought => Boolean(t));
-  }, [catalog, bookmarkIds]);
+  }, [catalog, bookmarkIds, sources]);
 
   const pinned = useMemo(
-    () => (pinnedId ? catalog.find((t) => t.id === pinnedId) ?? null : null),
-    [catalog, pinnedId]
+    () => (pinnedId ? (catalog.find((t) => t.id === pinnedId) ?? null) : null),
+    [catalog, pinnedId],
   );
 
-  const isBookmarked = useCallback((id: string) => bookmarkIds.has(id), [bookmarkIds]);
+  const isBookmarked = useCallback(
+    (id: string) => bookmarkIds.has(id),
+    [bookmarkIds],
+  );
 
   const getThought = useCallback(
-    (id: string) => catalog.find((t) => t.id === id),
-    [catalog]
+    (id: string) =>
+      sources.get(id)?.snapshot ?? catalog.find((t) => t.id === id),
+    [catalog, sources],
   );
 
   const toggleBookmark = useCallback(
@@ -174,8 +214,22 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       if (was) next.delete(id);
       else next.add(id);
       setBookmarkIds(next);
+      if (!was) await fetchAll();
     },
-    [userId, bookmarkIds]
+    [userId, bookmarkIds, fetchAll],
+  );
+
+  const createPersonalVersion = useCallback(
+    async (id: string) => {
+      const { data, error: err } = await requireSupabase().rpc(
+        "create_thought_version",
+        { p_thought_id: id },
+      );
+      if (err) throw err;
+      await fetchAll();
+      return data;
+    },
+    [fetchAll],
   );
 
   const pinThought = useCallback(
@@ -192,10 +246,13 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       if (err) throw err;
       setPinnedId(id);
     },
-    [userId]
+    [userId],
   );
 
-  const rotationHint = useMemo(() => liveFeedLabel(featured, now), [featured, now]);
+  const rotationHint = useMemo(
+    () => liveFeedLabel(featured, now),
+    [featured, now],
+  );
 
   const value = useMemo(
     () => ({
@@ -204,6 +261,8 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       saved,
       pinned,
       bookmarkIds,
+      sources,
+      createPersonalVersion,
       loading,
       error,
       rotationHint,
@@ -219,6 +278,8 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       saved,
       pinned,
       bookmarkIds,
+      sources,
+      createPersonalVersion,
       loading,
       error,
       rotationHint,
@@ -227,8 +288,12 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       pinThought,
       getThought,
       fetchAll,
-    ]
+    ],
   );
 
-  return <ThoughtsContext.Provider value={value}>{children}</ThoughtsContext.Provider>;
+  return (
+    <ThoughtsContext.Provider value={value}>
+      {children}
+    </ThoughtsContext.Provider>
+  );
 }

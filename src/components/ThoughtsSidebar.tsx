@@ -11,14 +11,24 @@ function openingLines(preview: string): string {
 }
 
 export default function ThoughtsSidebar() {
-  const { featured, saved, catalog, pinned, bookmarkIds, loading, error, rotationHint } =
-    useThoughts();
+  const {
+    featured,
+    saved,
+    catalog,
+    pinned,
+    bookmarkIds,
+    sources,
+    loading,
+    error,
+    rotationHint,
+  } = useThoughts();
   const { id: selectedId } = useParams<{ id?: string }>();
   const [search, setSearch] = useState("");
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [shelf, setShelf] = useState<ThoughtsShelf>("live");
 
-  const shelfList = shelf === "live" ? featured : shelf === "saved" ? saved : catalog;
+  const shelfList =
+    shelf === "live" ? featured : shelf === "saved" ? saved : catalog;
 
   const collections = useMemo(() => {
     const set = new Set<string>();
@@ -42,7 +52,7 @@ export default function ThoughtsSidebar() {
           t.author.toLowerCase().includes(q) ||
           t.source_name.toLowerCase().includes(q) ||
           t.collection.toLowerCase().includes(q) ||
-          t.tags.some((tag) => tag.toLowerCase().includes(q))
+          t.tags.some((tag) => tag.toLowerCase().includes(q)),
       );
     }
     return list;
@@ -54,9 +64,10 @@ export default function ThoughtsSidebar() {
     pinned != null &&
     isWithinLiveWindow(pinned) &&
     !bookmarkIds.has(pinned.id);
-  const listItems = showPinnedCard && pinned
-    ? filtered.filter((t) => t.id !== pinned.id)
-    : filtered;
+  const listItems =
+    showPinnedCard && pinned
+      ? filtered.filter((t) => t.id !== pinned.id)
+      : filtered;
   const hasContent = listItems.length > 0 || showPinnedCard;
 
   return (
@@ -139,7 +150,9 @@ export default function ThoughtsSidebar() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={shelf === "live" ? "Search live feed…" : "Search saved…"}
+            placeholder={
+              shelf === "live" ? "Search live feed…" : "Search saved…"
+            }
             className="w-full rounded-xl border border-line bg-surface py-2.5 pl-10 pr-4 text-sm text-ink placeholder-faint focus:border-accent/50 focus:outline-none"
           />
         </div>
@@ -163,7 +176,9 @@ export default function ThoughtsSidebar() {
                 key={collection}
                 type="button"
                 onClick={() =>
-                  setActiveCollection(activeCollection === collection ? null : collection)
+                  setActiveCollection(
+                    activeCollection === collection ? null : collection,
+                  )
                 }
                 className={
                   "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
@@ -208,14 +223,22 @@ export default function ThoughtsSidebar() {
             )}
             {shelf === "live" && !search && !activeCollection && (
               <p className="mt-2 text-xs text-muted">
-                A few fresh pieces drop every day and stay live for 2 days, then drop off unless you save them.
+                A few fresh pieces drop every day and stay live for 2 days, then
+                drop off unless you save them.
               </p>
             )}
           </div>
         ) : (
-          <nav className="notes-file-list" aria-label={shelf === "live" ? "Live thoughts" : "Saved thoughts"}>
+          <nav
+            className="notes-file-list"
+            aria-label={shelf === "live" ? "Live thoughts" : "Saved thoughts"}
+          >
             {showPinnedCard && pinned && (
-              <PinnedThoughtCard thought={pinned} selectedId={selectedId} bookmarkIds={bookmarkIds} />
+              <PinnedThoughtCard
+                thought={pinned}
+                selectedId={selectedId}
+                bookmarkIds={bookmarkIds}
+              />
             )}
             {listItems.map((thought) => (
               <ThoughtCard
@@ -223,6 +246,7 @@ export default function ThoughtsSidebar() {
                 thought={thought}
                 selectedId={selectedId}
                 bookmarked={bookmarkIds.has(thought.id)}
+                hasPersonalVersion={Boolean(sources.get(thought.id)?.note_id)}
               />
             ))}
           </nav>
@@ -256,7 +280,11 @@ function PinnedThoughtCard({
           Thought of the week
         </span>
         {bookmarked && (
-          <span className="shrink-0 text-accent-ink" aria-label="Saved" title="Saved">
+          <span
+            className="shrink-0 text-accent-ink"
+            aria-label="Saved"
+            title="Saved"
+          >
             <BookmarkGlyph filled />
           </span>
         )}
@@ -282,10 +310,12 @@ function ThoughtCard({
   thought,
   selectedId,
   bookmarked,
+  hasPersonalVersion,
 }: {
   thought: Thought;
   selectedId?: string;
   bookmarked: boolean;
+  hasPersonalVersion: boolean;
 }) {
   const active = selectedId === thought.id;
   const preview = openingLines(thought.preview || thought.content);
@@ -306,7 +336,11 @@ function ThoughtCard({
           {thought.title}
         </h3>
         {bookmarked && (
-          <span className="mt-0.5 shrink-0 text-accent-ink" aria-label="Saved" title="Saved">
+          <span
+            className="mt-0.5 shrink-0 text-accent-ink"
+            aria-label="Saved"
+            title="Saved"
+          >
             <BookmarkGlyph filled />
           </span>
         )}
@@ -317,6 +351,12 @@ function ThoughtCard({
         {thought.author ? ` · ${thought.author}` : ""}
         {thought.collection ? ` · ${thought.collection}` : ""}
       </p>
+
+      {hasPersonalVersion && (
+        <p className="mt-2 text-xs font-medium text-accent-ink">
+          My version available
+        </p>
+      )}
 
       {thought.tags.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1">
