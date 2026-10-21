@@ -43,3 +43,4 @@ revoke all on function public.claim_push_reminder(uuid,text) from public, anon, 
 revoke all on public.thought_sources from public, anon, authenticated;
 grant select on public.thought_sources to authenticated;
 revoke all on function public.create_thought_version(uuid) from public, anon;
+revoke all on function public.export_backup() from public, anon;

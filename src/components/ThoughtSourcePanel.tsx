@@ -1,6 +1,9 @@
 import type { ThoughtSource } from "../lib/database.types";
 import { isAdapted, sourceCredit, sourceWebUrl } from "../lib/thought-source";
 import Markdown from "./Markdown";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import ThoughtChanges from "./ThoughtChanges";
 
 /** Attribution is rendered outside the editable body and survives rewrites. */
 export default function ThoughtSourcePanel({
@@ -8,12 +11,15 @@ export default function ThoughtSourcePanel({
   title,
   content,
   shared = false,
+  showThoughtLink = true,
 }: {
   source: ThoughtSource;
   title: string;
   content: string;
   shared?: boolean;
+  showThoughtLink?: boolean;
 }) {
+  const [compareOpen, setCompareOpen] = useState(false);
   const adapted = isAdapted(title, content, source);
   const url = sourceWebUrl(source.snapshot.source_url);
   return (
@@ -45,7 +51,8 @@ export default function ThoughtSourcePanel({
           View original publication ↗
         </a>
       )}
-      <details className="mt-2">
+      {!shared && showThoughtLink && <Link to={`/thoughts/${source.snapshot.id}`} className="mt-2 flex min-h-11 items-center text-sm font-medium text-accent-ink hover:underline">← Back to saved thought</Link>}
+      <details className="mt-2" onToggle={(event) => setCompareOpen(event.currentTarget.open)}>
         <summary className="cursor-pointer py-2 text-sm font-medium text-ink">
           Compare with saved source
         </summary>
@@ -55,12 +62,13 @@ export default function ThoughtSourcePanel({
           {new Date(source.captured_at).toLocaleDateString()}. This is the saved
           DailyMark reflection, not a full copy of the linked publication.
         </p>
-        <div className="max-h-96 overflow-auto rounded-lg border border-line bg-surface p-4 text-sm leading-relaxed text-ink-soft">
+        {compareOpen && adapted && <ThoughtChanges source={source} title={title} content={content} />}
+        {compareOpen && <div role="region" aria-label="Preserved source text" className="max-h-96 overflow-auto rounded-lg border border-line bg-surface p-4 text-sm leading-relaxed text-ink-soft">
           <h2 className="mb-3 text-lg font-semibold text-ink">
             {source.snapshot.title}
           </h2>
           <Markdown>{source.snapshot.content}</Markdown>
-        </div>
+        </div>}
       </details>
     </aside>
   );

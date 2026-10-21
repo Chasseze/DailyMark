@@ -4,6 +4,7 @@ import Markdown from "../components/Markdown";
 import ReadAloudButton from "../components/ReadAloudButton";
 import LibraryCollectionBar from "../components/LibraryCollectionBar";
 import ThoughtSourcePanel from "../components/ThoughtSourcePanel";
+import ThoughtsLoadError from "../components/ThoughtsLoadError";
 import type { Note } from "../lib/types";
 import { shareUrl } from "../lib/share";
 import { useNotes } from "../context/notes-context";
@@ -15,7 +16,7 @@ import type { Thought } from "../lib/types";
 export default function ThoughtView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getThought, loading } = useThoughts();
+  const { getThought, loading, error } = useThoughts();
   const thought = id ? getThought(id) : undefined;
 
   if (loading) {
@@ -29,7 +30,8 @@ export default function ThoughtView() {
   if (!thought) {
     return (
       <div className="flex h-full min-h-[16rem] flex-col items-center justify-center px-4">
-        <p className="text-muted">Thought not found</p>
+        <div className="lg:hidden"><ThoughtsLoadError /></div>
+        <p className="text-muted">{error ? "This thought could not be loaded." : "Thought not found"}</p>
         <button
           type="button"
           onClick={() => navigate("/thoughts")}
@@ -57,6 +59,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
     rotationHint,
     sources,
     createPersonalVersion,
+    personalReady,
   } = useThoughts();
   const { ensureNote, createNoteShare } = useNotes();
   const source = sources.get(thought.id);
@@ -307,7 +310,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
         <button
           type="button"
           onClick={() => void handleBookmark()}
-          disabled={busy}
+          disabled={busy || !personalReady}
           className={
             iconBtn +
             " " +
@@ -322,7 +325,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
         <button
           type="button"
           onClick={() => void handlePin()}
-          disabled={busy}
+          disabled={busy || !personalReady || !catalog.some((t) => t.id === thought.id)}
           className={
             iconBtn +
             " " +
@@ -342,7 +345,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           <button
             type="button"
             onClick={() => void handleWriteNote()}
-            disabled={busy}
+            disabled={busy || !personalReady}
             className="rounded-xl px-3 py-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft hover:text-accent disabled:opacity-50"
           >
             {source?.note_id ? "Edit my version" : "Create my version"}
@@ -355,6 +358,7 @@ function ThoughtArticle({ thought }: { thought: Thought }) {
           {actionError}
         </div>
       )}
+      <div className="lg:hidden"><ThoughtsLoadError /></div>
 
       <div className="mb-4 flex flex-wrap gap-2" aria-label="Thought versions">
         <button
@@ -522,6 +526,7 @@ function PersonalThoughtVersion({ noteId }: { noteId: string }) {
       )}
       {note.thoughtSource && (
         <ThoughtSourcePanel
+          showThoughtLink={false}
           source={note.thoughtSource}
           title={note.title}
           content={note.content}

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -30,6 +30,21 @@ const thoughtId = randomUUID();
 let userId: string;
 const originalBody =
   "A saved idea worth returning to.\n\n## Try this\n\nReflect before you react.";
+async function signIn(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/desk$/);
+}
+async function saveThought(id: string) {
+  const found = await userClient.from("thought_bookmarks").select("thought_id").eq("thought_id", id).maybeSingle();
+  if (found.error) throw found.error;
+  if (!found.data) {
+    const result = await userClient.from("thought_bookmarks").insert({ user_id: userId, thought_id: id });
+    if (result.error) throw result.error;
+  }
+}
 test.beforeAll(async () => {
   const { data, error } = await admin.auth.admin.createUser({
     email,
@@ -54,11 +69,7 @@ test("saved sources survive adaptation, sharing, export, unsave and mobile readi
   page,
   browser,
 }) => {
-  await page.goto("/login");
-  await page.getByLabel("Email", { exact: true }).fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(/\/desk$/);
+  await signIn(page);
   await page.goto(`/thoughts/${thoughtId}`);
   await expect(
     page.getByRole("heading", {
@@ -107,6 +118,11 @@ test("saved sources survive adaptation, sharing, export, unsave and mobile readi
   await expect(
     page.getByText("Personal adaptation · Edited by you", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("link", { name: /Back to saved thought/ }).click();
+  await expect(page.getByText("You have unsaved changes.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
+  await expect(page.getByText("You have unsaved changes.", { exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/edit$/);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/notes/${noteId}$`));
   await expect(
@@ -114,8 +130,9 @@ test("saved sources survive adaptation, sharing, export, unsave and mobile readi
   ).toContainText("Source Author · Source Publication");
   await page.getByText("Compare with saved source", { exact: true }).click();
   await expect(
-    page.getByText("A saved idea worth returning to.", { exact: true }),
+    page.getByRole("region", { name: "Preserved source text" }).getByText("A saved idea worth returning to.", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Highlighted changes" }).locator("ins").filter({ hasText: "My own experience" })).toBeVisible();
   const downloadEvent = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Export Markdown", exact: true })
@@ -157,7 +174,8 @@ test("saved sources survive adaptation, sharing, export, unsave and mobile readi
     sharedPage.getByText("Source credit:", { exact: false }),
   ).toContainText("Source Author · Source Publication");
   await guest.close();
-  await page.goto(`/thoughts/${thoughtId}`);
+  await page.getByRole("link", { name: /Back to saved thought/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/thoughts/${thoughtId}$`));
   await page.getByRole("button", { name: "My version", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "My evolving interpretation" }),
@@ -170,6 +188,8 @@ test("saved sources survive adaptation, sharing, export, unsave and mobile readi
   await expect(
     page.getByRole("heading", { name: "My evolving interpretation" }),
   ).toBeVisible();
+  await page.getByText("Compare with saved source", { exact: true }).click();
+  await expect(page.getByRole("region", { name: "Highlighted changes" })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -192,4 +212,85 @@ test("saved sources survive adaptation, sharing, export, unsave and mobile readi
     .eq("note_id", noteId)
     .single();
   expect(savedSource.data?.snapshot.content).toBe(originalBody);
+});
+
+test("cold source failures remain visible and Retry recovers on mobile", async ({ page }) => {
+  await saveThought(thoughtId);
+  const version = await userClient.rpc("create_thought_version", { p_thought_id: thoughtId });
+  if (version.error) throw version.error;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page);
+  const failSource = async (route: import("@playwright/test").Route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Source request temporarily unavailable" }) });
+  await page.route("**/rest/v1/thought_sources*", failSource);
+  await page.goto(`/thoughts/${thoughtId}`);
+  await expect(page.getByRole("alert").filter({ hasText: "Source request temporarily unavailable" }).last()).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: "Save thought", exact: true })).toBeDisabled();
+  await page.unroute("**/rest/v1/thought_sources*", failSource);
+  await page.getByRole("button", { name: "Retry", exact: true }).last().click();
+  await expect(page.getByRole("button", { name: "Remove from saved", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "My version", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("a failed refresh preserves previously loaded saved thoughts", async ({ page }) => {
+  const secondId = randomUUID();
+  sql(`insert into public.thoughts(id,title,content) values('${secondId}','Retry fixture','Another saved idea')`);
+  try {
+    await saveThought(thoughtId);
+    await signIn(page);
+    await page.goto("/thoughts");
+    await expect(page.getByRole("link", { name: /Retry fixture/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Saved ·/ })).toBeVisible();
+    await page.getByRole("link", { name: /Retry fixture/ }).click();
+    // The detail route is lazy: wait for its committed provider to load before
+    // injecting a refresh failure (rather than failing its initial load).
+    await expect(page.getByRole("heading", { name: "Retry fixture", exact: true, level: 1 })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Saved ·/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save thought", exact: true })).toBeEnabled();
+    await page.route("**/rest/v1/thought_sources*", route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Source refresh failed" }) }));
+    await page.getByRole("button", { name: "Save thought", exact: true }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Source refresh failed" }).first()).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: /^Saved ·/ }).click();
+    await expect(page.getByRole("link", { name: /Room for reflection/ })).toBeVisible();
+    await expect(page.getByText("Nothing saved yet", { exact: true })).toHaveCount(0);
+    await page.unroute("**/rest/v1/thought_sources*");
+    await page.getByRole("button", { name: "Retry", exact: true }).first().click();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  } finally {
+    await userClient.from("thought_bookmarks").delete().eq("thought_id", secondId);
+    sql(`delete from public.thoughts where id='${secondId}'`);
+  }
+});
+
+test("catalog removal leaves a saved thought readable and editable", async ({ page }) => {
+  const removedId = randomUUID();
+  sql(`insert into public.thoughts(id,title,content) values('${removedId}','Removed catalog thought','A source that must stay available')`);
+  await saveThought(removedId);
+  sql(`delete from public.thoughts where id='${removedId}'`);
+  await signIn(page);
+  await page.goto("/thoughts");
+  await page.getByRole("button", { name: /^Saved ·/ }).click();
+  await page.getByRole("link", { name: /Removed catalog thought/ }).click();
+  await expect(page.getByRole("heading", { name: "Removed catalog thought", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "Create my version", exact: true }).click();
+  await expect(page.getByLabel("Note content in Markdown")).toHaveValue("A source that must stay available");
+  await expect(page.getByRole("link", { name: /Back to saved thought/ })).toBeVisible();
+});
+
+test("the snapshot export remains valid during concurrent personal-version creation", async () => {
+  const concurrentId = randomUUID();
+  sql(`insert into public.thoughts(id,title,content) values('${concurrentId}','Concurrent export source','Consistent original')`);
+  try {
+    const [exported, created] = await Promise.all([
+      userClient.rpc("export_backup", {}),
+      userClient.rpc("create_thought_version", { p_thought_id: concurrentId }),
+    ]);
+    if (exported.error) throw exported.error;
+    if (created.error) throw created.error;
+    const payload = exported.data as { notes: { id: string }[]; thoughtSources: { note_id: string | null }[] };
+    const ids = new Set(payload.notes.map(n => n.id));
+    for (const source of payload.thoughtSources) if (source.note_id) expect(ids.has(source.note_id)).toBe(true);
+  } finally {
+    sql(`delete from public.thoughts where id='${concurrentId}'`);
+  }
 });

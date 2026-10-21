@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -15,7 +16,7 @@ import {
   pickLiveThoughts,
   withDropCadenceDates,
 } from "../lib/thoughts-rotation";
-import { errorMessage, requireSupabase } from "../lib/supabase";
+import { errorMessage, isSupabaseConfigured, requireSupabase } from "../lib/supabase";
 import { useAuth } from "./auth-context";
 import { ThoughtsContext } from "./thoughts-context";
 
@@ -45,15 +46,22 @@ function fromBundledBank(date: Date): Thought[] {
 export function ThoughtsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  return <ThoughtsAccountProvider key={userId ?? "signed-out"} userId={userId}>{children}</ThoughtsAccountProvider>;
+}
 
-  const [catalog, setCatalog] = useState<Thought[]>([]);
+function ThoughtsAccountProvider({ children, userId }: { children: ReactNode; userId: string | null }) {
+
+  const [catalog, setCatalog] = useState<Thought[]>(() => isSupabaseConfigured() ? [] : fromBundledBank(new Date()));
   const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(() => new Set());
   const [sources, setSources] = useState<Map<string, ThoughtSourceRow>>(
     () => new Map(),
   );
   const [pinnedId, setPinnedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [refreshing, setRefreshing] = useState(false);
+  const [personalReady, setPersonalReady] = useState(false);
+  const requestId = useRef({ value: 0 });
+  const [error, setError] = useState<string | null>(() => isSupabaseConfigured() ? null : "Connect your account to load saved thoughts.");
   const [now, setNow] = useState(() => new Date());
 
   // Live expiry used to be re-evaluated once a minute. Nothing derived from
@@ -74,86 +82,73 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
   }, [catalog, now]);
 
   const fetchAll = useCallback(async () => {
+    const state = requestId.current;
+    const request = ++state.value;
     const asOf = new Date();
-    let nextCatalog = fromBundledBank(asOf);
-
     try {
       const db = requireSupabase();
-      const { data, error: err } = await db
-        .from("thoughts")
-        .select("*")
-        .order("published_at", { ascending: false });
-      if (err) throw err;
-      if (data && data.length > 0)
-        nextCatalog = fromDatabase(data as Thought[]);
-      setError(null);
-    } catch (err) {
-      setError(THOUGHTS_BANK.length ? null : errorMessage(err));
-    }
-
-    setCatalog(nextCatalog);
-    setNow(asOf);
-
-    if (!userId) {
-      setBookmarkIds(new Set());
-      setSources(new Map());
-      setPinnedId(null);
-      setLoading(false);
-      return;
-    }
-
-    // Bookmarks and the pinned "Thought of the week" live only in Supabase —
-    // no browser cache — so they read the same on every device. A fresh load
-    // starts empty and lets the DB fill it in; a failed read clears rather
-    // than resurrecting stale local data.
-    try {
-      const db = requireSupabase();
-      const [bookmarksRes, profileRes, sourcesRes] = await Promise.all([
-        db
-          .from("thought_bookmarks")
-          .select("thought_id, created_at")
-          .order("created_at", { ascending: false }),
-        db
-          .from("profiles")
-          .select("pinned_thought_id")
-          .eq("id", userId)
-          .maybeSingle(),
-        readAllPages((from, to) =>
-          db.from("thought_sources").select("*").order("id").range(from, to),
-        ),
+      const [catalogResult, personalResult, profileResult] = await Promise.allSettled([
+        (async () => {
+          const result = await readAllPages((from, to) => db.from("thoughts").select("*").order("published_at", { ascending: false }).order("id").range(from, to));
+          if (result.error) throw result.error;
+          return fromDatabase(result.data);
+        })(),
+        (async () => {
+          if (!userId) return { bookmarks: [] as { thought_id: string }[], sources: [] as ThoughtSourceRow[] };
+          const [bookmarks, sources] = await Promise.all([
+            readAllPages((from, to) => db.from("thought_bookmarks").select("thought_id,created_at").order("created_at", { ascending: false }).order("thought_id").range(from, to)),
+            readAllPages((from, to) => db.from("thought_sources").select("*").order("id").range(from, to)),
+          ]);
+          if (bookmarks.error) throw bookmarks.error;
+          if (sources.error) throw sources.error;
+          return { bookmarks: bookmarks.data, sources: sources.data };
+        })(),
+        (async () => {
+          if (!userId) return null;
+          const { data, error: err } = await db.from("profiles").select("pinned_thought_id").eq("id", userId).maybeSingle();
+          if (err) throw err;
+          return data?.pinned_thought_id ?? null;
+        })(),
       ]);
-      if (bookmarksRes.error) throw bookmarksRes.error;
-      if (sourcesRes.error) throw sourcesRes.error;
-      const byThought = new Map<string, ThoughtSourceRow>();
-      for (const row of sourcesRes.data ?? []) {
-        if (!byThought.has(row.thought_id) || row.origin === "catalog")
-          byThought.set(row.thought_id, row);
-      }
-      setSources(byThought);
-      setBookmarkIds(
-        new Set((bookmarksRes.data ?? []).map((row) => row.thought_id)),
-      );
-      setPinnedId(
-        profileRes.error ? null : (profileRes.data?.pinned_thought_id ?? null),
-      );
+      if (request !== state.value) return;
+      const errors: string[] = [];
+      if (catalogResult.status === "fulfilled") setCatalog(catalogResult.value);
+      else errors.push("Could not refresh the catalog: " + errorMessage(catalogResult.reason));
+      if (personalResult.status === "fulfilled") {
+        const byThought = new Map<string, ThoughtSourceRow>();
+        const rows = [...personalResult.value.sources].sort((a, b) =>
+          Number(b.origin === "catalog") - Number(a.origin === "catalog") ||
+          b.captured_at.localeCompare(a.captured_at) || a.id.localeCompare(b.id));
+        for (const row of rows) if (!byThought.has(row.thought_id)) byThought.set(row.thought_id, row);
+        setSources(byThought);
+        setBookmarkIds(new Set(personalResult.value.bookmarks.map((row) => row.thought_id)));
+        setPersonalReady(true);
+      } else errors.push("Could not refresh saved thoughts: " + errorMessage(personalResult.reason));
+      if (profileResult.status === "fulfilled") setPinnedId(profileResult.value);
+      else errors.push("Could not refresh your pinned thought: " + errorMessage(profileResult.reason));
+      setNow(asOf);
+      setError(errors.length ? errors.join(" ") : null);
     } catch (err) {
-      setError(errorMessage(err));
-      setBookmarkIds(new Set());
-      setSources(new Map());
-      setPinnedId(null);
+      if (request === state.value) setError(errorMessage(err));
     } finally {
-      setLoading(false);
+      if (request === state.value) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [userId]);
 
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchAll();
+  }, [fetchAll]);
+
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      await fetchAll();
-      if (!active) return;
-    })();
+    if (!isSupabaseConfigured()) return;
+    const state = requestId.current;
+    void (async () => { await fetchAll(); })();
     return () => {
-      active = false;
+      ++state.value;
     };
   }, [fetchAll]);
 
@@ -188,6 +183,7 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
   const toggleBookmark = useCallback(
     async (id: string) => {
       if (!userId) throw new Error("Sign in to save thoughts.");
+      if (!personalReady) throw new Error("Load your saved thoughts before changing bookmarks.");
 
       // Write to Supabase FIRST, update local state only once it commits (see
       // the same change in VisualsContext). The old code flipped state
@@ -216,7 +212,7 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       setBookmarkIds(next);
       if (!was) await fetchAll();
     },
-    [userId, bookmarkIds, fetchAll],
+    [userId, bookmarkIds, fetchAll, personalReady],
   );
 
   const createPersonalVersion = useCallback(
@@ -264,13 +260,15 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       sources,
       createPersonalVersion,
       loading,
+      refreshing,
+      personalReady,
       error,
       rotationHint,
       isBookmarked,
       toggleBookmark,
       pinThought,
       getThought,
-      refresh: fetchAll,
+      refresh,
     }),
     [
       catalog,
@@ -281,13 +279,15 @@ export function ThoughtsProvider({ children }: { children: ReactNode }) {
       sources,
       createPersonalVersion,
       loading,
+      refreshing,
+      personalReady,
       error,
       rotationHint,
       isBookmarked,
       toggleBookmark,
       pinThought,
       getThought,
-      fetchAll,
+      refresh,
     ],
   );
 

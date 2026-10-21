@@ -1,5 +1,4 @@
 import { requireSupabase } from "./supabase";
-import { readAllPages } from "./pagination";
 import type { NoteRow, NotebookRow, ThoughtSourceRow } from "./database.types";
 export type Backup = {
   format: "dailymark";
@@ -48,10 +47,12 @@ export function parseBackup(raw: string): Backup {
     new Set(data.notebooks.map((n) => n.id)).size !== data.notebooks.length
   )
     throw new Error("Duplicate IDs in backup.");
+  const noteIds = new Set(data.notes.map((n) => n.id));
+  const notebookIds = new Set(data.notebooks.map((n) => n.id));
   if (
     data.notes.some(
       (n) =>
-        n.notebook_id && !data.notebooks.some((b) => b.id === n.notebook_id),
+        n.notebook_id && !notebookIds.has(n.notebook_id),
     )
   )
     throw new Error("A notebook is missing from this backup.");
@@ -67,7 +68,7 @@ export function parseBackup(raw: string): Backup {
       if (
         !s ||
         typeof s.thought_id !== "string" ||
-        !/^[0-9a-f-]{36}$/i.test(s.thought_id) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.thought_id) ||
         typeof s.captured_at !== "string" ||
         !Number.isFinite(Date.parse(s.captured_at)) ||
         !t ||
@@ -87,7 +88,7 @@ export function parseBackup(raw: string): Backup {
         t.tags.some((v) => typeof v !== "string") ||
         (s.note_id !== null &&
           (typeof s.note_id !== "string" ||
-            !data.notes.some((n) => n.id === s.note_id) ||
+            !noteIds.has(s.note_id) ||
             linkedNotes.has(s.note_id)))
       )
         throw new Error("Invalid thought source or missing personal note.");
@@ -99,31 +100,11 @@ export function parseBackup(raw: string): Backup {
 export async function exportBackup(
   progress: (text: string) => void,
 ): Promise<Backup> {
-  const db = requireSupabase();
-  progress("Reading notebooks…");
-  const books = await readAllPages((a, b) =>
-    db.from("notebooks").select("*").order("id").range(a, b),
-  );
-  if (books.error) throw books.error;
-  let count = 0;
-  const notes = await readAllPages(async (a, b) => {
-    const r = await db.from("notes").select("*").order("id").range(a, b);
-    count += r.data?.length ?? 0;
-    progress(`Read ${count} notes…`);
-    return r;
-  }, 100);
-  if (notes.error) throw notes.error;
-  progress("Reading preserved thought sources…");
-  const sources = await readAllPages((a, b) =>
-    db.from("thought_sources").select("*").order("id").range(a, b),
-  );
-  if (sources.error) throw sources.error;
-  return {
-    format: "dailymark",
-    version: 2,
-    createdAt: new Date().toISOString(),
-    notebooks: books.data,
-    notes: notes.data,
-    thoughtSources: sources.data,
-  };
+  progress("Preparing a consistent account backup…");
+  const { data, error } = await requireSupabase().rpc("export_backup", {});
+  if (error) throw error;
+  // Validate before offering a download, not only when the file is restored.
+  const backup = parseBackup(JSON.stringify(data));
+  progress(`Read ${backup.notes.length} notes and their preserved sources.`);
+  return backup;
 }

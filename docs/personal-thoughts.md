@@ -42,6 +42,26 @@ similarly derives ownership, remaps every note/notebook ID, and runs atomically.
 The public sharing RPC returns only provenance attached to its authorized share
 target, without source account identifiers. All new functions pin `search_path`.
 
+### Reliability follow-up
+
+Apply `20261021041009_thought_reliability.sql` before deploying this follow-up.
+Backup export now uses one database snapshot, so creating a personal version
+cannot produce a backup with disconnected notes and source records. There is no
+client-side fallback to the old multi-request export.
+
+Saved bookmarks survive removal of the shared catalog entry. The capture trigger
+still rejects unknown IDs unless the account already owns a preserved source.
+Restored sources can also be personalized without changing their attribution.
+
+Failed Thoughts refreshes retain confirmed data, display an actionable Retry
+message on desktop and mobile, and never present a failed fetch as an empty
+saved shelf. Personal actions wait until account data has loaded successfully.
+Comparison panels highlight added/removed text, and the editor links back to the
+saved thought while retaining its unsaved-writing protection.
+
+The follow-up also pins the search path of the four existing preview/search
+trigger functions; their bodies use only built-in PostgreSQL functions.
+
 ## Verification
 
 - `npm run lint`, `npm test`, `npm run build`, `npm audit --audit-level=moderate`
@@ -51,6 +71,5 @@ target, without source account identifiers. All new functions pin `search_path`.
   and desktop/mobile layout; existing save-failure/conflict tests still run.
 - `supabase db lint --local` and `supabase db advisors --local --type security`
 
-The local advisor also reports existing mutable-search-path warnings in
-`notes_set_preview`, `notes_set_search_vector`, `thoughts_set_preview` and
-`visuals_set_preview`; those functions are outside this feature’s migration.
+The follow-up regression tests cover failed-load recovery, catalog removal,
+concurrent export/version creation, and unsaved-writing protection.
