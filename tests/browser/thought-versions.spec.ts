@@ -116,7 +116,7 @@ test("saved sources survive adaptation, sharing, export, unsave and mobile readi
       "My own experience adds another perspective.\n\n## My reflections\n\nPause, then choose a response.",
     );
   await expect(
-    page.getByText("Personal adaptation · Edited by you", { exact: true }),
+    page.getByText("Personal adaptation · Edited by me", { exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: /Back to saved thought/ }).click();
   await expect(page.getByText("You have unsaved changes.", { exact: true })).toBeVisible();
@@ -204,7 +204,7 @@ test("saved sources survive adaptation, sharing, export, unsave and mobile readi
     .click();
   await page.goto(`/notes/${noteId}`);
   await expect(
-    page.getByText("Personal adaptation · Edited by you", { exact: true }),
+    page.getByText("Personal adaptation · Edited by me", { exact: true }),
   ).toBeVisible();
   const savedSource = await userClient
     .from("thought_sources")

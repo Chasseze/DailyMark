@@ -31,7 +31,7 @@ export default function ThoughtSourcePanel({
         {adapted
           ? shared
             ? "Personal adaptation · Edited by the note author"
-            : "Personal adaptation · Edited by you"
+            : "Personal adaptation · Edited by me"
           : "Personal copy · Unedited"}
       </p>
       <p className="mt-2 text-sm text-ink-soft">
